@@ -2,7 +2,7 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { Company, Unit, User, RequestTicket, Comment, UserRole, RequestStatus, FirebaseConfig } from '../types';
 import { formatISO } from 'date-fns';
-import { initFirebase, fbGetAll, fbSet, fbUpdate, fbDelete, fbSubscribe } from '../services/firebaseService';
+import { initFirebase, fbSet, fbUpdate, fbDelete, fbSubscribe } from '../services/firebaseService';
 
 interface SetupData {
   companyName: string;
@@ -106,13 +106,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setIsDbConnected(true);
           console.log("Firebase Connected Successfully. Listening for updates...");
 
-          // Subscribe to Real-time Updates
+          // Subscribe to Real-time Updates (Observer Pattern)
+          // O Firebase agora é a fonte da verdade. O que vier de lá, sobrescreve o local.
           
           unsubCompanies = fbSubscribe<Company>('companies', (data) => {
-            // Se estiver conectado e não houver dados, assume vazio
-            setCompanies(prev => data.length > 0 ? data : (prev.length > 0 ? prev : []));
-            // Se a lista vier vazia (realmente vazia do banco), permite que fique vazia
-            if (data.length === 0 && isDbConnected) setCompanies([]); 
+            setCompanies(data);
           });
 
           unsubUnits = fbSubscribe<Unit>('units', (data) => {
@@ -121,9 +119,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           unsubUsers = fbSubscribe<User>('users', (data) => {
              setUsers(data);
-             // DETECTOR DE BANCO VAZIO:
-             // Se conectou ao Firebase, mas não retornou nenhum usuário,
-             // significa que o banco é novo. Força o Setup para criar o Admin.
+             // Se conectou ao Firebase com sucesso, mas a lista de usuários está vazia,
+             // significa que é um banco novo/zerado. Redireciona para o Setup.
              if (data.length === 0) {
                 console.log("Banco Firebase vazio detectado. Redirecionando para Setup.");
                 setIsSetupDone(false);
@@ -207,21 +204,21 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(data.adminName)}&background=random`
     };
 
-    // Atualiza estado local
-    setCompanies([newCompany]);
-    setUnits([newUnit]);
-    setUsers([newAdmin]);
-    setRequests([]);
-    setComments([]);
-    
-    // Importante: Seta como feito
-    setIsSetupDone(true);
-    
-    // Se estiver conectado ao Firebase, salva lá também
+    // Se estiver conectado ao Firebase, salva lá PRIMEIRO.
+    // Os listeners acima (useEffect) vão detectar a mudança e atualizar o estado local automaticamente.
     if (isDbConnected) {
       fbSet('companies', newCompany.id, newCompany);
       fbSet('units', newUnit.id, newUnit);
       fbSet('users', newAdmin.id, newAdmin);
+      setIsSetupDone(true); // Libera a tela
+    } else {
+      // Modo Offline
+      setCompanies([newCompany]);
+      setUnits([newUnit]);
+      setUsers([newAdmin]);
+      setRequests([]);
+      setComments([]);
+      setIsSetupDone(true);
     }
   };
 
@@ -243,15 +240,21 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       attachments: req.attachments || [],
       viewedByAssignee: false,
     };
-    // Optimistic update
-    setRequests(prev => [newRequest, ...prev]);
-    if (isDbConnected) fbSet('requests', newRequest.id, newRequest);
+    
+    if (isDbConnected) {
+      fbSet('requests', newRequest.id, newRequest);
+    } else {
+      setRequests(prev => [newRequest, ...prev]);
+    }
   };
 
   const updateRequestStatus = (id: string, status: RequestStatus) => {
     const updatedDate = formatISO(new Date());
-    setRequests(prev => prev.map(r => r.id === id ? { ...r, status, updatedAt: updatedDate } : r));
-    if (isDbConnected) fbUpdate('requests', id, { status, updatedAt: updatedDate });
+    if (isDbConnected) {
+      fbUpdate('requests', id, { status, updatedAt: updatedDate });
+    } else {
+      setRequests(prev => prev.map(r => r.id === id ? { ...r, status, updatedAt: updatedDate } : r));
+    }
   };
 
   const addComment = (ticketId: string, userId: string, content: string) => {
@@ -262,49 +265,65 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       content,
       createdAt: formatISO(new Date())
     };
-    setComments(prev => [...prev, newComment]);
-    
-    // Update ticket updated_at
     const updatedDate = formatISO(new Date());
-    setRequests(prev => prev.map(r => r.id === ticketId ? { ...r, updatedAt: updatedDate } : r));
-    
+
     if (isDbConnected) {
       fbSet('comments', newComment.id, newComment);
       fbUpdate('requests', ticketId, { updatedAt: updatedDate });
+    } else {
+      setComments(prev => [...prev, newComment]);
+      setRequests(prev => prev.map(r => r.id === ticketId ? { ...r, updatedAt: updatedDate } : r));
     }
   };
 
   const addUnit = (unit: Omit<Unit, 'id'>) => {
     const newUnit = { ...unit, id: `u${Date.now()}` };
-    setUnits(prev => [...prev, newUnit]);
-    if (isDbConnected) fbSet('units', newUnit.id, newUnit);
+    if (isDbConnected) {
+      fbSet('units', newUnit.id, newUnit);
+    } else {
+      setUnits(prev => [...prev, newUnit]);
+    }
   };
 
   const addUser = (user: Omit<User, 'id'>) => {
     const newUser = { ...user, id: `user${Date.now()}` };
-    setUsers(prev => [...prev, newUser]);
-    if (isDbConnected) fbSet('users', newUser.id, newUser);
+    if (isDbConnected) {
+      fbSet('users', newUser.id, newUser);
+    } else {
+      setUsers(prev => [...prev, newUser]);
+    }
   };
 
   const updateUserPassword = (userId: string, newPassword: string) => {
-    setUsers(prev => prev.map(u => u.id === userId ? { ...u, password: newPassword } : u));
-    if (isDbConnected) fbUpdate('users', userId, { password: newPassword });
+    if (isDbConnected) {
+      fbUpdate('users', userId, { password: newPassword });
+    } else {
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, password: newPassword } : u));
+    }
   };
 
   const updateCompany = (id: string, data: Partial<Company>) => {
-    setCompanies(prev => prev.map(c => c.id === id ? { ...c, ...data } : c));
-    // Use Update which is now aliased to setDoc with merge in service
-    if (isDbConnected) fbUpdate('companies', id, data);
+    if (isDbConnected) {
+      fbUpdate('companies', id, data);
+    } else {
+      setCompanies(prev => prev.map(c => c.id === id ? { ...c, ...data } : c));
+    }
   };
 
   const deleteUnit = (id: string) => {
-    setUnits(prev => prev.filter(u => u.id !== id));
-    if (isDbConnected) fbDelete('units', id);
+    if (isDbConnected) {
+      fbDelete('units', id);
+    } else {
+      setUnits(prev => prev.filter(u => u.id !== id));
+    }
   };
 
   const deleteUser = (id: string) => {
-    setUsers(prev => prev.filter(u => u.id !== id));
-    if (isDbConnected) fbDelete('users', id);
+    if (isDbConnected) {
+      fbDelete('users', id);
+    } else {
+      setUsers(prev => prev.filter(u => u.id !== id));
+    }
   };
 
   // Memoize getters to avoid recreation

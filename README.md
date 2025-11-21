@@ -63,17 +63,33 @@ O sistema vem pré-configurado com um acesso de administrador para demonstraçã
 
 > **Nota:** Este usuário tem acesso total para criar novas unidades, usuários e gerenciar as configurações da empresa.
 
-## ⚙️ Configuração
+## ⚙️ Configuração do Banco de Dados
 
-### 1. Banco de Dados (Firebase)
-Por padrão, o sistema usa dados fictícios salvos no navegador. Para conectar a um banco real:
+### 1. Configurando o Firebase
+Este projeto usa o **Realtime Database** (e não o Firestore).
 
 1.  Crie um projeto no [Firebase Console](https://console.firebase.google.com/).
-2.  Crie um banco de dados **Realtime Database** (não Firestore).
-3.  No Link-Request, logue como **Admin**.
-4.  Vá até o menu **Banco de Dados**.
-5.  Cole o objeto de configuração `const firebaseConfig = { ... }` fornecido pelo Firebase (certifique-se de que inclui `databaseURL`).
-6.  Clique em **Salvar e Conectar**.
+2.  No menu lateral esquerdo, clique em **Criação** (Build) > **Realtime Database**.
+3.  Clique em **Criar Banco de Dados**.
+4.  **IMPORTANTE (Regras):**
+    *   Vá na aba **Regras** (Rules) do Realtime Database.
+    *   Cole o seguinte JSON (isso libera o banco para leitura/escrita sem autenticação do Firebase, já que usamos Auth próprio no app):
+    ```json
+    {
+      "rules": {
+        ".read": true,
+        ".write": true
+      }
+    }
+    ```
+    *   *Se der erro de sintaxe, verifique se você não está na aba de Regras do Cloud Firestore por engano.*
+
+### 2. Conectando o App
+1.  Vá nas configurações do projeto (ícone de engrenagem) > Geral.
+2.  Em "Seus aplicativos" (Your apps), clique no ícone Web `</>`.
+3.  Copie o objeto `firebaseConfig`. Verifique se ele contém a linha `databaseURL`.
+4.  No Link-Request, logue como **Admin** e vá ao menu **Banco de Dados**.
+5.  Cole o código e salve.
 
 ## 📂 Estrutura do Projeto
 
