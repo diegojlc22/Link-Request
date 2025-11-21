@@ -11,55 +11,9 @@ O Link-Request permite que empresas gerenciem solicitações entre diferentes un
 
 - **Gestão de Tickets:** Criação, acompanhamento e resolução de chamados.
 - **Multi-Tenant (Simulado):** Estrutura preparada para gerenciar múltiplas empresas e unidades.
-- **Múltiplas Opções de Banco de Dados:**
-    1.  **Local (Demo):** Funciona 100% offline usando LocalStorage.
-    2.  **Cloud (Firebase):** Conecta-se ao Google Firestore para persistência em nuvem.
-    3.  **On-Premise (SQLite):** Suporte para conexão com servidor próprio rodando SQLite em tempo real (via WebSockets).
+- **Banco de Dados Híbrido:** Funciona totalmente offline com `LocalStorage` (modo demo) ou conectado ao **Google Firebase** (Firestore) para persistência real.
 - **Dashboard Analítico:** Gráficos de volume, status e desempenho por unidade.
 - **Modo Escuro (Dark Mode):** Interface adaptável para conforto visual.
-
-## 💻 Instalação e Execução
-
-Siga os passos abaixo para executar o projeto completo, incluindo o frontend e o servidor opcional de banco de dados SQLite.
-
-### Pré-requisitos
-*   Node.js instalado (v16 ou superior)
-
-### Passo 1: Configurar o Servidor Backend (Opcional)
-Se você deseja usar o modo **SQLite Real-Time**, precisa rodar o `server.js`.
-
-1.  Crie uma pasta para o projeto e coloque o arquivo `server.js` na raiz.
-2.  Abra o terminal na pasta e instale as dependências do servidor:
-    ```bash
-    npm init -y
-    npm install express socket.io sqlite3 cors
-    ```
-3.  Execute o servidor:
-    ```bash
-    node server.js
-    ```
-    *O servidor iniciará na porta 3000 e criará automaticamente o arquivo `database.sqlite`.*
-
-### Passo 2: Executar o Frontend
-Como este projeto utiliza módulos ES6 diretamente no navegador (via CDN), você pode executá-lo usando qualquer servidor estático.
-
-**Opção A (VS Code):**
-1.  Instale a extensão "Live Server".
-2.  Clique com o botão direito em `index.html` e selecione "Open with Live Server".
-
-**Opção B (Node.js/npx):**
-1.  No terminal, execute:
-    ```bash
-    npx serve .
-    ```
-2.  Acesse o endereço mostrado (geralmente `http://localhost:5000`).
-
-### Passo 3: Conectar o Frontend ao Backend
-1.  Faça login na aplicação (Admin/admin).
-2.  Vá até o menu **Banco de Dados** na barra lateral.
-3.  Selecione a aba **SQLite Server**.
-4.  Insira a URL do seu servidor (ex: `http://localhost:3000`).
-5.  Clique em **Conectar Servidor**.
 
 ## 👥 Perfis de Acesso e Permissões
 
@@ -96,7 +50,7 @@ O sistema é dividido em 3 níveis hierárquicos, determinando o que cada usuár
 *   **Estilização:** Tailwind CSS
 *   **Ícones:** Lucide React
 *   **Gráficos:** Recharts
-*   **Banco de Dados:** Firebase Firestore ou SQLite (via Socket Server)
+*   **Banco de Dados:** Firebase Firestore
 *   **Datas:** Date-fns
 
 ## 🔑 Acesso Admin (Demo)
@@ -109,14 +63,25 @@ O sistema vem pré-configurado com um acesso de administrador para demonstraçã
 
 > **Nota:** Este usuário tem acesso total para criar novas unidades, usuários e gerenciar as configurações da empresa.
 
+## ⚙️ Configuração
+
+### 1. Banco de Dados (Firebase)
+Por padrão, o sistema usa dados fictícios salvos no navegador. Para conectar a um banco real:
+
+1.  Crie um projeto no [Firebase Console](https://console.firebase.google.com/).
+2.  Crie um banco de dados **Firestore**.
+3.  No Link-Request, logue como **Admin**.
+4.  Vá até o menu **Banco de Dados**.
+5.  Cole o objeto de configuração `const firebaseConfig = { ... }` fornecido pelo Firebase.
+6.  Clique em **Salvar e Conectar**.
+
 ## 📂 Estrutura do Projeto
 
 *   `/components`: Componentes de UI reutilizáveis.
 *   `/contexts`: Gerenciamento de estado global e autenticação.
 *   `/pages`: Telas da aplicação.
-*   `/services`: Integrações externas.
+*   `/services`: Integrações externas (`firebaseService`).
 *   `/types`: Definições de Tipos TypeScript e Enums.
-*   `server.js`: Backend Node.js para SQLite (opcional).
 
 ---
 

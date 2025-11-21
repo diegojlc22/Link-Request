@@ -89,8 +89,3 @@ export interface FirebaseConfig {
   messagingSenderId: string;
   appId: string;
 }
-
-export interface ServerConfig {
-  serverUrl: string;
-  apiKey?: string;
-}
