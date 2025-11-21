@@ -67,10 +67,7 @@ export const RequestDetail: React.FC<RequestDetailProps> = ({ requestId, onBack 
              </CardHeader>
              <CardContent className="border-b border-gray-100 dark:border-gray-700">
                <div className="prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300">
-                 {/* SEGURANÇA: Previne XSS desabilitando tags de script e iframes */}
-                 <ReactMarkdown disallowedElements={['script', 'iframe', 'object', 'embed']}>
-                    {request.description}
-                 </ReactMarkdown>
+                 <p>{request.description}</p>
                </div>
                
                {/* Attachments Gallery */}

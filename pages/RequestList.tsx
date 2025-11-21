@@ -1,9 +1,9 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
-import { RequestStatus } from '../types';
-import { Card } from '../components/ui/Card';
+import { RequestStatus, RequestTicket } from '../types';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { StatusBadge, PriorityBadge } from '../components/ui/Badge';
 import { Plus, Search, Filter, Link as LinkIcon, Image as ImageIcon, X, User, UserCheck, Calendar } from 'lucide-react';
@@ -32,43 +32,34 @@ export const RequestList: React.FC<RequestListProps> = ({ onSelectRequest }) => 
   // Image Upload State
   const [attachedImage, setAttachedImage] = useState<string | null>(null);
 
-  // OTIMIZAÇÃO: useMemo para evitar recalcular filtros a cada renderização simples
-  const filteredRequests = useMemo(() => {
-    return requests.filter(r => {
-      // Permission Filter
-      let hasAccess = false;
-      if (currentUser?.role === 'ADMIN') hasAccess = r.companyId === currentUser.companyId;
-      else if (currentUser?.role === 'LEADER') hasAccess = r.unitId === currentUser.unitId;
-      else hasAccess = r.creatorId === currentUser?.id;
+  const filteredRequests = requests.filter(r => {
+    // Permission Filter
+    let hasAccess = false;
+    if (currentUser?.role === 'ADMIN') hasAccess = r.companyId === currentUser.companyId;
+    else if (currentUser?.role === 'LEADER') hasAccess = r.unitId === currentUser.unitId;
+    else hasAccess = r.creatorId === currentUser?.id;
 
-      if (!hasAccess) return false;
+    if (!hasAccess) return false;
 
-      // Search Filter
-      const term = searchTerm.toLowerCase();
-      const matchesSearch = !term || r.title.toLowerCase().includes(term) || r.id.includes(term);
-      
-      // Status Filter
-      const matchesStatus = statusFilter === 'ALL' ? true : r.status === statusFilter;
+    // Search Filter
+    const matchesSearch = r.title.toLowerCase().includes(searchTerm.toLowerCase()) || r.id.includes(searchTerm);
+    
+    // Status Filter
+    const matchesStatus = statusFilter === 'ALL' ? true : r.status === statusFilter;
 
-      // Assignee Filter
-      const matchesAssignee = assigneeFilter === 'ALL' 
-        ? true 
-        : assigneeFilter === 'UNASSIGNED' 
-          ? !r.assigneeId 
-          : r.assigneeId === assigneeFilter;
+    // Assignee Filter
+    const matchesAssignee = assigneeFilter === 'ALL' 
+      ? true 
+      : assigneeFilter === 'UNASSIGNED' 
+        ? !r.assigneeId 
+        : r.assigneeId === assigneeFilter;
 
-      return matchesSearch && matchesStatus && matchesAssignee;
-    }).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-  }, [requests, currentUser, searchTerm, statusFilter, assigneeFilter]);
+    return matchesSearch && matchesStatus && matchesAssignee;
+  }).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // SEGURANÇA: Limite básico de tamanho (ex: 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-          alert("A imagem deve ter no máximo 5MB");
-          return;
-      }
       const reader = new FileReader();
       reader.onloadend = () => {
         setAttachedImage(reader.result as string);
@@ -88,6 +79,7 @@ export const RequestList: React.FC<RequestListProps> = ({ onSelectRequest }) => 
       type: 'image'
     }] : [];
 
+    // Determine final unit ID (fallback to first unit if empty/admin)
     const finalUnitId = newUnitId || units[0]?.id;
 
     addRequest({
@@ -110,14 +102,14 @@ export const RequestList: React.FC<RequestListProps> = ({ onSelectRequest }) => 
     setAttachedImage(null);
   };
 
-  // OTIMIZAÇÃO: useMemo para lista de usuários atribuíveis
-  const assignableUsers = useMemo(() => {
-    return users.filter(u => {
-        if (u.role === 'ADMIN') return true;
-        if (newUnitId) return u.unitId === newUnitId;
-        return true;
-     });
-  }, [users, newUnitId]);
+  // Filter users eligible for assignment based on selected Unit (or all if Admin)
+  const assignableUsers = users.filter(u => {
+     // Admins can always be assigned
+     if (u.role === 'ADMIN') return true;
+     // If a unit is selected for the new ticket, filter users from that unit
+     if (newUnitId) return u.unitId === newUnitId;
+     return true;
+  });
 
   return (
     <div className="space-y-6">
