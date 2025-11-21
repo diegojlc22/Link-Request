@@ -1,8 +1,9 @@
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { Company, Unit, User, RequestTicket, Comment, UserRole, RequestStatus, FirebaseConfig, ServerConfig } from '../types';
 import { formatISO } from 'date-fns';
 import { initFirebase, fbGetAll, fbSet, fbUpdate, fbDelete } from '../services/firebaseService';
+import { io, Socket } from 'socket.io-client';
 
 interface SetupData {
   companyName: string;
@@ -102,6 +103,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   
   const [isDbConnected, setIsDbConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Socket Ref
+  const socketRef = useRef<Socket | null>(null);
 
   // --- CONNECTION LOGIC ---
 
@@ -109,6 +113,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const connectDb = async () => {
       setIsDbConnected(false);
       
+      // Cleanup previous socket if exists
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
+
       if (storageProvider === 'LOCAL') {
         return; // Ready immediately
       }
@@ -138,29 +148,84 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             console.error("Failed to sync with Firebase", e);
           }
         }
-      } else if (storageProvider === 'SQLITE_SERVER' && serverConfig) {
-        // SIMULATION OF REAL-TIME SQLITE SERVER CONNECTION
-        // In a real app, this would be: const socket = io(serverConfig.serverUrl);
-        console.log(`Connecting to SQLite Server at ${serverConfig.serverUrl}...`);
-        
+        setIsLoading(false);
+      } 
+      else if (storageProvider === 'SQLITE_SERVER' && serverConfig) {
         try {
-          // Simulating a network delay
-          await new Promise(resolve => setTimeout(resolve, 800));
-          setIsDbConnected(true);
-          console.log("Connected to SQLite Server (Simulated)");
-          // Here you would do: socket.on('initial_data', (data) => setData(data));
-        } catch (e) {
-          console.error("Failed to connect to Server", e);
-        }
-      }
+          console.log(`Connecting to SQLite Server at ${serverConfig.serverUrl}...`);
+          
+          const socket = io(serverConfig.serverUrl);
+          socketRef.current = socket;
 
-      setIsLoading(false);
+          socket.on('connect', () => {
+            console.log("Connected to SQLite Server via Socket.io");
+            setIsDbConnected(true);
+            setIsLoading(false);
+            // Request initial load
+            socket.emit('request_initial_data');
+          });
+
+          socket.on('connect_error', (err) => {
+            console.error("Socket Connection Error:", err);
+            setIsLoading(false);
+          });
+
+          // Listeners for Real-time Sync
+          socket.on('initial_data', (data: any) => {
+            if (data.companies) setCompanies(data.companies);
+            if (data.units) setUnits(data.units);
+            if (data.users) setUsers(data.users);
+            if (data.requests) setRequests(data.requests);
+            if (data.comments) setComments(data.comments);
+          });
+
+          const handleCreate = (collection: string, item: any) => {
+             if (collection === 'companies') setCompanies(prev => prev.find(i => i.id === item.id) ? prev : [...prev, item]);
+             if (collection === 'units') setUnits(prev => prev.find(i => i.id === item.id) ? prev : [...prev, item]);
+             if (collection === 'users') setUsers(prev => prev.find(i => i.id === item.id) ? prev : [...prev, item]);
+             if (collection === 'requests') setRequests(prev => prev.find(i => i.id === item.id) ? prev : [item, ...prev]);
+             if (collection === 'comments') setComments(prev => prev.find(i => i.id === item.id) ? prev : [...prev, item]);
+          };
+
+          const handleUpdate = (collection: string, id: string, item: any) => {
+             if (collection === 'companies') setCompanies(prev => prev.map(i => i.id === id ? item : i));
+             if (collection === 'units') setUnits(prev => prev.map(i => i.id === id ? item : i));
+             if (collection === 'users') setUsers(prev => prev.map(i => i.id === id ? item : i));
+             if (collection === 'requests') setRequests(prev => prev.map(i => i.id === id ? item : i));
+             if (collection === 'comments') setComments(prev => prev.map(i => i.id === id ? item : i));
+          };
+
+          const handleDelete = (collection: string, id: string) => {
+             if (collection === 'companies') setCompanies(prev => prev.filter(i => i.id !== id));
+             if (collection === 'units') setUnits(prev => prev.filter(i => i.id !== id));
+             if (collection === 'users') setUsers(prev => prev.filter(i => i.id !== id));
+             if (collection === 'requests') setRequests(prev => prev.filter(i => i.id !== id));
+             if (collection === 'comments') setComments(prev => prev.filter(i => i.id !== id));
+          };
+
+          socket.on('item_created', ({ collection, item }) => handleCreate(collection, item));
+          socket.on('item_updated', ({ collection, id, item }) => handleUpdate(collection, id, item));
+          socket.on('item_deleted', ({ collection, id }) => handleDelete(collection, id));
+
+        } catch (e) {
+          console.error("Failed to init socket connection", e);
+          setIsLoading(false);
+        }
+      } else {
+        setIsLoading(false);
+      }
     };
 
     connectDb();
+
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+      }
+    };
   }, [storageProvider, firebaseConfig, serverConfig]);
 
-  // --- PERSISTENCE ---
+  // --- PERSISTENCE (Local Backup) ---
   useEffect(() => { localStorage.setItem('link_req_provider', JSON.stringify(storageProvider)); }, [storageProvider]);
   useEffect(() => { localStorage.setItem('link_req_companies', JSON.stringify(companies)); }, [companies]);
   useEffect(() => { localStorage.setItem('link_req_units', JSON.stringify(units)); }, [units]);
@@ -223,15 +288,19 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setComments([]);
     setIsSetupDone(true);
     
-    // Initial Sync if connected
-    if (isDbConnected && storageProvider === 'FIREBASE') {
-      fbSet('companies', newCompany.id, newCompany);
-      fbSet('units', newUnit.id, newUnit);
-      fbSet('users', newAdmin.id, newAdmin);
+    // Initial Sync
+    if (isDbConnected) {
+      if (storageProvider === 'FIREBASE') {
+        fbSet('companies', newCompany.id, newCompany);
+        fbSet('units', newUnit.id, newUnit);
+        fbSet('users', newAdmin.id, newAdmin);
+      } else if (storageProvider === 'SQLITE_SERVER' && socketRef.current) {
+        socketRef.current.emit('create_item', { collection: 'companies', item: newCompany });
+        socketRef.current.emit('create_item', { collection: 'units', item: newUnit });
+        socketRef.current.emit('create_item', { collection: 'users', item: newAdmin });
+      }
     }
-    // If SQLite, we would emit: socket.emit('setup_system', { ... })
   };
-
 
   // --- CRUD ACTIONS (Hybrid Logic) ---
 
@@ -244,18 +313,26 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       attachments: req.attachments || [],
       viewedByAssignee: false,
     };
+    
+    // Optimistic Update
     setRequests(prev => [newRequest, ...prev]);
     
-    if (isDbConnected && storageProvider === 'FIREBASE') fbSet('requests', newRequest.id, newRequest);
-    if (isDbConnected && storageProvider === 'SQLITE_SERVER') console.log('Socket Emit: create_request', newRequest);
+    if (isDbConnected) {
+      if (storageProvider === 'FIREBASE') fbSet('requests', newRequest.id, newRequest);
+      if (storageProvider === 'SQLITE_SERVER' && socketRef.current) socketRef.current.emit('create_item', { collection: 'requests', item: newRequest });
+    }
   };
 
   const updateRequestStatus = (id: string, status: RequestStatus) => {
     const updatedDate = formatISO(new Date());
-    setRequests(prev => prev.map(r => r.id === id ? { ...r, status, updatedAt: updatedDate } : r));
+    const patch = { status, updatedAt: updatedDate };
     
-    if (isDbConnected && storageProvider === 'FIREBASE') fbUpdate('requests', id, { status, updatedAt: updatedDate });
-    if (isDbConnected && storageProvider === 'SQLITE_SERVER') console.log('Socket Emit: update_status', { id, status });
+    setRequests(prev => prev.map(r => r.id === id ? { ...r, ...patch } : r));
+    
+    if (isDbConnected) {
+      if (storageProvider === 'FIREBASE') fbUpdate('requests', id, patch);
+      if (storageProvider === 'SQLITE_SERVER' && socketRef.current) socketRef.current.emit('update_item', { collection: 'requests', id, data: patch });
+    }
   };
 
   const addComment = (ticketId: string, userId: string, content: string) => {
@@ -271,43 +348,72 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const updatedDate = formatISO(new Date());
     setRequests(prev => prev.map(r => r.id === ticketId ? { ...r, updatedAt: updatedDate } : r));
     
-    if (isDbConnected && storageProvider === 'FIREBASE') {
-      fbSet('comments', newComment.id, newComment);
-      fbUpdate('requests', ticketId, { updatedAt: updatedDate });
+    if (isDbConnected) {
+      if (storageProvider === 'FIREBASE') {
+        fbSet('comments', newComment.id, newComment);
+        fbUpdate('requests', ticketId, { updatedAt: updatedDate });
+      }
+      if (storageProvider === 'SQLITE_SERVER' && socketRef.current) {
+        socketRef.current.emit('create_item', { collection: 'comments', item: newComment });
+        socketRef.current.emit('update_item', { collection: 'requests', id: ticketId, data: { updatedAt: updatedDate } });
+      }
     }
-    if (isDbConnected && storageProvider === 'SQLITE_SERVER') console.log('Socket Emit: new_comment', newComment);
   };
 
   const addUnit = (unit: Omit<Unit, 'id'>) => {
     const newUnit = { ...unit, id: `u${Date.now()}` };
     setUnits(prev => [...prev, newUnit]);
-    if (isDbConnected && storageProvider === 'FIREBASE') fbSet('units', newUnit.id, newUnit);
+    
+    if (isDbConnected) {
+      if (storageProvider === 'FIREBASE') fbSet('units', newUnit.id, newUnit);
+      if (storageProvider === 'SQLITE_SERVER' && socketRef.current) socketRef.current.emit('create_item', { collection: 'units', item: newUnit });
+    }
   };
 
   const addUser = (user: Omit<User, 'id'>) => {
     const newUser = { ...user, id: `user${Date.now()}` };
     setUsers(prev => [...prev, newUser]);
-    if (isDbConnected && storageProvider === 'FIREBASE') fbSet('users', newUser.id, newUser);
+    
+    if (isDbConnected) {
+      if (storageProvider === 'FIREBASE') fbSet('users', newUser.id, newUser);
+      if (storageProvider === 'SQLITE_SERVER' && socketRef.current) socketRef.current.emit('create_item', { collection: 'users', item: newUser });
+    }
   };
 
   const updateUserPassword = (userId: string, newPassword: string) => {
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, password: newPassword } : u));
-    if (isDbConnected && storageProvider === 'FIREBASE') fbUpdate('users', userId, { password: newPassword });
+    
+    if (isDbConnected) {
+      if (storageProvider === 'FIREBASE') fbUpdate('users', userId, { password: newPassword });
+      if (storageProvider === 'SQLITE_SERVER' && socketRef.current) socketRef.current.emit('update_item', { collection: 'users', id: userId, data: { password: newPassword } });
+    }
   };
 
   const updateCompany = (id: string, data: Partial<Company>) => {
     setCompanies(prev => prev.map(c => c.id === id ? { ...c, ...data } : c));
-    if (isDbConnected && storageProvider === 'FIREBASE') fbUpdate('companies', id, data);
+    
+    if (isDbConnected) {
+      if (storageProvider === 'FIREBASE') fbUpdate('companies', id, data);
+      if (storageProvider === 'SQLITE_SERVER' && socketRef.current) socketRef.current.emit('update_item', { collection: 'companies', id, data });
+    }
   };
 
   const deleteUnit = (id: string) => {
     setUnits(prev => prev.filter(u => u.id !== id));
-    if (isDbConnected && storageProvider === 'FIREBASE') fbDelete('units', id);
+    
+    if (isDbConnected) {
+      if (storageProvider === 'FIREBASE') fbDelete('units', id);
+      if (storageProvider === 'SQLITE_SERVER' && socketRef.current) socketRef.current.emit('delete_item', { collection: 'units', id });
+    }
   };
 
   const deleteUser = (id: string) => {
     setUsers(prev => prev.filter(u => u.id !== id));
-    if (isDbConnected && storageProvider === 'FIREBASE') fbDelete('users', id);
+    
+    if (isDbConnected) {
+      if (storageProvider === 'FIREBASE') fbDelete('users', id);
+      if (storageProvider === 'SQLITE_SERVER' && socketRef.current) socketRef.current.emit('delete_item', { collection: 'users', id });
+    }
   };
 
   const getRequestsByUnit = (unitId: string) => requests.filter(r => r.unitId === unitId);

@@ -18,6 +18,49 @@ O Link-Request permite que empresas gerenciem solicitações entre diferentes un
 - **Dashboard Analítico:** Gráficos de volume, status e desempenho por unidade.
 - **Modo Escuro (Dark Mode):** Interface adaptável para conforto visual.
 
+## 💻 Instalação e Execução
+
+Siga os passos abaixo para executar o projeto completo, incluindo o frontend e o servidor opcional de banco de dados SQLite.
+
+### Pré-requisitos
+*   Node.js instalado (v16 ou superior)
+
+### Passo 1: Configurar o Servidor Backend (Opcional)
+Se você deseja usar o modo **SQLite Real-Time**, precisa rodar o `server.js`.
+
+1.  Crie uma pasta para o projeto e coloque o arquivo `server.js` na raiz.
+2.  Abra o terminal na pasta e instale as dependências do servidor:
+    ```bash
+    npm init -y
+    npm install express socket.io sqlite3 cors
+    ```
+3.  Execute o servidor:
+    ```bash
+    node server.js
+    ```
+    *O servidor iniciará na porta 3000 e criará automaticamente o arquivo `database.sqlite`.*
+
+### Passo 2: Executar o Frontend
+Como este projeto utiliza módulos ES6 diretamente no navegador (via CDN), você pode executá-lo usando qualquer servidor estático.
+
+**Opção A (VS Code):**
+1.  Instale a extensão "Live Server".
+2.  Clique com o botão direito em `index.html` e selecione "Open with Live Server".
+
+**Opção B (Node.js/npx):**
+1.  No terminal, execute:
+    ```bash
+    npx serve .
+    ```
+2.  Acesse o endereço mostrado (geralmente `http://localhost:5000`).
+
+### Passo 3: Conectar o Frontend ao Backend
+1.  Faça login na aplicação (Admin/admin).
+2.  Vá até o menu **Banco de Dados** na barra lateral.
+3.  Selecione a aba **SQLite Server**.
+4.  Insira a URL do seu servidor (ex: `http://localhost:3000`).
+5.  Clique em **Conectar Servidor**.
+
 ## 👥 Perfis de Acesso e Permissões
 
 O sistema é dividido em 3 níveis hierárquicos, determinando o que cada usuário pode visualizar e gerenciar:
@@ -66,21 +109,6 @@ O sistema vem pré-configurado com um acesso de administrador para demonstraçã
 
 > **Nota:** Este usuário tem acesso total para criar novas unidades, usuários e gerenciar as configurações da empresa.
 
-## ⚙️ Configuração de Banco de Dados
-
-O Link-Request suporta 3 modos de operação. Acesse o menu **Banco de Dados** no painel Admin para configurar.
-
-### Opção A: Firebase (Nuvem)
-1.  Crie um projeto no [Firebase Console](https://console.firebase.google.com/).
-2.  Crie um banco de dados **Firestore**.
-3.  Copie a configuração do projeto e cole no sistema.
-
-### Opção B: SQLite (Servidor Próprio)
-Para usar SQLite com sincronização em tempo real, você precisa rodar um servidor backend simples (Node.js + Socket.io) que gerencie o arquivo `.sqlite`.
-1.  Inicie o servidor backend (ex: `http://localhost:3000`).
-2.  Insira a URL no sistema.
-3.  O frontend se conectará via WebSocket para enviar/receber atualizações instantâneas.
-
 ## 📂 Estrutura do Projeto
 
 *   `/components`: Componentes de UI reutilizáveis.
@@ -88,6 +116,7 @@ Para usar SQLite com sincronização em tempo real, você precisa rodar um servi
 *   `/pages`: Telas da aplicação.
 *   `/services`: Integrações externas.
 *   `/types`: Definições de Tipos TypeScript e Enums.
+*   `server.js`: Backend Node.js para SQLite (opcional).
 
 ---
 
