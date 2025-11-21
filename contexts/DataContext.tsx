@@ -107,24 +107,27 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.log("Firebase Connected Successfully. Listening for updates...");
 
           // Subscribe to Real-time Updates
-          // Note: We removed 'if (data.length > 0)' check to correctly handle cases 
-          // where data is deleted or initial sync overwrites local mock data.
           
           unsubCompanies = fbSubscribe<Company>('companies', (data) => {
-            setCompanies(prev => {
-              // If cloud has data, use it. If cloud is empty but we are connected, 
-              // we might want to keep local or empty it. 
-              // For full sync: trust the cloud.
-              return data.length > 0 ? data : prev; 
-            });
+            // Se estiver conectado e não houver dados, assume vazio
+            setCompanies(prev => data.length > 0 ? data : (prev.length > 0 ? prev : []));
+            // Se a lista vier vazia (realmente vazia do banco), permite que fique vazia
+            if (data.length === 0 && isDbConnected) setCompanies([]); 
           });
 
           unsubUnits = fbSubscribe<Unit>('units', (data) => {
-             setUnits(data); // Always sync exactly what is in DB
+             setUnits(data);
           });
 
           unsubUsers = fbSubscribe<User>('users', (data) => {
              setUsers(data);
+             // DETECTOR DE BANCO VAZIO:
+             // Se conectou ao Firebase, mas não retornou nenhum usuário,
+             // significa que o banco é novo. Força o Setup para criar o Admin.
+             if (data.length === 0) {
+                console.log("Banco Firebase vazio detectado. Redirecionando para Setup.");
+                setIsSetupDone(false);
+             }
           });
 
           unsubRequests = fbSubscribe<RequestTicket>('requests', (data) => {
@@ -204,14 +207,17 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(data.adminName)}&background=random`
     };
 
+    // Atualiza estado local
     setCompanies([newCompany]);
     setUnits([newUnit]);
     setUsers([newAdmin]);
     setRequests([]);
     setComments([]);
     
+    // Importante: Seta como feito
     setIsSetupDone(true);
     
+    // Se estiver conectado ao Firebase, salva lá também
     if (isDbConnected) {
       fbSet('companies', newCompany.id, newCompany);
       fbSet('units', newUnit.id, newUnit);
