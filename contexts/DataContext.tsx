@@ -127,6 +127,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     initDb();
   }, [firebaseConfig]);
 
+  // Update Document Title based on Company Name
+  useEffect(() => {
+    if (companies.length > 0 && companies[0].name) {
+      document.title = companies[0].name;
+    }
+  }, [companies]);
+
   // Persist to LocalStorage
   useEffect(() => { localStorage.setItem('link_req_companies', JSON.stringify(companies)); }, [companies]);
   useEffect(() => { localStorage.setItem('link_req_units', JSON.stringify(units)); }, [units]);
