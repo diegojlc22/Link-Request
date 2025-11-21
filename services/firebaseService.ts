@@ -1,6 +1,6 @@
 
 import { initializeApp, FirebaseApp } from 'firebase/app';
-import { getFirestore, Firestore, collection, getDocs, setDoc, doc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { getFirestore, Firestore, collection, getDocs, setDoc, doc, deleteDoc, updateDoc, onSnapshot, Unsubscribe } from 'firebase/firestore';
 import { FirebaseConfig } from '../types';
 
 let app: FirebaseApp | null = null;
@@ -30,6 +30,23 @@ export const fbGetAll = async <T>(collectionName: string): Promise<T[]> => {
   } catch (error) {
     console.error(`Error fetching ${collectionName}:`, error);
     return [];
+  }
+};
+
+// Real-time Listener
+export const fbSubscribe = <T>(collectionName: string, callback: (data: T[]) => void): Unsubscribe => {
+  if (!db) return () => {};
+  try {
+    const q = collection(db, collectionName);
+    return onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => doc.data() as T);
+      callback(data);
+    }, (error) => {
+      console.error(`Error subscribing to ${collectionName}:`, error);
+    });
+  } catch (error) {
+    console.error(`Error setting up listener for ${collectionName}:`, error);
+    return () => {};
   }
 };
 

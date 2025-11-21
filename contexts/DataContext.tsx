@@ -2,7 +2,7 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { Company, Unit, User, RequestTicket, Comment, UserRole, RequestStatus, FirebaseConfig } from '../types';
 import { formatISO } from 'date-fns';
-import { initFirebase, fbGetAll, fbSet, fbUpdate, fbDelete } from '../services/firebaseService';
+import { initFirebase, fbGetAll, fbSet, fbUpdate, fbDelete, fbSubscribe } from '../services/firebaseService';
 
 interface SetupData {
   companyName: string;
@@ -89,33 +89,43 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isDbConnected, setIsDbConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Initialize Firebase if config exists
+  // Initialize Firebase and Setup Real-time Listeners
   useEffect(() => {
+    let unsubCompanies: () => void;
+    let unsubUnits: () => void;
+    let unsubUsers: () => void;
+    let unsubRequests: () => void;
+    let unsubComments: () => void;
+
     const initDb = async () => {
       if (firebaseConfig) {
         setIsLoading(true);
         const success = initFirebase(firebaseConfig);
         if (success) {
           setIsDbConnected(true);
-          // Fetch data from Firestore
-          try {
-             const fbCompanies = await fbGetAll<Company>('companies');
-             if (fbCompanies.length > 0) setCompanies(fbCompanies);
-             
-             const fbUnits = await fbGetAll<Unit>('units');
-             if (fbUnits.length > 0) setUnits(fbUnits);
-             
-             const fbUsers = await fbGetAll<User>('users');
-             if (fbUsers.length > 0) setUsers(fbUsers);
-             
-             const fbRequests = await fbGetAll<RequestTicket>('requests');
-             if (fbRequests.length > 0) setRequests(fbRequests);
-             
-             const fbComments = await fbGetAll<Comment>('comments');
-             if (fbComments.length > 0) setComments(fbComments);
-          } catch (e) {
-            console.error("Failed to sync with Firebase", e);
-          }
+          console.log("Firebase Connected. Setting up listeners...");
+
+          // Subscribe to Real-time Updates
+          unsubCompanies = fbSubscribe<Company>('companies', (data) => {
+            if (data.length > 0) setCompanies(data);
+          });
+
+          unsubUnits = fbSubscribe<Unit>('units', (data) => {
+            if (data.length > 0) setUnits(data);
+          });
+
+          unsubUsers = fbSubscribe<User>('users', (data) => {
+            if (data.length > 0) setUsers(data);
+          });
+
+          unsubRequests = fbSubscribe<RequestTicket>('requests', (data) => {
+            if (data.length > 0) setRequests(data);
+          });
+
+          unsubComments = fbSubscribe<Comment>('comments', (data) => {
+            if (data.length > 0) setComments(data);
+          });
+
         } else {
           setIsDbConnected(false);
         }
@@ -124,7 +134,17 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsDbConnected(false);
       }
     };
+
     initDb();
+
+    // Cleanup subscriptions on unmount or config change
+    return () => {
+      if (unsubCompanies) unsubCompanies();
+      if (unsubUnits) unsubUnits();
+      if (unsubUsers) unsubUsers();
+      if (unsubRequests) unsubRequests();
+      if (unsubComments) unsubComments();
+    };
   }, [firebaseConfig]);
 
   // Update Document Title based on Company Name
@@ -134,7 +154,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [companies]);
 
-  // Persist to LocalStorage
+  // Persist to LocalStorage (Backup / Offline Mode)
   useEffect(() => { localStorage.setItem('link_req_companies', JSON.stringify(companies)); }, [companies]);
   useEffect(() => { localStorage.setItem('link_req_units', JSON.stringify(units)); }, [units]);
   useEffect(() => { localStorage.setItem('link_req_users', JSON.stringify(users)); }, [users]);
@@ -207,6 +227,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       attachments: req.attachments || [],
       viewedByAssignee: false,
     };
+    // Optimistic update
     setRequests(prev => [newRequest, ...prev]);
     if (isDbConnected) fbSet('requests', newRequest.id, newRequest);
   };
