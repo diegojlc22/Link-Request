@@ -1,12 +1,13 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
-import { RequestStatus } from '../types';
+import { RequestStatus, RequestAttachment } from '../types';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { StatusBadge, PriorityBadge } from '../components/ui/Badge';
-import { ArrowLeft, Send, Paperclip, User as UserIcon, ExternalLink, ShoppingBag, Image as ImageIcon } from 'lucide-react';
+import { ArrowLeft, Send, Paperclip, User as UserIcon, ExternalLink, ShoppingBag, Image as ImageIcon, X, Download, ZoomIn } from 'lucide-react';
 
 export const RequestDetail: React.FC = () => {
   const { id } = useParams();
@@ -18,11 +19,23 @@ export const RequestDetail: React.FC = () => {
   const requestComments = comments.filter(c => c.requestId === id);
   const [newComment, setNewComment] = useState('');
   
+  // State for Image Lightbox
+  const [viewingAttachment, setViewingAttachment] = useState<RequestAttachment | null>(null);
+  
   const commentsEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     commentsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [requestComments]);
+
+  // Close lightbox on Escape key
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setViewingAttachment(null);
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, []);
 
   if (!request) return (
     <div className="p-8 text-center">
@@ -81,15 +94,22 @@ export const RequestDetail: React.FC = () => {
                    <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3 flex items-center gap-2">
                      <ImageIcon className="h-4 w-4" /> Anexos
                    </h3>
-                   <div className="grid grid-cols-2 gap-4">
+                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                      {request.attachments.map(att => (
-                       <div key={att.id} className="relative group rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600">
+                       <div 
+                         key={att.id} 
+                         className="relative group rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 cursor-pointer aspect-square bg-gray-100 dark:bg-gray-800"
+                         onClick={() => setViewingAttachment(att)}
+                       >
                          <img 
                            src={att.url} 
                            alt={att.name} 
-                           className="w-full h-48 object-cover hover:scale-105 transition-transform duration-300 cursor-pointer"
-                           onClick={() => window.open(att.url, '_blank')}
+                           className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
                          />
+                         {/* Hover Overlay */}
+                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                            <ZoomIn className="text-white h-8 w-8 drop-shadow-md" />
+                         </div>
                        </div>
                      ))}
                    </div>
@@ -214,6 +234,43 @@ export const RequestDetail: React.FC = () => {
            )}
         </div>
       </div>
+
+      {/* Lightbox Modal */}
+      {viewingAttachment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-fade-in">
+          <button
+            onClick={() => setViewingAttachment(null)}
+            className="absolute top-4 right-4 p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-full transition-colors z-10"
+            title="Fechar (Esc)"
+          >
+            <X className="h-8 w-8" />
+          </button>
+
+          <div className="relative flex flex-col items-center max-w-full max-h-full">
+            <img
+              src={viewingAttachment.url}
+              alt={viewingAttachment.name}
+              className="max-w-full max-h-[80vh] object-contain rounded-md shadow-2xl"
+            />
+            
+            <div className="mt-6 flex items-center gap-4 bg-black/50 px-6 py-3 rounded-full backdrop-blur-md border border-white/10">
+              <span className="text-white font-medium truncate max-w-[200px]">{viewingAttachment.name}</span>
+              <div className="w-px h-4 bg-white/20"></div>
+              <a
+                href={viewingAttachment.url}
+                download={viewingAttachment.name}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 text-primary-300 hover:text-primary-200 font-medium transition-colors"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Download className="h-4 w-4" />
+                Baixar
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
