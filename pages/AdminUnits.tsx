@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useData } from '../contexts/DataContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
@@ -33,7 +34,7 @@ export const AdminUnits: React.FC = () => {
                     </div>
                     <div>
                       <h3 className="font-semibold text-gray-900 dark:text-white">{unit.name}</h3>
-                      <p className="text-sm text-gray-500">{unit.location}</p>
+                      <p className="text-sm text-gray-500">{unit.location || 'Sem endereço'}</p>
                     </div>
                   </div>
                   <Button variant="ghost" size="sm" onClick={() => deleteUnit(unit.id)} className="text-red-500 hover:text-red-700">
@@ -54,8 +55,8 @@ export const AdminUnits: React.FC = () => {
                 <input required value={newName} onChange={e => setNewName(e.target.value)} className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 dark:border-gray-600" placeholder="Ex: Filial Sul" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Endereço/Local</label>
-                <input required value={newLoc} onChange={e => setNewLoc(e.target.value)} className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 dark:border-gray-600" placeholder="Ex: Rua das Flores, 123" />
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Endereço/Local <span className="text-gray-400 font-normal">(Opcional)</span></label>
+                <input value={newLoc} onChange={e => setNewLoc(e.target.value)} className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 dark:border-gray-600" placeholder="Ex: Rua das Flores, 123" />
               </div>
               <Button type="submit" className="w-full">
                 <Plus className="h-4 w-4 mr-2" /> Cadastrar
