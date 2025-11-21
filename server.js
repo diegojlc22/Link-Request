@@ -1,8 +1,8 @@
-const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
-const sqlite3 = require('sqlite3').verbose();
-const cors = require('cors');
+import express from 'express';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
+import sqlite3 from 'sqlite3';
+import cors from 'cors';
 
 // --- CONFIGURAÇÃO ---
 const PORT = 3000;
@@ -11,7 +11,7 @@ const DB_FILE = './database.sqlite';
 const app = express();
 app.use(cors());
 
-const server = http.createServer(app);
+const server = createServer(app);
 const io = new Server(server, {
   cors: {
     origin: "*", // Permite conexões de qualquer origem (para dev)
@@ -20,7 +20,9 @@ const io = new Server(server, {
 });
 
 // --- BANCO DE DADOS ---
-const db = new sqlite3.Database(DB_FILE, (err) => {
+// Inicializa o SQLite em modo verbose para melhor log de erros
+const sql = sqlite3.verbose();
+const db = new sql.Database(DB_FILE, (err) => {
   if (err) {
     console.error('Erro ao conectar ao SQLite:', err.message);
   } else {
@@ -79,7 +81,7 @@ io.on('connection', (socket) => {
       if (err) {
         console.error(`Erro ao inserir em ${collection}:`, err);
       } else {
-        // Broadcast para todos os clientes (incluindo o remetente para confirmação, ou filtrar no front)
+        // Broadcast para todos os clientes
         io.emit('item_created', { collection, item });
       }
     });
