@@ -259,8 +259,6 @@ export const RequestDetail: React.FC = () => {
               <a
                 href={viewingAttachment.url}
                 download={viewingAttachment.name}
-                target="_blank"
-                rel="noopener noreferrer"
                 className="flex items-center gap-2 text-primary-300 hover:text-primary-200 font-medium transition-colors"
                 onClick={(e) => e.stopPropagation()}
               >
