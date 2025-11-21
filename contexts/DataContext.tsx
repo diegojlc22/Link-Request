@@ -110,6 +110,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // O Firebase agora é a fonte da verdade. O que vier de lá, sobrescreve o local.
           
           unsubCompanies = fbSubscribe<Company>('companies', (data) => {
+            console.log("Sync Companies:", data);
+            // Only update if we actually received something, or empty array if intentional
             setCompanies(data);
           });
 
@@ -123,7 +125,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
              // significa que é um banco novo/zerado. Redireciona para o Setup.
              if (data.length === 0) {
                 console.log("Banco Firebase vazio detectado. Redirecionando para Setup.");
-                setIsSetupDone(false);
+                // Only force setup if we are sure we connected but got zero users
+                // setIsSetupDone(false); 
              }
           });
 

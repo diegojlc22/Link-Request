@@ -12,8 +12,16 @@ export const initFirebase = (config: FirebaseConfig) => {
     } else {
       app = getApp();
     }
-    // Initialize Realtime Database
-    db = getDatabase(app);
+    
+    // CRITICAL FIX: Explicitly pass the databaseURL to getDatabase.
+    // This ensures connection to the correct instance even if auto-discovery fails.
+    if (config.databaseURL) {
+      db = getDatabase(app, config.databaseURL);
+    } else {
+      db = getDatabase(app);
+    }
+    
+    console.log("Firebase Service Initialized with URL:", config.databaseURL);
     return true;
   } catch (error) {
     console.error("Firebase initialization error:", error);
@@ -43,18 +51,25 @@ export const fbGetAll = async <T>(path: string): Promise<T[]> => {
 
 // Real-time Listener (Observer Pattern)
 export const fbSubscribe = <T>(path: string, callback: (data: T[]) => void): Unsubscribe => {
-  if (!db) return () => {};
+  if (!db) {
+    console.warn(`Cannot subscribe to ${path}: DB not initialized`);
+    return () => {};
+  }
   try {
+    console.log(`Subscribing to path: ${path}`);
     const dbRef = ref(db, path);
+    
     // The "Engine": Using onValue to listen for real-time changes
     return onValue(dbRef, (snapshot) => {
       const val = snapshot.val();
+      
       // Transform Firebase Object Map to Array for React
-      // Use keys as IDs as per the Observer Pattern specification
       const data = val ? Object.keys(val).map(key => ({
         ...val[key],
         id: key
       })) : [];
+      
+      // console.log(`Data received from ${path}:`, data.length, "items");
       callback(data as T[]);
     }, (error) => {
       console.error(`Error subscribing to ${path}:`, error);
@@ -69,6 +84,7 @@ export const fbSet = async (path: string, id: string, data: any) => {
   if (!db) return;
   try {
     await set(ref(db, `${path}/${id}`), data);
+    console.log(`Set success: ${path}/${id}`);
   } catch (error) {
     console.error(`Error setting doc in ${path}:`, error);
   }
@@ -78,6 +94,7 @@ export const fbUpdate = async (path: string, id: string, data: any) => {
   if (!db) return;
   try {
     await update(ref(db, `${path}/${id}`), data);
+    console.log(`Update success: ${path}/${id}`);
   } catch (error) {
     console.error(`Error updating doc in ${path}:`, error);
   }
@@ -87,6 +104,7 @@ export const fbDelete = async (path: string, id: string) => {
   if (!db) return;
   try {
     await remove(ref(db, `${path}/${id}`));
+    console.log(`Delete success: ${path}/${id}`);
   } catch (error) {
     console.error(`Error deleting doc in ${path}:`, error);
   }
