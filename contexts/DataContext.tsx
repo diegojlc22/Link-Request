@@ -101,32 +101,42 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (firebaseConfig) {
         setIsLoading(true);
         const success = initFirebase(firebaseConfig);
+        
         if (success) {
           setIsDbConnected(true);
-          console.log("Firebase Connected. Setting up listeners...");
+          console.log("Firebase Connected Successfully. Listening for updates...");
 
           // Subscribe to Real-time Updates
+          // Note: We removed 'if (data.length > 0)' check to correctly handle cases 
+          // where data is deleted or initial sync overwrites local mock data.
+          
           unsubCompanies = fbSubscribe<Company>('companies', (data) => {
-            if (data.length > 0) setCompanies(data);
+            setCompanies(prev => {
+              // If cloud has data, use it. If cloud is empty but we are connected, 
+              // we might want to keep local or empty it. 
+              // For full sync: trust the cloud.
+              return data.length > 0 ? data : prev; 
+            });
           });
 
           unsubUnits = fbSubscribe<Unit>('units', (data) => {
-            if (data.length > 0) setUnits(data);
+             setUnits(data); // Always sync exactly what is in DB
           });
 
           unsubUsers = fbSubscribe<User>('users', (data) => {
-            if (data.length > 0) setUsers(data);
+             setUsers(data);
           });
 
           unsubRequests = fbSubscribe<RequestTicket>('requests', (data) => {
-            if (data.length > 0) setRequests(data);
+             setRequests(data);
           });
 
           unsubComments = fbSubscribe<Comment>('comments', (data) => {
-            if (data.length > 0) setComments(data);
+             setComments(data);
           });
 
         } else {
+          console.error("Failed to initialize Firebase connection.");
           setIsDbConnected(false);
         }
         setIsLoading(false);
@@ -277,6 +287,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const updateCompany = (id: string, data: Partial<Company>) => {
     setCompanies(prev => prev.map(c => c.id === id ? { ...c, ...data } : c));
+    // Use Update which is now aliased to setDoc with merge in service
     if (isDbConnected) fbUpdate('companies', id, data);
   };
 

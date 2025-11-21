@@ -1,5 +1,5 @@
 
-import { initializeApp, FirebaseApp } from 'firebase/app';
+import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getFirestore, Firestore, collection, getDocs, setDoc, doc, deleteDoc, updateDoc, onSnapshot, Unsubscribe } from 'firebase/firestore';
 import { FirebaseConfig } from '../types';
 
@@ -8,8 +8,13 @@ let db: Firestore | null = null;
 
 export const initFirebase = (config: FirebaseConfig) => {
   try {
-    // Pass the entire config object, including databaseURL if present
-    app = initializeApp(config);
+    // Check if firebase app is already initialized to prevent "App already exists" error
+    if (getApps().length === 0) {
+      app = initializeApp(config);
+    } else {
+      app = getApp();
+    }
+    
     db = getFirestore(app);
     return true;
   } catch (error) {
@@ -53,7 +58,7 @@ export const fbSubscribe = <T>(collectionName: string, callback: (data: T[]) => 
 export const fbSet = async (collectionName: string, id: string, data: any) => {
   if (!db) return;
   try {
-    await setDoc(doc(db, collectionName, id), data);
+    await setDoc(doc(db, collectionName, id), data, { merge: true });
   } catch (error) {
     console.error(`Error setting doc in ${collectionName}:`, error);
   }
@@ -62,7 +67,9 @@ export const fbSet = async (collectionName: string, id: string, data: any) => {
 export const fbUpdate = async (collectionName: string, id: string, data: any) => {
   if (!db) return;
   try {
-    await updateDoc(doc(db, collectionName, id), data);
+    // Changed to setDoc with merge: true to ensure it works even if the doc doesn't exist yet
+    // This fixes issues when transitioning from Local Storage to Firebase
+    await setDoc(doc(db, collectionName, id), data, { merge: true });
   } catch (error) {
     console.error(`Error updating doc in ${collectionName}:`, error);
   }
