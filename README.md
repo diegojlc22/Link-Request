@@ -22,18 +22,18 @@ O NexRequest permite que empresas gerenciem solicitações entre diferentes unid
 *   **Ícones:** Lucide React
 *   **Gráficos:** Recharts
 *   **Inteligência Artificial:** Google Gemini API (`@google/genai`)
-*   **Banco de Dados:** Firebase Firestore (SDK v10/v12)
+*   **Banco de Dados:** Firebase Firestore
 *   **Datas:** Date-fns
 
-## 🔑 Credenciais de Acesso (Demo)
+## 🔑 Acesso Admin (Demo)
 
-O sistema vem pré-configurado com dados de demonstração. Utilize as contas abaixo para testar os diferentes níveis de permissão:
+O sistema vem pré-configurado com um acesso de administrador para demonstração:
 
-| Perfil | Email | Senha | Permissões |
-| :--- | :--- | :--- | :--- |
-| **Admin Geral** | `admin@admin` | `admin` | Acesso total: Configurações, Banco de Dados, Usuários, Unidades e Tickets globais. |
-| **Líder de Unidade** | `roberto@techcorp.com` | `123` | Gerencia tickets e usuários apenas da sua unidade específica. |
-| **Usuário Comum** | `ana@techcorp.com` | `123` | Apenas abre tickets e visualiza suas próprias solicitações. |
+| Perfil | Email | Senha |
+| :--- | :--- | :--- |
+| **Admin Geral** | `admin@admin` | `admin` |
+
+> **Nota:** Este usuário tem acesso total para criar novas unidades, usuários e gerenciar as configurações da empresa.
 
 ## ⚙️ Configuração
 
@@ -53,9 +53,9 @@ Por padrão, o sistema usa dados fictícios salvos no navegador. Para conectar a
 
 ## 📂 Estrutura do Projeto
 
-*   `/components`: Componentes de UI reutilizáveis (Cards, Buttons, Modal, Layout).
-*   `/contexts`: Gerenciamento de estado global (`DataContext` para dados, `AuthContext` para login).
-*   `/pages`: Telas da aplicação (Dashboard, Listas, Configurações).
+*   `/components`: Componentes de UI reutilizáveis.
+*   `/contexts`: Gerenciamento de estado global.
+*   `/pages`: Telas da aplicação.
 *   `/services`: Integrações externas (`firebaseService` e `geminiService`).
 *   `/types`: Definições de Tipos TypeScript.
 

@@ -44,7 +44,7 @@ interface DataContextType {
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
-// --- MOCK DATA (INITIAL STATE - Only used if setup is bypassed or legacy) ---
+// --- MOCK DATA (INITIAL STATE) ---
 const MOCK_COMPANIES: Company[] = [
   { id: 'c1', name: 'NexRequest', domain: 'techcorp.saas.com', logoUrl: '' },
 ];
@@ -53,6 +53,7 @@ const MOCK_UNITS: Unit[] = [
   { id: 'u1', companyId: 'c1', name: 'Matriz - São Paulo', location: 'Av. Paulista, 1000' },
 ];
 
+// Default Admin Credentials: admin@admin / admin
 const MOCK_USERS: User[] = [
   { id: 'user1', companyId: 'c1', name: 'Admin', email: 'admin@admin', password: 'admin', role: UserRole.ADMIN, avatarUrl: 'https://ui-avatars.com/api/?name=Admin' },
 ];
@@ -72,7 +73,7 @@ const loadState = <T,>(key: string, fallback: T): T => {
 };
 
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // System State
+  // System State - Defaults to true so admin@admin works immediately
   const [isSetupDone, setIsSetupDone] = useState<boolean>(() => loadState('nex_is_setup_done', true));
 
   // Local Data State
