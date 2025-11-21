@@ -1,15 +1,15 @@
+
 # NexRequest SaaS - Plataforma de Gestão de Solicitações
 
-Bem-vindo ao **NexRequest**, uma plataforma moderna de Helpdesk e gestão de solicitações internas (SaaS), desenvolvida com tecnologias de ponta para garantir eficiência, organização e inteligência no atendimento.
+Bem-vindo ao **NexRequest**, uma plataforma moderna de Helpdesk e gestão de solicitações internas (SaaS), desenvolvida com tecnologias de ponta para garantir eficiência e organização no atendimento.
 
 ## 🚀 Visão Geral
 
-O NexRequest permite que empresas gerenciem solicitações entre diferentes unidades e departamentos. O sistema conta com perfis de acesso hierárquicos, dashboards analíticos e **Inteligência Artificial** integrada para auxiliar na comunicação.
+O NexRequest permite que empresas gerenciem solicitações entre diferentes unidades e departamentos. O sistema conta com perfis de acesso hierárquicos e dashboards analíticos integrados.
 
 ### ✨ Principais Funcionalidades
 
 - **Gestão de Tickets:** Criação, acompanhamento e resolução de chamados.
-- **IA Integrada (Gemini 2.5):** Sugestão automática de respostas profissionais e empáticas para os tickets.
 - **Multi-Tenant (Simulado):** Estrutura preparada para gerenciar múltiplas empresas e unidades.
 - **Banco de Dados Híbrido:** Funciona totalmente offline com `LocalStorage` (modo demo) ou conectado ao **Google Firebase** (Firestore) para persistência real.
 - **Dashboard Analítico:** Gráficos de volume, status e desempenho por unidade.
@@ -21,7 +21,6 @@ O NexRequest permite que empresas gerenciem solicitações entre diferentes unid
 *   **Estilização:** Tailwind CSS
 *   **Ícones:** Lucide React
 *   **Gráficos:** Recharts
-*   **Inteligência Artificial:** Google Gemini API (`@google/genai`)
 *   **Banco de Dados:** Firebase Firestore
 *   **Datas:** Date-fns
 
@@ -37,11 +36,7 @@ O sistema vem pré-configurado com um acesso de administrador para demonstraçã
 
 ## ⚙️ Configuração
 
-### 1. Inteligência Artificial (Google Gemini)
-O sistema utiliza a API do Google Gemini para sugerir respostas. A chave de API (`API_KEY`) é injetada automaticamente via variável de ambiente (`process.env.API_KEY`) no ambiente de execução.
-*   Funcionalidade: No detalhe de um chamado, clique no ícone de "brilho" (✨) no campo de resposta para gerar um texto automático.
-
-### 2. Banco de Dados (Firebase)
+### 1. Banco de Dados (Firebase)
 Por padrão, o sistema usa dados fictícios salvos no navegador. Para conectar a um banco real:
 
 1.  Crie um projeto no [Firebase Console](https://console.firebase.google.com/).
@@ -56,7 +51,7 @@ Por padrão, o sistema usa dados fictícios salvos no navegador. Para conectar a
 *   `/components`: Componentes de UI reutilizáveis.
 *   `/contexts`: Gerenciamento de estado global.
 *   `/pages`: Telas da aplicação.
-*   `/services`: Integrações externas (`firebaseService` e `geminiService`).
+*   `/services`: Integrações externas (`firebaseService`).
 *   `/types`: Definições de Tipos TypeScript.
 
 ---

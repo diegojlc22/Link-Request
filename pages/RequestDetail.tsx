@@ -6,8 +6,7 @@ import { RequestStatus } from '../types';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { StatusBadge, PriorityBadge } from '../components/ui/Badge';
-import { ArrowLeft, Send, Sparkles, Paperclip, User as UserIcon, ExternalLink, ShoppingBag, Image as ImageIcon } from 'lucide-react';
-import { suggestReply } from '../services/geminiService';
+import { ArrowLeft, Send, Paperclip, User as UserIcon, ExternalLink, ShoppingBag, Image as ImageIcon } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
 interface RequestDetailProps {
@@ -23,9 +22,6 @@ export const RequestDetail: React.FC<RequestDetailProps> = ({ requestId, onBack 
   const requestComments = comments.filter(c => c.requestId === requestId);
   const [newComment, setNewComment] = useState('');
   
-  // Gemini States
-  const [isSuggesting, setIsSuggesting] = useState(false);
-
   const commentsEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -44,14 +40,6 @@ export const RequestDetail: React.FC<RequestDetailProps> = ({ requestId, onBack 
     if (!newComment.trim() || !currentUser) return;
     addComment(requestId, currentUser.id, newComment);
     setNewComment('');
-  };
-
-  const handleSuggestReply = async () => {
-    setIsSuggesting(true);
-    const lastComment = requestComments.length > 0 ? requestComments[requestComments.length - 1].content : request.description;
-    const suggestion = await suggestReply(request.title, lastComment);
-    setNewComment(suggestion);
-    setIsSuggesting(false);
   };
 
   return (
@@ -145,17 +133,6 @@ export const RequestDetail: React.FC<RequestDetailProps> = ({ requestId, onBack 
                     className="w-full p-3 pr-12 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary-500 resize-none h-24"
                   />
                   <div className="absolute bottom-2 right-2 flex gap-2">
-                     {canManage && (
-                        <button 
-                          type="button"
-                          onClick={handleSuggestReply} 
-                          disabled={isSuggesting}
-                          className="p-1.5 text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors"
-                          title="Sugerir resposta com IA"
-                        >
-                           <Sparkles className="h-4 w-4" />
-                        </button>
-                     )}
                      <button type="button" className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
                        <Paperclip className="h-4 w-4" />
                      </button>
