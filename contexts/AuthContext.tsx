@@ -22,7 +22,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (user && user.password === password) {
       setCurrentUser(user);
     } else {
-      alert('Credenciais inválidas! (Senha padrão para teste: 123)');
+      alert('Credenciais inválidas! Verifique seu email e senha.');
     }
   };
 

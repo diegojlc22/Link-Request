@@ -27,13 +27,13 @@ O NexRequest permite que empresas gerenciem solicitações entre diferentes unid
 
 ## 🔑 Credenciais de Acesso (Demo)
 
-O sistema vem pré-configurado com dados de demonstração. Utilize as contas abaixo para testar os diferentes níveis de permissão (Senha padrão: `123`):
+O sistema vem pré-configurado com dados de demonstração. Utilize as contas abaixo para testar os diferentes níveis de permissão:
 
-| Perfil | Email | Permissões |
-| :--- | :--- | :--- |
-| **Admin Geral** | `admin@techcorp.com` | Acesso total: Configurações, Banco de Dados, Usuários, Unidades e Tickets globais. |
-| **Líder de Unidade** | `roberto@techcorp.com` | Gerencia tickets e usuários apenas da sua unidade específica. |
-| **Usuário Comum** | `ana@techcorp.com` | Apenas abre tickets e visualiza suas próprias solicitações. |
+| Perfil | Email | Senha | Permissões |
+| :--- | :--- | :--- | :--- |
+| **Admin Geral** | `admin@admin` | `admin` | Acesso total: Configurações, Banco de Dados, Usuários, Unidades e Tickets globais. |
+| **Líder de Unidade** | `roberto@techcorp.com` | `123` | Gerencia tickets e usuários apenas da sua unidade específica. |
+| **Usuário Comum** | `ana@techcorp.com` | `123` | Apenas abre tickets e visualiza suas próprias solicitações. |
 
 ## ⚙️ Configuração
 

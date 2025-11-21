@@ -3,6 +3,13 @@ import { Company, Unit, User, RequestTicket, Comment, UserRole, RequestStatus, F
 import { formatISO, subDays } from 'date-fns';
 import { initFirebase, fbGetAll, fbSet, fbUpdate, fbDelete, isFirebaseInitialized } from '../services/firebaseService';
 
+interface SetupData {
+  companyName: string;
+  adminName: string;
+  adminEmail: string;
+  adminPassword: string;
+}
+
 interface DataContextType {
   companies: Company[];
   units: Unit[];
@@ -10,6 +17,10 @@ interface DataContextType {
   requests: RequestTicket[];
   comments: Comment[];
   
+  // System Settings
+  isSetupDone: boolean;
+  setupSystem: (data: SetupData) => void;
+
   // Firebase
   firebaseConfig: FirebaseConfig | null;
   isDbConnected: boolean;
@@ -33,60 +44,21 @@ interface DataContextType {
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
-// --- MOCK DATA (INITIAL STATE) ---
+// --- MOCK DATA (INITIAL STATE - Only used if setup is bypassed or legacy) ---
 const MOCK_COMPANIES: Company[] = [
   { id: 'c1', name: 'NexRequest', domain: 'techcorp.saas.com', logoUrl: '' },
 ];
 
 const MOCK_UNITS: Unit[] = [
   { id: 'u1', companyId: 'c1', name: 'Matriz - São Paulo', location: 'Av. Paulista, 1000' },
-  { id: 'u2', companyId: 'c1', name: 'Filial - Campinas', location: 'Barão Geraldo' },
-  { id: 'u3', companyId: 'c1', name: 'Rio de Janeiro', location: 'Centro' },
 ];
 
 const MOCK_USERS: User[] = [
-  { id: 'user1', companyId: 'c1', name: 'Admin Geraldo', email: 'admin@techcorp.com', password: '123', role: UserRole.ADMIN, avatarUrl: 'https://picsum.photos/id/64/100/100' },
-  { id: 'user2', companyId: 'c1', unitId: 'u1', name: 'Roberto Líder', email: 'roberto@techcorp.com', password: '123', role: UserRole.LEADER, avatarUrl: 'https://picsum.photos/id/65/100/100' },
-  { id: 'user3', companyId: 'c1', unitId: 'u1', name: 'Ana Usuária', email: 'ana@techcorp.com', password: '123', role: UserRole.USER, avatarUrl: 'https://picsum.photos/id/66/100/100' },
-  { id: 'user4', companyId: 'c1', unitId: 'u2', name: 'Carlos Campinas', email: 'carlos@techcorp.com', password: '123', role: UserRole.LEADER, avatarUrl: 'https://picsum.photos/id/67/100/100' },
+  { id: 'user1', companyId: 'c1', name: 'Admin', email: 'admin@admin', password: 'admin', role: UserRole.ADMIN, avatarUrl: 'https://ui-avatars.com/api/?name=Admin' },
 ];
 
-const MOCK_REQUESTS: RequestTicket[] = [
-  {
-    id: 'r1',
-    companyId: 'c1',
-    unitId: 'u1',
-    creatorId: 'user3',
-    assigneeId: 'user2',
-    title: 'Computador não liga',
-    description: 'Ao tentar iniciar o computador hoje cedo, ele fez um bip e desligou.',
-    status: RequestStatus.IN_PROGRESS,
-    priority: 'High',
-    createdAt: formatISO(subDays(new Date(), 2)),
-    updatedAt: formatISO(subDays(new Date(), 1)),
-    attachments: [],
-    viewedByAssignee: true
-  },
-  {
-    id: 'r2',
-    companyId: 'c1',
-    unitId: 'u1',
-    creatorId: 'user3',
-    title: 'Solicitação de novo mouse',
-    description: 'O scroll do meu mouse parou de funcionar.',
-    status: RequestStatus.SENT,
-    priority: 'Low',
-    createdAt: formatISO(subDays(new Date(), 0)),
-    updatedAt: formatISO(subDays(new Date(), 0)),
-    attachments: [],
-    viewedByAssignee: false
-  },
-];
-
-const MOCK_COMMENTS: Comment[] = [
-  { id: 'cm1', requestId: 'r1', userId: 'user2', content: 'Você verificou se o cabo de força está bem conectado?', createdAt: formatISO(subDays(new Date(), 1)) },
-  { id: 'cm2', requestId: 'r1', userId: 'user3', content: 'Sim, já troquei de tomada também.', createdAt: formatISO(subDays(new Date(), 1)) },
-];
+const MOCK_REQUESTS: RequestTicket[] = [];
+const MOCK_COMMENTS: Comment[] = [];
 
 // Helper to load from localStorage
 const loadState = <T,>(key: string, fallback: T): T => {
@@ -100,7 +72,10 @@ const loadState = <T,>(key: string, fallback: T): T => {
 };
 
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Local State
+  // System State
+  const [isSetupDone, setIsSetupDone] = useState<boolean>(() => loadState('nex_is_setup_done', true));
+
+  // Local Data State
   const [companies, setCompanies] = useState<Company[]>(() => loadState('nex_companies', MOCK_COMPANIES));
   const [units, setUnits] = useState<Unit[]>(() => loadState('nex_units', MOCK_UNITS));
   const [users, setUsers] = useState<User[]>(() => loadState('nex_users', MOCK_USERS));
@@ -150,21 +125,65 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     initDb();
   }, [firebaseConfig]);
 
-  // Persist to LocalStorage whenever state changes (Backup & Offline)
+  // Persist to LocalStorage
   useEffect(() => { localStorage.setItem('nex_companies', JSON.stringify(companies)); }, [companies]);
   useEffect(() => { localStorage.setItem('nex_units', JSON.stringify(units)); }, [units]);
   useEffect(() => { localStorage.setItem('nex_users', JSON.stringify(users)); }, [users]);
   useEffect(() => { localStorage.setItem('nex_requests', JSON.stringify(requests)); }, [requests]);
   useEffect(() => { localStorage.setItem('nex_comments', JSON.stringify(comments)); }, [comments]);
+  useEffect(() => { localStorage.setItem('nex_is_setup_done', JSON.stringify(isSetupDone)); }, [isSetupDone]);
+  
   useEffect(() => { 
     if (firebaseConfig) localStorage.setItem('nex_firebase_config', JSON.stringify(firebaseConfig)); 
     else localStorage.removeItem('nex_firebase_config');
   }, [firebaseConfig]);
 
+  // --- SYSTEM ACTIONS ---
+
+  const setupSystem = (data: SetupData) => {
+    const newCompany: Company = {
+      id: 'c1',
+      name: data.companyName,
+      domain: 'system.local',
+      logoUrl: ''
+    };
+    
+    const newUnit: Unit = {
+      id: 'u1',
+      companyId: 'c1',
+      name: 'Matriz',
+      location: 'Sede Principal'
+    };
+
+    const newAdmin: User = {
+      id: 'admin1',
+      companyId: 'c1',
+      name: data.adminName,
+      email: data.adminEmail,
+      password: data.adminPassword,
+      role: UserRole.ADMIN,
+      avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(data.adminName)}&background=random`
+    };
+
+    setCompanies([newCompany]);
+    setUnits([newUnit]);
+    setUsers([newAdmin]);
+    setRequests([]);
+    setComments([]);
+    
+    setIsSetupDone(true);
+    
+    if (isDbConnected) {
+      fbSet('companies', newCompany.id, newCompany);
+      fbSet('units', newUnit.id, newUnit);
+      fbSet('users', newAdmin.id, newAdmin);
+    }
+  };
+
   const saveFirebaseConfig = (config: FirebaseConfig | null) => {
     setFirebaseConfig(config);
     if (!config) {
-       window.location.reload(); // Reload to clear state if disconnecting
+       window.location.reload(); 
     }
   };
 
@@ -251,7 +270,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       firebaseConfig, isDbConnected, saveFirebaseConfig, isLoading,
       addRequest, updateRequestStatus, addComment,
       addUnit, addUser, updateUserPassword, updateCompany, deleteUnit, deleteUser,
-      getRequestsByUnit, getRequestsByCompany, getCommentsByRequest
+      getRequestsByUnit, getRequestsByCompany, getCommentsByRequest,
+      isSetupDone, setupSystem
     }}>
       {children}
     </DataContext.Provider>

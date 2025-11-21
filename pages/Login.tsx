@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 export const Login: React.FC = () => {
   const { login } = useAuth();
   const { companies } = useData();
-  const [email, setEmail] = useState('admin@techcorp.com');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
   // Use first company for login screen branding
@@ -65,15 +65,6 @@ export const Login: React.FC = () => {
                 Entrar
               </Button>
             </form>
-
-            <div className="mt-6 text-xs text-gray-500 dark:text-gray-400 space-y-1 border-t pt-4 dark:border-gray-700">
-              <p>Dica: Use estes emails (senha: 123):</p>
-              <ul className="list-disc pl-4 space-y-1">
-                <li><strong>Admin:</strong> admin@techcorp.com</li>
-                <li><strong>Líder:</strong> roberto@techcorp.com</li>
-                <li><strong>Usuário:</strong> ana@techcorp.com</li>
-              </ul>
-            </div>
           </CardContent>
         </Card>
       </div>
