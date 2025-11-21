@@ -30,7 +30,11 @@ export const fbGetAll = async <T>(path: string): Promise<T[]> => {
   try {
     const snapshot = await get(ref(db, path));
     const val = snapshot.val();
-    return val ? Object.values(val) as T[] : [];
+    // Map keys to IDs to ensure consistency with the Observer pattern
+    return val ? Object.keys(val).map(key => ({
+      ...val[key],
+      id: key
+    })) as T[] : [];
   } catch (error) {
     console.error(`Error fetching ${path}:`, error);
     return [];
@@ -46,7 +50,11 @@ export const fbSubscribe = <T>(path: string, callback: (data: T[]) => void): Uns
     return onValue(dbRef, (snapshot) => {
       const val = snapshot.val();
       // Transform Firebase Object Map to Array for React
-      const data = val ? Object.values(val) : [];
+      // Use keys as IDs as per the Observer Pattern specification
+      const data = val ? Object.keys(val).map(key => ({
+        ...val[key],
+        id: key
+      })) : [];
       callback(data as T[]);
     }, (error) => {
       console.error(`Error subscribing to ${path}:`, error);
