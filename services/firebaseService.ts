@@ -1,21 +1,19 @@
-
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { getFirestore, Firestore, collection, getDocs, setDoc, doc, deleteDoc, updateDoc, onSnapshot, Unsubscribe } from 'firebase/firestore';
+import { getDatabase, ref, onValue, set, update, remove, get, Database, Unsubscribe } from 'firebase/database';
 import { FirebaseConfig } from '../types';
 
 let app: FirebaseApp | null = null;
-let db: Firestore | null = null;
+let db: Database | null = null;
 
 export const initFirebase = (config: FirebaseConfig) => {
   try {
-    // Check if firebase app is already initialized to prevent "App already exists" error
     if (getApps().length === 0) {
       app = initializeApp(config);
     } else {
       app = getApp();
     }
-    
-    db = getFirestore(app);
+    // Initialize Realtime Database
+    db = getDatabase(app);
     return true;
   } catch (error) {
     console.error("Firebase initialization error:", error);
@@ -27,59 +25,61 @@ export const isFirebaseInitialized = () => !!db;
 
 // Generic CRUD Helpers
 
-export const fbGetAll = async <T>(collectionName: string): Promise<T[]> => {
+export const fbGetAll = async <T>(path: string): Promise<T[]> => {
   if (!db) return [];
   try {
-    const snapshot = await getDocs(collection(db, collectionName));
-    return snapshot.docs.map(doc => doc.data() as T);
+    const snapshot = await get(ref(db, path));
+    const val = snapshot.val();
+    return val ? Object.values(val) as T[] : [];
   } catch (error) {
-    console.error(`Error fetching ${collectionName}:`, error);
+    console.error(`Error fetching ${path}:`, error);
     return [];
   }
 };
 
-// Real-time Listener
-export const fbSubscribe = <T>(collectionName: string, callback: (data: T[]) => void): Unsubscribe => {
+// Real-time Listener (Observer Pattern)
+export const fbSubscribe = <T>(path: string, callback: (data: T[]) => void): Unsubscribe => {
   if (!db) return () => {};
   try {
-    const q = collection(db, collectionName);
-    return onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(doc => doc.data() as T);
-      callback(data);
+    const dbRef = ref(db, path);
+    // The "Engine": Using onValue to listen for real-time changes
+    return onValue(dbRef, (snapshot) => {
+      const val = snapshot.val();
+      // Transform Firebase Object Map to Array for React
+      const data = val ? Object.values(val) : [];
+      callback(data as T[]);
     }, (error) => {
-      console.error(`Error subscribing to ${collectionName}:`, error);
+      console.error(`Error subscribing to ${path}:`, error);
     });
   } catch (error) {
-    console.error(`Error setting up listener for ${collectionName}:`, error);
+    console.error(`Error setting up listener for ${path}:`, error);
     return () => {};
   }
 };
 
-export const fbSet = async (collectionName: string, id: string, data: any) => {
+export const fbSet = async (path: string, id: string, data: any) => {
   if (!db) return;
   try {
-    await setDoc(doc(db, collectionName, id), data, { merge: true });
+    await set(ref(db, `${path}/${id}`), data);
   } catch (error) {
-    console.error(`Error setting doc in ${collectionName}:`, error);
+    console.error(`Error setting doc in ${path}:`, error);
   }
 };
 
-export const fbUpdate = async (collectionName: string, id: string, data: any) => {
+export const fbUpdate = async (path: string, id: string, data: any) => {
   if (!db) return;
   try {
-    // Changed to setDoc with merge: true to ensure it works even if the doc doesn't exist yet
-    // This fixes issues when transitioning from Local Storage to Firebase
-    await setDoc(doc(db, collectionName, id), data, { merge: true });
+    await update(ref(db, `${path}/${id}`), data);
   } catch (error) {
-    console.error(`Error updating doc in ${collectionName}:`, error);
+    console.error(`Error updating doc in ${path}:`, error);
   }
 };
 
-export const fbDelete = async (collectionName: string, id: string) => {
+export const fbDelete = async (path: string, id: string) => {
   if (!db) return;
   try {
-    await deleteDoc(doc(db, collectionName, id));
+    await remove(ref(db, `${path}/${id}`));
   } catch (error) {
-    console.error(`Error deleting doc in ${collectionName}:`, error);
+    console.error(`Error deleting doc in ${path}:`, error);
   }
 };

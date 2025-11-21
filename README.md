@@ -1,3 +1,4 @@
+
 # Link-Request SaaS - Plataforma de Gestão de Solicitações
 
 Bem-vindo ao **Link-Request**, uma plataforma moderna de Helpdesk e gestão de solicitações internas (SaaS), desenvolvida com tecnologias de ponta para garantir eficiência e organização no atendimento.
@@ -10,7 +11,7 @@ O Link-Request permite que empresas gerenciem solicitações entre diferentes un
 
 - **Gestão de Tickets:** Criação, acompanhamento e resolução de chamados.
 - **Multi-Tenant (Simulado):** Estrutura preparada para gerenciar múltiplas empresas e unidades.
-- **Banco de Dados Híbrido:** Funciona totalmente offline com `LocalStorage` (modo demo) ou conectado ao **Google Firebase** (Firestore) para persistência real.
+- **Banco de Dados Híbrido:** Funciona totalmente offline com `LocalStorage` (modo demo) ou conectado ao **Google Firebase Realtime Database** para persistência real.
 - **Dashboard Analítico:** Gráficos de volume, status e desempenho por unidade.
 - **Modo Escuro (Dark Mode):** Interface adaptável para conforto visual.
 
@@ -49,7 +50,7 @@ O sistema é dividido em 3 níveis hierárquicos, determinando o que cada usuár
 *   **Estilização:** Tailwind CSS
 *   **Ícones:** Lucide React
 *   **Gráficos:** Recharts
-*   **Banco de Dados:** Firebase Firestore
+*   **Banco de Dados:** Firebase Realtime Database (RTDB)
 *   **Datas:** Date-fns
 
 ## 🔑 Acesso Admin (Demo)
@@ -68,10 +69,10 @@ O sistema vem pré-configurado com um acesso de administrador para demonstraçã
 Por padrão, o sistema usa dados fictícios salvos no navegador. Para conectar a um banco real:
 
 1.  Crie um projeto no [Firebase Console](https://console.firebase.google.com/).
-2.  Crie um banco de dados **Firestore**.
+2.  Crie um banco de dados **Realtime Database** (não Firestore).
 3.  No Link-Request, logue como **Admin**.
 4.  Vá até o menu **Banco de Dados**.
-5.  Cole o objeto de configuração `const firebaseConfig = { ... }` fornecido pelo Firebase.
+5.  Cole o objeto de configuração `const firebaseConfig = { ... }` fornecido pelo Firebase (certifique-se de que inclui `databaseURL`).
 6.  Clique em **Salvar e Conectar**.
 
 ## 📂 Estrutura do Projeto
