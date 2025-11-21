@@ -15,7 +15,13 @@
     "lucide-react": "^0.554.0",
     "recharts": "^3.4.1",
     "react-markdown": "^10.1.0",
-    "firebase": "^12.6.0"
+    "firebase": "^12.6.0",
+    "express": "^5.1.0",
+    "http": "^0.0.1-security",
+    "socket.io": "^4.8.1",
+    "sqlite3": "^5.1.7",
+    "cors": "^2.8.5",
+    "socket.io-client": "^4.8.1"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
