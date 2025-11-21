@@ -1,10 +1,11 @@
+
 import React, { createContext, useContext, useState } from 'react';
 import { User, UserRole } from '../types';
 import { useData } from './DataContext';
 
 interface AuthContextType {
   currentUser: User | null;
-  login: (email: string, password: string) => void;
+  login: (email: string, password: string) => boolean;
   logout: () => void;
   isAuthenticated: boolean;
   isAdmin: boolean;
@@ -21,8 +22,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const user = users.find(u => u.email === email);
     if (user && user.password === password) {
       setCurrentUser(user);
+      return true;
     } else {
-      alert('Credenciais inválidas! Verifique seu email e senha.');
+      return false;
     }
   };
 
