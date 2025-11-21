@@ -1,5 +1,5 @@
-
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
 import { Button } from '../components/ui/Button';
@@ -9,6 +9,8 @@ import { AlertCircle } from 'lucide-react';
 export const Login: React.FC = () => {
   const { login } = useAuth();
   const { companies } = useData();
+  const navigate = useNavigate();
+  
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -31,6 +33,9 @@ export const Login: React.FC = () => {
     const success = login(email, password);
     if (!success) {
       setError('Credenciais inválidas! Verifique seu email e senha.');
+    } else {
+      // Successful login
+      navigate('/');
     }
   };
 

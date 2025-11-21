@@ -1,5 +1,5 @@
-
 import React, { useState, useEffect, useRef } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
 import { RequestStatus } from '../types';
@@ -7,19 +7,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { Button } from '../components/ui/Button';
 import { StatusBadge, PriorityBadge } from '../components/ui/Badge';
 import { ArrowLeft, Send, Paperclip, User as UserIcon, ExternalLink, ShoppingBag, Image as ImageIcon } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
 
-interface RequestDetailProps {
-  requestId: string;
-  onBack: () => void;
-}
-
-export const RequestDetail: React.FC<RequestDetailProps> = ({ requestId, onBack }) => {
+export const RequestDetail: React.FC = () => {
+  const { id } = useParams();
+  const navigate = useNavigate();
   const { requests, comments, users, units, addComment, updateRequestStatus } = useData();
   const { currentUser, isAdmin, isLeader } = useAuth();
   
-  const request = requests.find(r => r.id === requestId);
-  const requestComments = comments.filter(c => c.requestId === requestId);
+  const request = requests.find(r => r.id === id);
+  const requestComments = comments.filter(c => c.requestId === id);
   const [newComment, setNewComment] = useState('');
   
   const commentsEndRef = useRef<HTMLDivElement>(null);
@@ -28,7 +24,14 @@ export const RequestDetail: React.FC<RequestDetailProps> = ({ requestId, onBack 
     commentsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [requestComments]);
 
-  if (!request) return <div>Requisição não encontrada</div>;
+  if (!request) return (
+    <div className="p-8 text-center">
+      <h2 className="text-xl font-bold text-gray-700 dark:text-white">Requisição não encontrada</h2>
+      <Button variant="ghost" onClick={() => navigate('/requests')} className="mt-4">
+        Voltar para lista
+      </Button>
+    </div>
+  );
 
   const creator = users.find(u => u.id === request.creatorId);
   const unit = units.find(u => u.id === request.unitId);
@@ -38,13 +41,15 @@ export const RequestDetail: React.FC<RequestDetailProps> = ({ requestId, onBack 
   const handleSendComment = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newComment.trim() || !currentUser) return;
-    addComment(requestId, currentUser.id, newComment);
+    if (id) {
+        addComment(id, currentUser.id, newComment);
+    }
     setNewComment('');
   };
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 pb-8">
-      <Button variant="ghost" onClick={onBack} className="mb-4 pl-0 hover:bg-transparent hover:text-primary-600">
+      <Button variant="ghost" onClick={() => navigate('/requests')} className="mb-4 pl-0 hover:bg-transparent hover:text-primary-600">
         <ArrowLeft className="h-4 w-4 mr-2" />
         Voltar para a lista
       </Button>
@@ -190,14 +195,14 @@ export const RequestDetail: React.FC<RequestDetailProps> = ({ requestId, onBack 
              </CardContent>
            </Card>
 
-           {canManage && (
+           {canManage && request && (
              <Card>
                <CardHeader><CardTitle>Gerenciar</CardTitle></CardHeader>
                <CardContent className="space-y-3">
                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Alterar Status</label>
                  <select 
                    value={request.status}
-                   onChange={(e) => updateRequestStatus(requestId, e.target.value as RequestStatus)}
+                   onChange={(e) => updateRequestStatus(request.id, e.target.value as RequestStatus)}
                    className="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm"
                  >
                    {Object.values(RequestStatus).map(s => (

@@ -1,11 +1,9 @@
-
 import React, { useState } from 'react';
 import { 
   LayoutDashboard, 
   Ticket, 
   Users, 
   Building2, 
-  Settings, 
   LogOut, 
   Menu, 
   Sun, 
@@ -14,22 +12,21 @@ import {
   Briefcase,
   Database
 } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
-import { UserRole } from '../types';
-import { Button } from './ui/Button';
 
 interface LayoutProps {
   children: React.ReactNode;
-  currentView: string;
-  onNavigate: (view: string) => void;
 }
 
-export const Layout: React.FC<LayoutProps> = ({ children, currentView, onNavigate }) => {
+export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { currentUser, logout, isAdmin } = useAuth();
   const { companies } = useData();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isDark, setIsDark] = useState(false);
+  const location = useLocation();
+  const navigate = useNavigate();
 
   // Get Current Company (Mock: first one or user's company)
   const currentCompany = companies.find(c => c.id === currentUser?.companyId) || companies[0];
@@ -46,18 +43,23 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentView, onNavigat
   };
 
   const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'requests', label: 'Requisições', icon: Ticket },
+    { path: '/', label: 'Dashboard', icon: LayoutDashboard },
+    { path: '/requests', label: 'Requisições', icon: Ticket },
   ];
 
   if (isAdmin) {
     menuItems.push(
-      { id: 'units', label: 'Unidades', icon: Building2 },
-      { id: 'users', label: 'Usuários', icon: Users },
-      { id: 'company', label: 'Minha Empresa', icon: Briefcase },
-      { id: 'database', label: 'Banco de Dados', icon: Database },
+      { path: '/admin/units', label: 'Unidades', icon: Building2 },
+      { path: '/admin/users', label: 'Usuários', icon: Users },
+      { path: '/admin/company', label: 'Minha Empresa', icon: Briefcase },
+      { path: '/admin/database', label: 'Banco de Dados', icon: Database },
     );
   }
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
@@ -88,14 +90,14 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentView, onNavigat
         <nav className="p-4 space-y-1">
           {menuItems.map((item) => {
             const Icon = item.icon;
-            const isActive = currentView === item.id;
+            // Check if exact match (for dashboard) or starts with (for sub-sections)
+            const isActive = location.pathname === item.path || (item.path !== '/' && location.pathname.startsWith(item.path));
+            
             return (
-              <button
-                key={item.id}
-                onClick={() => {
-                  onNavigate(item.id);
-                  setIsSidebarOpen(false);
-                }}
+              <Link
+                key={item.path}
+                to={item.path}
+                onClick={() => setIsSidebarOpen(false)}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-sm font-medium
                   ${isActive 
                     ? 'bg-primary-50 text-primary-700 dark:bg-primary-900/20 dark:text-primary-300' 
@@ -104,7 +106,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentView, onNavigat
               >
                 <Icon className="h-5 w-5" />
                 {item.label}
-              </button>
+              </Link>
             );
           })}
         </nav>
@@ -126,7 +128,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentView, onNavigat
             </div>
           </div>
           <button 
-            onClick={logout}
+            onClick={handleLogout}
             className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
           >
             <LogOut className="h-4 w-4" />

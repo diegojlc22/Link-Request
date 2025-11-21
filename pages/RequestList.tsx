@@ -1,5 +1,5 @@
-
 import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
 import { RequestStatus } from '../types';
@@ -9,13 +9,11 @@ import { StatusBadge, PriorityBadge } from '../components/ui/Badge';
 import { Plus, Search, Filter, Link as LinkIcon, Image as ImageIcon, X, User as UserIcon, UserCheck, Calendar } from 'lucide-react';
 import { Modal } from '../components/ui/Modal';
 
-interface RequestListProps {
-  onSelectRequest: (id: string) => void;
-}
-
-export const RequestList: React.FC<RequestListProps> = ({ onSelectRequest }) => {
+export const RequestList: React.FC = () => {
   const { requests, units, addRequest, users } = useData();
   const { currentUser } = useAuth();
+  const navigate = useNavigate();
+
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [assigneeFilter, setAssigneeFilter] = useState<string>('ALL');
@@ -215,7 +213,7 @@ export const RequestList: React.FC<RequestListProps> = ({ onSelectRequest }) => 
                         {new Date(req.updatedAt).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4">
-                        <Button size="sm" variant="secondary" onClick={() => onSelectRequest(req.id)}>
+                        <Button size="sm" variant="secondary" onClick={() => navigate(`/requests/${req.id}`)}>
                           Ver
                         </Button>
                       </td>

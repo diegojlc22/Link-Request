@@ -1,5 +1,5 @@
-
-import React, { useState, Suspense } from 'react';
+import React, { Suspense } from 'react';
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { DataProvider, useData } from './contexts/DataContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Login } from './pages/Login';
@@ -9,7 +9,7 @@ import { RequestDetail } from './pages/RequestDetail';
 import { SetupPage } from './pages/SetupPage';
 import { Layout } from './components/Layout';
 
-// Lazy Load Admin Pages to improve initial load performance
+// Lazy Load Admin Pages
 const AdminUnits = React.lazy(() => import('./pages/AdminUnits').then(module => ({ default: module.AdminUnits })));
 const AdminUsers = React.lazy(() => import('./pages/AdminUsers').then(module => ({ default: module.AdminUsers })));
 const AdminCompany = React.lazy(() => import('./pages/AdminCompany').then(module => ({ default: module.AdminCompany })));
@@ -24,58 +24,59 @@ const LoadingSpinner = () => (
 const AppContent: React.FC = () => {
   const { isAuthenticated } = useAuth();
   const { isSetupDone } = useData();
-  const [currentView, setCurrentView] = useState('dashboard');
-  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
 
-  // Redirect to Setup if not done
+  // Setup Flow
   if (!isSetupDone) {
     return <SetupPage />;
   }
 
-  if (!isAuthenticated) {
-    return <Login />;
-  }
-
-  const renderView = () => {
-    if (selectedRequestId) {
-      return <RequestDetail requestId={selectedRequestId} onBack={() => setSelectedRequestId(null)} />;
-    }
-
-    switch (currentView) {
-      case 'dashboard':
-        return <Dashboard />;
-      case 'requests':
-        return <RequestList onSelectRequest={setSelectedRequestId} />;
-      case 'units':
-        return <Suspense fallback={<LoadingSpinner />}><AdminUnits /></Suspense>;
-      case 'users':
-        return <Suspense fallback={<LoadingSpinner />}><AdminUsers /></Suspense>;
-      case 'company':
-        return <Suspense fallback={<LoadingSpinner />}><AdminCompany /></Suspense>;
-      case 'database':
-        return <Suspense fallback={<LoadingSpinner />}><AdminDatabase /></Suspense>;
-      default:
-        return <Dashboard />;
-    }
-  };
-
   return (
-    <Layout currentView={currentView} onNavigate={(view) => {
-      setCurrentView(view);
-      setSelectedRequestId(null);
-    }}>
-      {renderView()}
-    </Layout>
+    <Routes>
+      <Route 
+        path="/login" 
+        element={isAuthenticated ? <Navigate to="/" replace /> : <Login />} 
+      />
+      
+      <Route
+        path="/*"
+        element={
+          isAuthenticated ? (
+            <Layout>
+              <Suspense fallback={<LoadingSpinner />}>
+                <Routes>
+                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/requests" element={<RequestList />} />
+                  <Route path="/requests/:id" element={<RequestDetail />} />
+                  
+                  {/* Admin Routes */}
+                  <Route path="/admin/units" element={<AdminUnits />} />
+                  <Route path="/admin/users" element={<AdminUsers />} />
+                  <Route path="/admin/company" element={<AdminCompany />} />
+                  <Route path="/admin/database" element={<AdminDatabase />} />
+                  
+                  {/* Catch-all redirect to dashboard */}
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+              </Suspense>
+            </Layout>
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
+      />
+    </Routes>
   );
 };
 
 const App: React.FC = () => {
   return (
-    <DataProvider>
-      <AuthProvider>
-        <AppContent />
-      </AuthProvider>
-    </DataProvider>
+    <HashRouter>
+      <DataProvider>
+        <AuthProvider>
+          <AppContent />
+        </AuthProvider>
+      </DataProvider>
+    </HashRouter>
   );
 };
 
