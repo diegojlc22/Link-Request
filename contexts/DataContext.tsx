@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Company, Unit, User, RequestTicket, Comment, UserRole, RequestStatus, FirebaseConfig } from '../types';
 import { formatISO, subDays } from 'date-fns';
@@ -46,7 +47,7 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 
 // --- MOCK DATA (INITIAL STATE) ---
 const MOCK_COMPANIES: Company[] = [
-  { id: 'c1', name: 'NexRequest', domain: 'techcorp.saas.com', logoUrl: '' },
+  { id: 'c1', name: 'Link-Request', domain: 'techcorp.saas.com', logoUrl: '' },
 ];
 
 const MOCK_UNITS: Unit[] = [
@@ -74,17 +75,17 @@ const loadState = <T,>(key: string, fallback: T): T => {
 
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // System State - Defaults to true so admin@admin works immediately
-  const [isSetupDone, setIsSetupDone] = useState<boolean>(() => loadState('nex_is_setup_done', true));
+  const [isSetupDone, setIsSetupDone] = useState<boolean>(() => loadState('link_req_is_setup_done', true));
 
   // Local Data State
-  const [companies, setCompanies] = useState<Company[]>(() => loadState('nex_companies', MOCK_COMPANIES));
-  const [units, setUnits] = useState<Unit[]>(() => loadState('nex_units', MOCK_UNITS));
-  const [users, setUsers] = useState<User[]>(() => loadState('nex_users', MOCK_USERS));
-  const [requests, setRequests] = useState<RequestTicket[]>(() => loadState('nex_requests', MOCK_REQUESTS));
-  const [comments, setComments] = useState<Comment[]>(() => loadState('nex_comments', MOCK_COMMENTS));
+  const [companies, setCompanies] = useState<Company[]>(() => loadState('link_req_companies', MOCK_COMPANIES));
+  const [units, setUnits] = useState<Unit[]>(() => loadState('link_req_units', MOCK_UNITS));
+  const [users, setUsers] = useState<User[]>(() => loadState('link_req_users', MOCK_USERS));
+  const [requests, setRequests] = useState<RequestTicket[]>(() => loadState('link_req_requests', MOCK_REQUESTS));
+  const [comments, setComments] = useState<Comment[]>(() => loadState('link_req_comments', MOCK_COMMENTS));
   
   // Firebase State
-  const [firebaseConfig, setFirebaseConfig] = useState<FirebaseConfig | null>(() => loadState('nex_firebase_config', null));
+  const [firebaseConfig, setFirebaseConfig] = useState<FirebaseConfig | null>(() => loadState('link_req_firebase_config', null));
   const [isDbConnected, setIsDbConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -127,16 +128,16 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [firebaseConfig]);
 
   // Persist to LocalStorage
-  useEffect(() => { localStorage.setItem('nex_companies', JSON.stringify(companies)); }, [companies]);
-  useEffect(() => { localStorage.setItem('nex_units', JSON.stringify(units)); }, [units]);
-  useEffect(() => { localStorage.setItem('nex_users', JSON.stringify(users)); }, [users]);
-  useEffect(() => { localStorage.setItem('nex_requests', JSON.stringify(requests)); }, [requests]);
-  useEffect(() => { localStorage.setItem('nex_comments', JSON.stringify(comments)); }, [comments]);
-  useEffect(() => { localStorage.setItem('nex_is_setup_done', JSON.stringify(isSetupDone)); }, [isSetupDone]);
+  useEffect(() => { localStorage.setItem('link_req_companies', JSON.stringify(companies)); }, [companies]);
+  useEffect(() => { localStorage.setItem('link_req_units', JSON.stringify(units)); }, [units]);
+  useEffect(() => { localStorage.setItem('link_req_users', JSON.stringify(users)); }, [users]);
+  useEffect(() => { localStorage.setItem('link_req_requests', JSON.stringify(requests)); }, [requests]);
+  useEffect(() => { localStorage.setItem('link_req_comments', JSON.stringify(comments)); }, [comments]);
+  useEffect(() => { localStorage.setItem('link_req_is_setup_done', JSON.stringify(isSetupDone)); }, [isSetupDone]);
   
   useEffect(() => { 
-    if (firebaseConfig) localStorage.setItem('nex_firebase_config', JSON.stringify(firebaseConfig)); 
-    else localStorage.removeItem('nex_firebase_config');
+    if (firebaseConfig) localStorage.setItem('link_req_firebase_config', JSON.stringify(firebaseConfig)); 
+    else localStorage.removeItem('link_req_firebase_config');
   }, [firebaseConfig]);
 
   // --- SYSTEM ACTIONS ---

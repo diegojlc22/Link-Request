@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -58,7 +59,7 @@ export const AdminCompany: React.FC = () => {
                             value={name} 
                             onChange={e => setName(e.target.value)} 
                             className="w-full pl-10 pr-4 py-2 border rounded-lg bg-white dark:bg-gray-700 dark:border-gray-600" 
-                            placeholder="Ex: NexRequest SaaS" 
+                            placeholder="Ex: Link-Request SaaS" 
                         />
                     </div>
                 </div>

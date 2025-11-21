@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useData } from '../contexts/DataContext';
 import { Button } from '../components/ui/Button';
@@ -30,7 +31,7 @@ export const SetupPage: React.FC = () => {
           <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-primary-600 text-white mb-4 shadow-lg shadow-primary-600/30">
             <Rocket className="h-8 w-8" />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Instalação NexRequest</h1>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Instalação Link-Request</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-2">Configure seu ambiente em poucos passos.</p>
         </div>
 
@@ -123,7 +124,7 @@ export const SetupPage: React.FC = () => {
           </CardContent>
         </Card>
         <p className="text-center text-xs text-gray-400 mt-8">
-           © 2025 NexRequest SaaS. Todos os direitos reservados.
+           © 2025 Link-Request SaaS. Todos os direitos reservados.
         </p>
       </div>
     </div>

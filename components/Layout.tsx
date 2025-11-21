@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { 
   LayoutDashboard, 
@@ -32,7 +33,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentView, onNavigat
 
   // Get Current Company (Mock: first one or user's company)
   const currentCompany = companies.find(c => c.id === currentUser?.companyId) || companies[0];
-  const companyName = currentCompany?.name || 'NexRequest';
+  const companyName = currentCompany?.name || 'Link-Request';
   const companyLogoLetter = companyName.charAt(0).toUpperCase();
 
   const toggleTheme = () => {

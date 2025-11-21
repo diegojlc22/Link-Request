@@ -1,11 +1,11 @@
 
-# NexRequest SaaS - Plataforma de Gestão de Solicitações
+# Link-Request SaaS - Plataforma de Gestão de Solicitações
 
-Bem-vindo ao **NexRequest**, uma plataforma moderna de Helpdesk e gestão de solicitações internas (SaaS), desenvolvida com tecnologias de ponta para garantir eficiência e organização no atendimento.
+Bem-vindo ao **Link-Request**, uma plataforma moderna de Helpdesk e gestão de solicitações internas (SaaS), desenvolvida com tecnologias de ponta para garantir eficiência e organização no atendimento.
 
 ## 🚀 Visão Geral
 
-O NexRequest permite que empresas gerenciem solicitações entre diferentes unidades e departamentos. O sistema conta com perfis de acesso hierárquicos e dashboards analíticos integrados.
+O Link-Request permite que empresas gerenciem solicitações entre diferentes unidades e departamentos. O sistema conta com perfis de acesso hierárquicos e dashboards analíticos integrados.
 
 ### ✨ Principais Funcionalidades
 
@@ -41,7 +41,7 @@ Por padrão, o sistema usa dados fictícios salvos no navegador. Para conectar a
 
 1.  Crie um projeto no [Firebase Console](https://console.firebase.google.com/).
 2.  Crie um banco de dados **Firestore**.
-3.  No NexRequest, logue como **Admin**.
+3.  No Link-Request, logue como **Admin**.
 4.  Vá até o menu **Banco de Dados**.
 5.  Cole o objeto de configuração `const firebaseConfig = { ... }` fornecido pelo Firebase.
 6.  Clique em **Salvar e Conectar**.

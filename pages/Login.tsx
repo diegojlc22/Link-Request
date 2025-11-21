@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
@@ -12,7 +13,7 @@ export const Login: React.FC = () => {
 
   // Use first company for login screen branding
   const company = companies[0];
-  const companyName = company?.name || 'NexRequest';
+  const companyName = company?.name || 'Link-Request';
   const companyLogoLetter = companyName.charAt(0).toUpperCase();
 
   const handleSubmit = (e: React.FormEvent) => {
