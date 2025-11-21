@@ -28,10 +28,23 @@ export const AdminDatabase: React.FC = () => {
   }, [firebaseConfig]);
 
   const extractValue = (input: string, key: string) => {
-    // Regex to match key: "value" or key: 'value' or "key": "value"
-    const regex = new RegExp(`${key}["']?\\s*:\\s*["']([^"']+)["']`);
-    const match = input.match(regex);
-    return match ? match[1] : '';
+    // Robust Regex to match key: "value", "key": "value", key: 'value'
+    // Captures value inside quotes, handling both single and double quotes correctly
+    try {
+      // Explicação da Regex:
+      // ["']? -> aspas opcionais no inicio da chave
+      // ${key} -> nome da chave
+      // ["']? -> aspas opcionais no fim da chave
+      // \s*:\s* -> dois pontos com espaços opcionais
+      // (["']) -> captura o tipo de aspas de abertura (grupo 1)
+      // (.*?) -> captura o valor de forma não gulosa (grupo 2)
+      // \1 -> garante que as aspas de fechamento sejam iguais às de abertura
+      const regex = new RegExp(`["']?${key}["']?\\s*:\\s*(["'])(.*?)\\1`);
+      const match = input.match(regex);
+      return match ? match[2] : '';
+    } catch (e) {
+      return '';
+    }
   };
 
   const handleConnect = (e: React.FormEvent) => {
@@ -48,11 +61,11 @@ export const AdminDatabase: React.FC = () => {
       const databaseURL = extractValue(configInput, 'databaseURL');
 
       if (!apiKey || !projectId || !appId) {
-        throw new Error("Não foi possível identificar as configurações essenciais. Verifique se o código foi copiado corretamente.");
+        throw new Error("Não foi possível identificar as configurações essenciais (apiKey, projectId, appId). Verifique se o código está no formato correto.");
       }
 
       if (!databaseURL) {
-        throw new Error("O campo 'databaseURL' é obrigatório. Certifique-se de ter criado um Realtime Database (e não Firestore).");
+        throw new Error("O campo 'databaseURL' não foi encontrado ou está vazio. Certifique-se de ter criado um Realtime Database no console do Firebase e copiado o código atualizado.");
       }
 
       saveFirebaseConfig({
@@ -145,8 +158,9 @@ export const AdminDatabase: React.FC = () => {
                 </div>
 
                 {error && (
-                    <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100">
-                        {error}
+                    <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100 flex items-center gap-2">
+                        <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                        <span>{error}</span>
                     </div>
                 )}
 
@@ -165,6 +179,12 @@ export const AdminDatabase: React.FC = () => {
                <p className="text-gray-500 max-w-md mx-auto">
                  Seu sistema está conectado via <strong>Realtime Database</strong>. As atualizações são recebidas instantaneamente.
                </p>
+               {/* Exibir config atual mascarada */}
+               <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg text-left font-mono text-xs text-gray-500 overflow-x-auto">
+                 <p>ProjectId: {firebaseConfig?.projectId}</p>
+                 <p>AuthDomain: {firebaseConfig?.authDomain}</p>
+                 <p>DatabaseURL: {firebaseConfig?.databaseURL}</p>
+               </div>
              </div>
            )}
         </CardContent>
