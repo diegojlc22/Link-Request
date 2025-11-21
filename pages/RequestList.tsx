@@ -6,7 +6,7 @@ import { RequestStatus, RequestTicket } from '../types';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { StatusBadge, PriorityBadge } from '../components/ui/Badge';
-import { Plus, Search, Filter, Link as LinkIcon, Image as ImageIcon, X, User, UserCheck } from 'lucide-react';
+import { Plus, Search, Filter, Link as LinkIcon, Image as ImageIcon, X, User, UserCheck, Calendar } from 'lucide-react';
 import { Modal } from '../components/ui/Modal';
 
 interface RequestListProps {
@@ -241,7 +241,19 @@ export const RequestList: React.FC<RequestListProps> = ({ onSelectRequest }) => 
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-2">
+                 <Calendar className="h-3 w-3" /> Data de Criação
+              </label>
+              <input 
+                type="text" 
+                disabled 
+                value={new Date().toLocaleString('pt-BR')} 
+                className="w-full px-3 py-2 border rounded-lg bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed" 
+              />
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Prioridade</label>
               <select value={newPriority} onChange={e => setNewPriority(e.target.value as any)} className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 dark:border-gray-600">
