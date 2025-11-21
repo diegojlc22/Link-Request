@@ -1,4 +1,3 @@
-
 # Link-Request SaaS - Plataforma de Gestão de Solicitações
 
 Bem-vindo ao **Link-Request**, uma plataforma moderna de Helpdesk e gestão de solicitações internas (SaaS), desenvolvida com tecnologias de ponta para garantir eficiência e organização no atendimento.
