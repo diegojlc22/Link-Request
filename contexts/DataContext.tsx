@@ -1,8 +1,8 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Company, Unit, User, RequestTicket, Comment, UserRole, RequestStatus, FirebaseConfig } from '../types';
-import { formatISO, subDays } from 'date-fns';
-import { initFirebase, fbGetAll, fbSet, fbUpdate, fbDelete, isFirebaseInitialized } from '../services/firebaseService';
+import { Company, Unit, User, RequestTicket, Comment, UserRole, RequestStatus, FirebaseConfig, ServerConfig } from '../types';
+import { formatISO } from 'date-fns';
+import { initFirebase, fbGetAll, fbSet, fbUpdate, fbDelete } from '../services/firebaseService';
 
 interface SetupData {
   companyName: string;
@@ -10,6 +10,8 @@ interface SetupData {
   adminEmail: string;
   adminPassword: string;
 }
+
+type StorageProvider = 'LOCAL' | 'FIREBASE' | 'SQLITE_SERVER';
 
 interface DataContextType {
   companies: Company[];
@@ -22,10 +24,19 @@ interface DataContextType {
   isSetupDone: boolean;
   setupSystem: (data: SetupData) => void;
 
+  // Database Config
+  storageProvider: StorageProvider;
+  setStorageProvider: (provider: StorageProvider) => void;
+  
   // Firebase
   firebaseConfig: FirebaseConfig | null;
-  isDbConnected: boolean;
   saveFirebaseConfig: (config: FirebaseConfig | null) => void;
+  
+  // SQLite Server
+  serverConfig: ServerConfig | null;
+  saveServerConfig: (config: ServerConfig | null) => void;
+
+  isDbConnected: boolean;
   isLoading: boolean;
 
   // Actions
@@ -74,8 +85,9 @@ const loadState = <T,>(key: string, fallback: T): T => {
 };
 
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // System State - Defaults to true so admin@admin works immediately
+  // System State
   const [isSetupDone, setIsSetupDone] = useState<boolean>(() => loadState('link_req_is_setup_done', true));
+  const [storageProvider, setStorageProvider] = useState<StorageProvider>(() => loadState('link_req_provider', 'LOCAL'));
 
   // Local Data State
   const [companies, setCompanies] = useState<Company[]>(() => loadState('link_req_companies', MOCK_COMPANIES));
@@ -84,20 +96,29 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [requests, setRequests] = useState<RequestTicket[]>(() => loadState('link_req_requests', MOCK_REQUESTS));
   const [comments, setComments] = useState<Comment[]>(() => loadState('link_req_comments', MOCK_COMMENTS));
   
-  // Firebase State
-  const [firebaseConfig, setFirebaseConfig] = useState<FirebaseConfig | null>(() => loadState('link_req_firebase_config', null));
+  // DB Configs
+  const [firebaseConfig, setFirebaseConfigState] = useState<FirebaseConfig | null>(() => loadState('link_req_firebase_config', null));
+  const [serverConfig, setServerConfigState] = useState<ServerConfig | null>(() => loadState('link_req_server_config', null));
+  
   const [isDbConnected, setIsDbConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Initialize Firebase if config exists
+  // --- CONNECTION LOGIC ---
+
   useEffect(() => {
-    const initDb = async () => {
-      if (firebaseConfig) {
-        setIsLoading(true);
+    const connectDb = async () => {
+      setIsDbConnected(false);
+      
+      if (storageProvider === 'LOCAL') {
+        return; // Ready immediately
+      }
+
+      setIsLoading(true);
+
+      if (storageProvider === 'FIREBASE' && firebaseConfig) {
         const success = initFirebase(firebaseConfig);
         if (success) {
           setIsDbConnected(true);
-          // Fetch data from Firestore
           try {
              const fbCompanies = await fbGetAll<Company>('companies');
              if (fbCompanies.length > 0) setCompanies(fbCompanies);
@@ -116,18 +137,31 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           } catch (e) {
             console.error("Failed to sync with Firebase", e);
           }
-        } else {
-          setIsDbConnected(false);
         }
-        setIsLoading(false);
-      } else {
-        setIsDbConnected(false);
+      } else if (storageProvider === 'SQLITE_SERVER' && serverConfig) {
+        // SIMULATION OF REAL-TIME SQLITE SERVER CONNECTION
+        // In a real app, this would be: const socket = io(serverConfig.serverUrl);
+        console.log(`Connecting to SQLite Server at ${serverConfig.serverUrl}...`);
+        
+        try {
+          // Simulating a network delay
+          await new Promise(resolve => setTimeout(resolve, 800));
+          setIsDbConnected(true);
+          console.log("Connected to SQLite Server (Simulated)");
+          // Here you would do: socket.on('initial_data', (data) => setData(data));
+        } catch (e) {
+          console.error("Failed to connect to Server", e);
+        }
       }
-    };
-    initDb();
-  }, [firebaseConfig]);
 
-  // Persist to LocalStorage
+      setIsLoading(false);
+    };
+
+    connectDb();
+  }, [storageProvider, firebaseConfig, serverConfig]);
+
+  // --- PERSISTENCE ---
+  useEffect(() => { localStorage.setItem('link_req_provider', JSON.stringify(storageProvider)); }, [storageProvider]);
   useEffect(() => { localStorage.setItem('link_req_companies', JSON.stringify(companies)); }, [companies]);
   useEffect(() => { localStorage.setItem('link_req_units', JSON.stringify(units)); }, [units]);
   useEffect(() => { localStorage.setItem('link_req_users', JSON.stringify(users)); }, [users]);
@@ -135,10 +169,27 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => { localStorage.setItem('link_req_comments', JSON.stringify(comments)); }, [comments]);
   useEffect(() => { localStorage.setItem('link_req_is_setup_done', JSON.stringify(isSetupDone)); }, [isSetupDone]);
   
-  useEffect(() => { 
-    if (firebaseConfig) localStorage.setItem('link_req_firebase_config', JSON.stringify(firebaseConfig)); 
-    else localStorage.removeItem('link_req_firebase_config');
-  }, [firebaseConfig]);
+  const saveFirebaseConfig = (config: FirebaseConfig | null) => {
+    setFirebaseConfigState(config);
+    if (config) {
+      localStorage.setItem('link_req_firebase_config', JSON.stringify(config));
+      setStorageProvider('FIREBASE');
+    } else {
+      localStorage.removeItem('link_req_firebase_config');
+      setStorageProvider('LOCAL');
+    }
+  };
+
+  const saveServerConfig = (config: ServerConfig | null) => {
+    setServerConfigState(config);
+    if (config) {
+      localStorage.setItem('link_req_server_config', JSON.stringify(config));
+      setStorageProvider('SQLITE_SERVER');
+    } else {
+      localStorage.removeItem('link_req_server_config');
+      setStorageProvider('LOCAL');
+    }
+  };
 
   // --- SYSTEM ACTIONS ---
 
@@ -149,14 +200,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       domain: 'system.local',
       logoUrl: ''
     };
-    
     const newUnit: Unit = {
       id: 'u1',
       companyId: 'c1',
       name: 'Matriz',
       location: 'Sede Principal'
     };
-
     const newAdmin: User = {
       id: 'admin1',
       companyId: 'c1',
@@ -172,24 +221,19 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUsers([newAdmin]);
     setRequests([]);
     setComments([]);
-    
     setIsSetupDone(true);
     
-    if (isDbConnected) {
+    // Initial Sync if connected
+    if (isDbConnected && storageProvider === 'FIREBASE') {
       fbSet('companies', newCompany.id, newCompany);
       fbSet('units', newUnit.id, newUnit);
       fbSet('users', newAdmin.id, newAdmin);
     }
+    // If SQLite, we would emit: socket.emit('setup_system', { ... })
   };
 
-  const saveFirebaseConfig = (config: FirebaseConfig | null) => {
-    setFirebaseConfig(config);
-    if (!config) {
-       window.location.reload(); 
-    }
-  };
 
-  // --- WRAPPED ACTIONS (Sync with Firebase if connected) ---
+  // --- CRUD ACTIONS (Hybrid Logic) ---
 
   const addRequest = (req: Omit<RequestTicket, 'id' | 'createdAt' | 'updatedAt' | 'viewedByAssignee'>) => {
     const newRequest: RequestTicket = {
@@ -201,13 +245,17 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       viewedByAssignee: false,
     };
     setRequests(prev => [newRequest, ...prev]);
-    if (isDbConnected) fbSet('requests', newRequest.id, newRequest);
+    
+    if (isDbConnected && storageProvider === 'FIREBASE') fbSet('requests', newRequest.id, newRequest);
+    if (isDbConnected && storageProvider === 'SQLITE_SERVER') console.log('Socket Emit: create_request', newRequest);
   };
 
   const updateRequestStatus = (id: string, status: RequestStatus) => {
     const updatedDate = formatISO(new Date());
     setRequests(prev => prev.map(r => r.id === id ? { ...r, status, updatedAt: updatedDate } : r));
-    if (isDbConnected) fbUpdate('requests', id, { status, updatedAt: updatedDate });
+    
+    if (isDbConnected && storageProvider === 'FIREBASE') fbUpdate('requests', id, { status, updatedAt: updatedDate });
+    if (isDbConnected && storageProvider === 'SQLITE_SERVER') console.log('Socket Emit: update_status', { id, status });
   };
 
   const addComment = (ticketId: string, userId: string, content: string) => {
@@ -220,46 +268,46 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
     setComments(prev => [...prev, newComment]);
     
-    // Update ticket updated_at
     const updatedDate = formatISO(new Date());
     setRequests(prev => prev.map(r => r.id === ticketId ? { ...r, updatedAt: updatedDate } : r));
     
-    if (isDbConnected) {
+    if (isDbConnected && storageProvider === 'FIREBASE') {
       fbSet('comments', newComment.id, newComment);
       fbUpdate('requests', ticketId, { updatedAt: updatedDate });
     }
+    if (isDbConnected && storageProvider === 'SQLITE_SERVER') console.log('Socket Emit: new_comment', newComment);
   };
 
   const addUnit = (unit: Omit<Unit, 'id'>) => {
     const newUnit = { ...unit, id: `u${Date.now()}` };
     setUnits(prev => [...prev, newUnit]);
-    if (isDbConnected) fbSet('units', newUnit.id, newUnit);
+    if (isDbConnected && storageProvider === 'FIREBASE') fbSet('units', newUnit.id, newUnit);
   };
 
   const addUser = (user: Omit<User, 'id'>) => {
     const newUser = { ...user, id: `user${Date.now()}` };
     setUsers(prev => [...prev, newUser]);
-    if (isDbConnected) fbSet('users', newUser.id, newUser);
+    if (isDbConnected && storageProvider === 'FIREBASE') fbSet('users', newUser.id, newUser);
   };
 
   const updateUserPassword = (userId: string, newPassword: string) => {
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, password: newPassword } : u));
-    if (isDbConnected) fbUpdate('users', userId, { password: newPassword });
+    if (isDbConnected && storageProvider === 'FIREBASE') fbUpdate('users', userId, { password: newPassword });
   };
 
   const updateCompany = (id: string, data: Partial<Company>) => {
     setCompanies(prev => prev.map(c => c.id === id ? { ...c, ...data } : c));
-    if (isDbConnected) fbUpdate('companies', id, data);
+    if (isDbConnected && storageProvider === 'FIREBASE') fbUpdate('companies', id, data);
   };
 
   const deleteUnit = (id: string) => {
     setUnits(prev => prev.filter(u => u.id !== id));
-    if (isDbConnected) fbDelete('units', id);
+    if (isDbConnected && storageProvider === 'FIREBASE') fbDelete('units', id);
   };
 
   const deleteUser = (id: string) => {
     setUsers(prev => prev.filter(u => u.id !== id));
-    if (isDbConnected) fbDelete('users', id);
+    if (isDbConnected && storageProvider === 'FIREBASE') fbDelete('users', id);
   };
 
   const getRequestsByUnit = (unitId: string) => requests.filter(r => r.unitId === unitId);
@@ -269,11 +317,16 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   return (
     <DataContext.Provider value={{
       companies, units, users, requests, comments,
-      firebaseConfig, isDbConnected, saveFirebaseConfig, isLoading,
+      isSetupDone, setupSystem,
+      
+      storageProvider, setStorageProvider,
+      firebaseConfig, saveFirebaseConfig,
+      serverConfig, saveServerConfig,
+      isDbConnected, isLoading,
+      
       addRequest, updateRequestStatus, addComment,
       addUnit, addUser, updateUserPassword, updateCompany, deleteUnit, deleteUser,
       getRequestsByUnit, getRequestsByCompany, getCommentsByRequest,
-      isSetupDone, setupSystem
     }}>
       {children}
     </DataContext.Provider>

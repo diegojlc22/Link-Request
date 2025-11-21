@@ -11,7 +11,10 @@ O Link-Request permite que empresas gerenciem solicitações entre diferentes un
 
 - **Gestão de Tickets:** Criação, acompanhamento e resolução de chamados.
 - **Multi-Tenant (Simulado):** Estrutura preparada para gerenciar múltiplas empresas e unidades.
-- **Banco de Dados Híbrido:** Funciona totalmente offline com `LocalStorage` (modo demo) ou conectado ao **Google Firebase** (Firestore) para persistência real.
+- **Múltiplas Opções de Banco de Dados:**
+    1.  **Local (Demo):** Funciona 100% offline usando LocalStorage.
+    2.  **Cloud (Firebase):** Conecta-se ao Google Firestore para persistência em nuvem.
+    3.  **On-Premise (SQLite):** Suporte para conexão com servidor próprio rodando SQLite em tempo real (via WebSockets).
 - **Dashboard Analítico:** Gráficos de volume, status e desempenho por unidade.
 - **Modo Escuro (Dark Mode):** Interface adaptável para conforto visual.
 
@@ -50,7 +53,7 @@ O sistema é dividido em 3 níveis hierárquicos, determinando o que cada usuár
 *   **Estilização:** Tailwind CSS
 *   **Ícones:** Lucide React
 *   **Gráficos:** Recharts
-*   **Banco de Dados:** Firebase Firestore
+*   **Banco de Dados:** Firebase Firestore ou SQLite (via Socket Server)
 *   **Datas:** Date-fns
 
 ## 🔑 Acesso Admin (Demo)
@@ -63,24 +66,27 @@ O sistema vem pré-configurado com um acesso de administrador para demonstraçã
 
 > **Nota:** Este usuário tem acesso total para criar novas unidades, usuários e gerenciar as configurações da empresa.
 
-## ⚙️ Configuração
+## ⚙️ Configuração de Banco de Dados
 
-### 1. Banco de Dados (Firebase)
-Por padrão, o sistema usa dados fictícios salvos no navegador. Para conectar a um banco real:
+O Link-Request suporta 3 modos de operação. Acesse o menu **Banco de Dados** no painel Admin para configurar.
 
+### Opção A: Firebase (Nuvem)
 1.  Crie um projeto no [Firebase Console](https://console.firebase.google.com/).
 2.  Crie um banco de dados **Firestore**.
-3.  No Link-Request, logue como **Admin**.
-4.  Vá até o menu **Banco de Dados**.
-5.  Cole o objeto de configuração `const firebaseConfig = { ... }` fornecido pelo Firebase.
-6.  Clique em **Salvar e Conectar**.
+3.  Copie a configuração do projeto e cole no sistema.
+
+### Opção B: SQLite (Servidor Próprio)
+Para usar SQLite com sincronização em tempo real, você precisa rodar um servidor backend simples (Node.js + Socket.io) que gerencie o arquivo `.sqlite`.
+1.  Inicie o servidor backend (ex: `http://localhost:3000`).
+2.  Insira a URL no sistema.
+3.  O frontend se conectará via WebSocket para enviar/receber atualizações instantâneas.
 
 ## 📂 Estrutura do Projeto
 
 *   `/components`: Componentes de UI reutilizáveis.
 *   `/contexts`: Gerenciamento de estado global e autenticação.
 *   `/pages`: Telas da aplicação.
-*   `/services`: Integrações externas (`firebaseService`).
+*   `/services`: Integrações externas.
 *   `/types`: Definições de Tipos TypeScript e Enums.
 
 ---
