@@ -15,6 +15,35 @@ O Link-Request permite que empresas gerenciem solicitações entre diferentes un
 - **Dashboard Analítico:** Gráficos de volume, status e desempenho por unidade.
 - **Modo Escuro (Dark Mode):** Interface adaptável para conforto visual.
 
+## 👥 Perfis de Acesso e Permissões
+
+O sistema é dividido em 3 níveis hierárquicos, determinando o que cada usuário pode visualizar e gerenciar:
+
+### 1. 👤 Usuário Comum (USER)
+*   **Foco:** Solicitante / Operacional.
+*   **Visibilidade:** Enxerga apenas as requisições que **ele mesmo criou**.
+*   **Ações:**
+    *   Criar novas requisições.
+    *   Interagir via comentários nos seus tickets.
+    *   Anexar arquivos e imagens.
+
+### 2. 🛡️ Líder de Unidade (LEADER)
+*   **Foco:** Gestão Local / Gerente de Filial.
+*   **Visibilidade:** Enxerga **todas** as requisições pertencentes à sua **Unidade** (ex: Filial Centro), independente de quem criou.
+*   **Ações:**
+    *   Todas as permissões de Usuário Comum.
+    *   **Alterar Status** das requisições da sua unidade (Resolver, Colocar em andamento, Cancelar).
+    *   Visualizar métricas da sua unidade no Dashboard.
+
+### 3. 👑 Administrador (ADMIN)
+*   **Foco:** Gestão Global / Superusuário.
+*   **Visibilidade:** Acesso total a **todas as unidades** e requisições da empresa.
+*   **Ações:**
+    *   Gerenciar tickets de qualquer unidade.
+    *   **Gestão de Cadastro:** Criar, editar e excluir **Unidades** e **Usuários**.
+    *   **Configuração do Sistema:** Alterar nome/logo da empresa e configurar conexão com Banco de Dados.
+    *   Resetar senhas de outros usuários.
+
 ## 🛠️ Tecnologias Utilizadas
 
 *   **Frontend:** React 19, TypeScript
@@ -49,10 +78,10 @@ Por padrão, o sistema usa dados fictícios salvos no navegador. Para conectar a
 ## 📂 Estrutura do Projeto
 
 *   `/components`: Componentes de UI reutilizáveis.
-*   `/contexts`: Gerenciamento de estado global.
+*   `/contexts`: Gerenciamento de estado global e autenticação.
 *   `/pages`: Telas da aplicação.
 *   `/services`: Integrações externas (`firebaseService`).
-*   `/types`: Definições de Tipos TypeScript.
+*   `/types`: Definições de Tipos TypeScript e Enums.
 
 ---
 

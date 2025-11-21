@@ -6,7 +6,7 @@ import { RequestStatus, RequestTicket } from '../types';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { StatusBadge, PriorityBadge } from '../components/ui/Badge';
-import { Plus, Search, Filter, Link as LinkIcon, Image as ImageIcon, X } from 'lucide-react';
+import { Plus, Search, Filter, Link as LinkIcon, Image as ImageIcon, X, User, UserCheck } from 'lucide-react';
 import { Modal } from '../components/ui/Modal';
 
 interface RequestListProps {
@@ -14,10 +14,11 @@ interface RequestListProps {
 }
 
 export const RequestList: React.FC<RequestListProps> = ({ onSelectRequest }) => {
-  const { requests, units, addRequest } = useData();
+  const { requests, units, addRequest, users } = useData();
   const { currentUser } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [assigneeFilter, setAssigneeFilter] = useState<string>('ALL');
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Form state
@@ -26,6 +27,7 @@ export const RequestList: React.FC<RequestListProps> = ({ onSelectRequest }) => 
   const [newProductUrl, setNewProductUrl] = useState('');
   const [newPriority, setNewPriority] = useState<'Low'|'Medium'|'High'>('Medium');
   const [newUnitId, setNewUnitId] = useState(currentUser?.unitId || '');
+  const [newAssigneeId, setNewAssigneeId] = useState('');
   
   // Image Upload State
   const [attachedImage, setAttachedImage] = useState<string | null>(null);
@@ -45,7 +47,14 @@ export const RequestList: React.FC<RequestListProps> = ({ onSelectRequest }) => 
     // Status Filter
     const matchesStatus = statusFilter === 'ALL' ? true : r.status === statusFilter;
 
-    return matchesSearch && matchesStatus;
+    // Assignee Filter
+    const matchesAssignee = assigneeFilter === 'ALL' 
+      ? true 
+      : assigneeFilter === 'UNASSIGNED' 
+        ? !r.assigneeId 
+        : r.assigneeId === assigneeFilter;
+
+    return matchesSearch && matchesStatus && matchesAssignee;
   }).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -70,10 +79,14 @@ export const RequestList: React.FC<RequestListProps> = ({ onSelectRequest }) => 
       type: 'image'
     }] : [];
 
+    // Determine final unit ID (fallback to first unit if empty/admin)
+    const finalUnitId = newUnitId || units[0]?.id;
+
     addRequest({
       companyId: currentUser.companyId,
-      unitId: newUnitId || units[0].id,
+      unitId: finalUnitId,
       creatorId: currentUser.id,
+      assigneeId: newAssigneeId || undefined,
       title: newTitle,
       description: newDesc,
       productUrl: newProductUrl,
@@ -85,8 +98,18 @@ export const RequestList: React.FC<RequestListProps> = ({ onSelectRequest }) => 
     setNewTitle('');
     setNewDesc('');
     setNewProductUrl('');
+    setNewAssigneeId('');
     setAttachedImage(null);
   };
+
+  // Filter users eligible for assignment based on selected Unit (or all if Admin)
+  const assignableUsers = users.filter(u => {
+     // Admins can always be assigned
+     if (u.role === 'ADMIN') return true;
+     // If a unit is selected for the new ticket, filter users from that unit
+     if (newUnitId) return u.unitId === newUnitId;
+     return true;
+  });
 
   return (
     <div className="space-y-6">
@@ -100,6 +123,7 @@ export const RequestList: React.FC<RequestListProps> = ({ onSelectRequest }) => 
 
       <Card>
         <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex flex-col md:flex-row gap-4">
+          {/* Search Bar */}
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
@@ -110,18 +134,39 @@ export const RequestList: React.FC<RequestListProps> = ({ onSelectRequest }) => 
               className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             />
           </div>
-          <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-gray-500" />
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary-500"
-            >
-              <option value="ALL">Todos os Status</option>
-              {Object.values(RequestStatus).map(s => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
+
+          {/* Filters Group */}
+          <div className="flex flex-col sm:flex-row gap-2">
+            {/* Assignee Filter */}
+            <div className="flex items-center gap-2">
+              <User className="h-4 w-4 text-gray-500" />
+              <select
+                value={assigneeFilter}
+                onChange={(e) => setAssigneeFilter(e.target.value)}
+                className="w-full sm:w-auto px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary-500"
+              >
+                <option value="ALL">Todos os Responsáveis</option>
+                <option value="UNASSIGNED">Não Atribuído</option>
+                {users.map(user => (
+                  <option key={user.id} value={user.id}>{user.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Status Filter */}
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-gray-500" />
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="w-full sm:w-auto px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary-500"
+              >
+                <option value="ALL">Todos os Status</option>
+                {Object.values(RequestStatus).map(s => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
 
@@ -131,6 +176,7 @@ export const RequestList: React.FC<RequestListProps> = ({ onSelectRequest }) => 
               <tr>
                 <th className="px-6 py-3">ID / Título</th>
                 <th className="px-6 py-3">Unidade</th>
+                <th className="px-6 py-3">Responsável</th>
                 <th className="px-6 py-3">Status</th>
                 <th className="px-6 py-3">Prioridade</th>
                 <th className="px-6 py-3">Atualizado</th>
@@ -140,11 +186,12 @@ export const RequestList: React.FC<RequestListProps> = ({ onSelectRequest }) => 
             <tbody>
               {filteredRequests.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500">Nenhuma requisição encontrada.</td>
+                  <td colSpan={7} className="px-6 py-8 text-center text-gray-500">Nenhuma requisição encontrada.</td>
                 </tr>
               ) : (
                 filteredRequests.map((req) => {
                   const unitName = units.find(u => u.id === req.unitId)?.name || 'N/A';
+                  const assigneeName = users.find(u => u.id === req.assigneeId)?.name || '—';
                   return (
                     <tr key={req.id} className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
                       <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">
@@ -154,6 +201,7 @@ export const RequestList: React.FC<RequestListProps> = ({ onSelectRequest }) => 
                         </div>
                       </td>
                       <td className="px-6 py-4">{unitName}</td>
+                      <td className="px-6 py-4 text-gray-900 dark:text-gray-300">{assigneeName}</td>
                       <td className="px-6 py-4">
                         <StatusBadge status={req.status} />
                       </td>
@@ -193,13 +241,27 @@ export const RequestList: React.FC<RequestListProps> = ({ onSelectRequest }) => 
             </div>
           )}
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Prioridade</label>
-            <select value={newPriority} onChange={e => setNewPriority(e.target.value as any)} className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 dark:border-gray-600">
-               <option value="Low">Baixa</option>
-               <option value="Medium">Média</option>
-               <option value="High">Alta</option>
-            </select>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Prioridade</label>
+              <select value={newPriority} onChange={e => setNewPriority(e.target.value as any)} className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 dark:border-gray-600">
+                <option value="Low">Baixa</option>
+                <option value="Medium">Média</option>
+                <option value="High">Alta</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-2">
+                 <UserCheck className="h-3 w-3" /> Responsável
+              </label>
+              <select value={newAssigneeId} onChange={e => setNewAssigneeId(e.target.value)} className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 dark:border-gray-600">
+                <option value="">Não Atribuído</option>
+                {assignableUsers.map(u => (
+                  <option key={u.id} value={u.id}>{u.name}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div>
