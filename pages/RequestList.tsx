@@ -1,12 +1,12 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
-import { RequestStatus, RequestTicket } from '../types';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
+import { RequestStatus } from '../types';
+import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { StatusBadge, PriorityBadge } from '../components/ui/Badge';
-import { Plus, Search, Filter, Link as LinkIcon, Image as ImageIcon, X, User, UserCheck, Calendar } from 'lucide-react';
+import { Plus, Search, Filter, Link as LinkIcon, Image as ImageIcon, X, User as UserIcon, UserCheck, Calendar } from 'lucide-react';
 import { Modal } from '../components/ui/Modal';
 
 interface RequestListProps {
@@ -32,30 +32,33 @@ export const RequestList: React.FC<RequestListProps> = ({ onSelectRequest }) => 
   // Image Upload State
   const [attachedImage, setAttachedImage] = useState<string | null>(null);
 
-  const filteredRequests = requests.filter(r => {
-    // Permission Filter
-    let hasAccess = false;
-    if (currentUser?.role === 'ADMIN') hasAccess = r.companyId === currentUser.companyId;
-    else if (currentUser?.role === 'LEADER') hasAccess = r.unitId === currentUser.unitId;
-    else hasAccess = r.creatorId === currentUser?.id;
+  // PERFORMANCE OPTIMIZATION: useMemo ensures filtering only happens when dependencies change
+  const filteredRequests = useMemo(() => {
+    return requests.filter(r => {
+      // Permission Filter
+      let hasAccess = false;
+      if (currentUser?.role === 'ADMIN') hasAccess = r.companyId === currentUser.companyId;
+      else if (currentUser?.role === 'LEADER') hasAccess = r.unitId === currentUser.unitId;
+      else hasAccess = r.creatorId === currentUser?.id;
 
-    if (!hasAccess) return false;
+      if (!hasAccess) return false;
 
-    // Search Filter
-    const matchesSearch = r.title.toLowerCase().includes(searchTerm.toLowerCase()) || r.id.includes(searchTerm);
-    
-    // Status Filter
-    const matchesStatus = statusFilter === 'ALL' ? true : r.status === statusFilter;
+      // Search Filter
+      const matchesSearch = r.title.toLowerCase().includes(searchTerm.toLowerCase()) || r.id.includes(searchTerm);
+      
+      // Status Filter
+      const matchesStatus = statusFilter === 'ALL' ? true : r.status === statusFilter;
 
-    // Assignee Filter
-    const matchesAssignee = assigneeFilter === 'ALL' 
-      ? true 
-      : assigneeFilter === 'UNASSIGNED' 
-        ? !r.assigneeId 
-        : r.assigneeId === assigneeFilter;
+      // Assignee Filter
+      const matchesAssignee = assigneeFilter === 'ALL' 
+        ? true 
+        : assigneeFilter === 'UNASSIGNED' 
+          ? !r.assigneeId 
+          : r.assigneeId === assigneeFilter;
 
-    return matchesSearch && matchesStatus && matchesAssignee;
-  }).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+      return matchesSearch && matchesStatus && matchesAssignee;
+    }).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+  }, [requests, currentUser, searchTerm, statusFilter, assigneeFilter]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -103,13 +106,13 @@ export const RequestList: React.FC<RequestListProps> = ({ onSelectRequest }) => 
   };
 
   // Filter users eligible for assignment based on selected Unit (or all if Admin)
-  const assignableUsers = users.filter(u => {
+  const assignableUsers = useMemo(() => users.filter(u => {
      // Admins can always be assigned
      if (u.role === 'ADMIN') return true;
      // If a unit is selected for the new ticket, filter users from that unit
      if (newUnitId) return u.unitId === newUnitId;
      return true;
-  });
+  }), [users, newUnitId]);
 
   return (
     <div className="space-y-6">
@@ -139,7 +142,7 @@ export const RequestList: React.FC<RequestListProps> = ({ onSelectRequest }) => 
           <div className="flex flex-col sm:flex-row gap-2">
             {/* Assignee Filter */}
             <div className="flex items-center gap-2">
-              <User className="h-4 w-4 text-gray-500" />
+              <UserIcon className="h-4 w-4 text-gray-500" />
               <select
                 value={assigneeFilter}
                 onChange={(e) => setAssigneeFilter(e.target.value)}
@@ -229,7 +232,7 @@ export const RequestList: React.FC<RequestListProps> = ({ onSelectRequest }) => 
         <form onSubmit={handleCreate} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Título</label>
-            <input required value={newTitle} onChange={e => setNewTitle(e.target.value)} className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 dark:border-gray-600" />
+            <input required maxLength={100} value={newTitle} onChange={e => setNewTitle(e.target.value)} className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 dark:border-gray-600" />
           </div>
           
           {!currentUser?.unitId && (
@@ -287,6 +290,7 @@ export const RequestList: React.FC<RequestListProps> = ({ onSelectRequest }) => 
               spellCheck={true}
               lang="pt-BR"
               placeholder="Descreva os detalhes da sua solicitação..."
+              maxLength={2000}
             />
           </div>
 

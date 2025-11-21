@@ -21,6 +21,13 @@ export const Login: React.FC = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    
+    // Basic Sanitization/Validation
+    if (!email.includes('@') || password.length < 1) {
+        setError('Formato de email inválido ou senha vazia.');
+        return;
+    }
+
     const success = login(email, password);
     if (!success) {
       setError('Credenciais inválidas! Verifique seu email e senha.');
@@ -60,6 +67,7 @@ export const Login: React.FC = () => {
                   className={`w-full px-4 py-2 rounded-lg border bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors ${error ? 'border-red-300 dark:border-red-700 animate-shake' : 'border-gray-300 dark:border-gray-600'}`}
                   placeholder="seu@email.com"
                   required
+                  maxLength={100}
                 />
               </div>
               <div>
@@ -72,6 +80,7 @@ export const Login: React.FC = () => {
                   className={`w-full px-4 py-2 rounded-lg border bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors ${error ? 'border-red-300 dark:border-red-700 animate-shake' : 'border-gray-300 dark:border-gray-600'}`}
                   placeholder="********"
                   required
+                  maxLength={50}
                 />
               </div>
               <Button type="submit" className="w-full py-2.5" size="lg">

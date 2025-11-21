@@ -1,16 +1,25 @@
-import React, { useState } from 'react';
+
+import React, { useState, Suspense } from 'react';
 import { DataProvider, useData } from './contexts/DataContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
 import { RequestList } from './pages/RequestList';
 import { RequestDetail } from './pages/RequestDetail';
-import { AdminUnits } from './pages/AdminUnits';
-import { AdminUsers } from './pages/AdminUsers';
-import { AdminCompany } from './pages/AdminCompany';
-import { AdminDatabase } from './pages/AdminDatabase';
 import { SetupPage } from './pages/SetupPage';
 import { Layout } from './components/Layout';
+
+// Lazy Load Admin Pages to improve initial load performance
+const AdminUnits = React.lazy(() => import('./pages/AdminUnits').then(module => ({ default: module.AdminUnits })));
+const AdminUsers = React.lazy(() => import('./pages/AdminUsers').then(module => ({ default: module.AdminUsers })));
+const AdminCompany = React.lazy(() => import('./pages/AdminCompany').then(module => ({ default: module.AdminCompany })));
+const AdminDatabase = React.lazy(() => import('./pages/AdminDatabase').then(module => ({ default: module.AdminDatabase })));
+
+const LoadingSpinner = () => (
+  <div className="flex items-center justify-center h-full min-h-[200px]">
+    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+  </div>
+);
 
 const AppContent: React.FC = () => {
   const { isAuthenticated } = useAuth();
@@ -38,13 +47,13 @@ const AppContent: React.FC = () => {
       case 'requests':
         return <RequestList onSelectRequest={setSelectedRequestId} />;
       case 'units':
-        return <AdminUnits />;
+        return <Suspense fallback={<LoadingSpinner />}><AdminUnits /></Suspense>;
       case 'users':
-        return <AdminUsers />;
+        return <Suspense fallback={<LoadingSpinner />}><AdminUsers /></Suspense>;
       case 'company':
-        return <AdminCompany />;
+        return <Suspense fallback={<LoadingSpinner />}><AdminCompany /></Suspense>;
       case 'database':
-        return <AdminDatabase />;
+        return <Suspense fallback={<LoadingSpinner />}><AdminDatabase /></Suspense>;
       default:
         return <Dashboard />;
     }

@@ -1,8 +1,8 @@
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { Company, Unit, User, RequestTicket, Comment, UserRole, RequestStatus, FirebaseConfig } from '../types';
-import { formatISO, subDays } from 'date-fns';
-import { initFirebase, fbGetAll, fbSet, fbUpdate, fbDelete, isFirebaseInitialized } from '../services/firebaseService';
+import { formatISO } from 'date-fns';
+import { initFirebase, fbGetAll, fbSet, fbUpdate, fbDelete } from '../services/firebaseService';
 
 interface SetupData {
   companyName: string;
@@ -262,19 +262,23 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (isDbConnected) fbDelete('users', id);
   };
 
+  // Memoize getters to avoid recreation
   const getRequestsByUnit = (unitId: string) => requests.filter(r => r.unitId === unitId);
   const getRequestsByCompany = (companyId: string) => requests.filter(r => r.companyId === companyId);
   const getCommentsByRequest = (requestId: string) => comments.filter(c => c.requestId === requestId).sort((a,b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
+  // CRITICAL PERFORMANCE FIX: Memoize the context value
+  const value = useMemo(() => ({
+    companies, units, users, requests, comments,
+    firebaseConfig, isDbConnected, saveFirebaseConfig, isLoading,
+    addRequest, updateRequestStatus, addComment,
+    addUnit, addUser, updateUserPassword, updateCompany, deleteUnit, deleteUser,
+    getRequestsByUnit, getRequestsByCompany, getCommentsByRequest,
+    isSetupDone, setupSystem
+  }), [companies, units, users, requests, comments, firebaseConfig, isDbConnected, isLoading, isSetupDone]);
+
   return (
-    <DataContext.Provider value={{
-      companies, units, users, requests, comments,
-      firebaseConfig, isDbConnected, saveFirebaseConfig, isLoading,
-      addRequest, updateRequestStatus, addComment,
-      addUnit, addUser, updateUserPassword, updateCompany, deleteUnit, deleteUser,
-      getRequestsByUnit, getRequestsByCompany, getCommentsByRequest,
-      isSetupDone, setupSystem
-    }}>
+    <DataContext.Provider value={value}>
       {children}
     </DataContext.Provider>
   );
