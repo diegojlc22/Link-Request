@@ -97,7 +97,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let unsubRequests: () => void;
     let unsubComments: () => void;
 
-    const initDb = async () => {
+    // REMOVED 'async' keyword here. Firebase init and subscription setup are synchronous operations
+    // in the context of setting up the listeners (onValue is sync).
+    const initDb = () => {
       if (firebaseConfig) {
         setIsLoading(true);
         const success = initFirebase(firebaseConfig);
@@ -110,32 +112,31 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // O Firebase agora é a fonte da verdade. O que vier de lá, sobrescreve o local.
           
           unsubCompanies = fbSubscribe<Company>('companies', (data) => {
-            console.log("Sync Companies:", data);
-            // Only update if we actually received something, or empty array if intentional
-            setCompanies(data);
+            // Only update if we receive valid data array
+            if (Array.isArray(data)) setCompanies(data);
           });
 
           unsubUnits = fbSubscribe<Unit>('units', (data) => {
-             setUnits(data);
+             if (Array.isArray(data)) setUnits(data);
           });
 
           unsubUsers = fbSubscribe<User>('users', (data) => {
-             setUsers(data);
-             // Se conectou ao Firebase com sucesso, mas a lista de usuários está vazia,
-             // significa que é um banco novo/zerado. Redireciona para o Setup.
-             if (data.length === 0) {
-                console.log("Banco Firebase vazio detectado. Redirecionando para Setup.");
-                // Only force setup if we are sure we connected but got zero users
-                // setIsSetupDone(false); 
+             if (Array.isArray(data)) {
+               setUsers(data);
+               // Se conectou ao Firebase com sucesso, mas a lista de usuários está vazia,
+               // significa que é um banco novo/zerado.
+               if (data.length === 0) {
+                  console.log("Banco Firebase vazio detectado.");
+               }
              }
           });
 
           unsubRequests = fbSubscribe<RequestTicket>('requests', (data) => {
-             setRequests(data);
+             if (Array.isArray(data)) setRequests(data);
           });
 
           unsubComments = fbSubscribe<Comment>('comments', (data) => {
-             setComments(data);
+             if (Array.isArray(data)) setComments(data);
           });
 
         } else {
@@ -168,6 +169,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [companies]);
 
   // Persist to LocalStorage (Backup / Offline Mode)
+  // NOTE: We only persist to LS if NOT connected to DB, OR to keep a cache.
+  // Here we keep cache to support "instant load" before Firebase syncs.
   useEffect(() => { localStorage.setItem('link_req_companies', JSON.stringify(companies)); }, [companies]);
   useEffect(() => { localStorage.setItem('link_req_units', JSON.stringify(units)); }, [units]);
   useEffect(() => { localStorage.setItem('link_req_users', JSON.stringify(users)); }, [users]);
@@ -175,11 +178,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => { localStorage.setItem('link_req_comments', JSON.stringify(comments)); }, [comments]);
   useEffect(() => { localStorage.setItem('link_req_is_setup_done', JSON.stringify(isSetupDone)); }, [isSetupDone]);
   
-  useEffect(() => { 
-    if (firebaseConfig) localStorage.setItem('link_req_firebase_config', JSON.stringify(firebaseConfig)); 
-    else localStorage.removeItem('link_req_firebase_config');
-  }, [firebaseConfig]);
-
   // --- SYSTEM ACTIONS ---
 
   const setupSystem = (data: SetupData) => {
@@ -207,15 +205,15 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(data.adminName)}&background=random`
     };
 
-    // Se estiver conectado ao Firebase, salva lá PRIMEIRO.
-    // Os listeners acima (useEffect) vão detectar a mudança e atualizar o estado local automaticamente.
     if (isDbConnected) {
+      // Ensure we wait a microtick or log the action
+      console.log("Setting up system in Firebase...");
       fbSet('companies', newCompany.id, newCompany);
       fbSet('units', newUnit.id, newUnit);
       fbSet('users', newAdmin.id, newAdmin);
-      setIsSetupDone(true); // Libera a tela
+      // We do NOT set state manually here, we wait for the listeners to fire
+      setIsSetupDone(true);
     } else {
-      // Modo Offline
       setCompanies([newCompany]);
       setUnits([newUnit]);
       setUsers([newAdmin]);
@@ -226,10 +224,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const saveFirebaseConfig = (config: FirebaseConfig | null) => {
-    setFirebaseConfig(config);
-    if (!config) {
-       window.location.reload(); 
+    // Directly save to localStorage to ensure persistence before reload
+    if (config) {
+        localStorage.setItem('link_req_firebase_config', JSON.stringify(config));
+    } else {
+        localStorage.removeItem('link_req_firebase_config');
     }
+    // Reload page to force fresh Firebase instance with new config
+    window.location.reload();
   };
 
   // --- WRAPPED ACTIONS (Sync with Firebase if connected) ---

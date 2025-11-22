@@ -1,3 +1,4 @@
+
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getDatabase, ref, onValue, set, update, remove, get, Database, Unsubscribe } from 'firebase/database';
 import { FirebaseConfig } from '../types';
@@ -11,17 +12,19 @@ export const initFirebase = (config: FirebaseConfig) => {
       app = initializeApp(config);
     } else {
       app = getApp();
+      // Warning: If the config changed but the app name is default, Firebase will use the old config.
+      // The DataContext handles this by forcing a page reload on config change.
     }
     
-    // CRITICAL FIX: Explicitly pass the databaseURL to getDatabase.
-    // This ensures connection to the correct instance even if auto-discovery fails.
+    // Explicitly pass the databaseURL to getDatabase.
     if (config.databaseURL) {
       db = getDatabase(app, config.databaseURL);
+      console.log("Firebase DB Initialized with URL:", config.databaseURL);
     } else {
-      db = getDatabase(app);
+      console.error("Missing databaseURL in config");
+      return false;
     }
     
-    console.log("Firebase Service Initialized with URL:", config.databaseURL);
     return true;
   } catch (error) {
     console.error("Firebase initialization error:", error);
@@ -38,7 +41,6 @@ export const fbGetAll = async <T>(path: string): Promise<T[]> => {
   try {
     const snapshot = await get(ref(db, path));
     const val = snapshot.val();
-    // Map keys to IDs to ensure consistency with the Observer pattern
     return val ? Object.keys(val).map(key => ({
       ...val[key],
       id: key
@@ -56,7 +58,6 @@ export const fbSubscribe = <T>(path: string, callback: (data: T[]) => void): Uns
     return () => {};
   }
   try {
-    console.log(`Subscribing to path: ${path}`);
     const dbRef = ref(db, path);
     
     // The "Engine": Using onValue to listen for real-time changes
@@ -69,10 +70,10 @@ export const fbSubscribe = <T>(path: string, callback: (data: T[]) => void): Uns
         id: key
       })) : [];
       
-      // console.log(`Data received from ${path}:`, data.length, "items");
+      // console.log(`Sync update for ${path}:`, data.length);
       callback(data as T[]);
     }, (error) => {
-      console.error(`Error subscribing to ${path}:`, error);
+      console.error(`FIREBASE PERMISSION OR NETWORK ERROR on ${path}:`, error);
     });
   } catch (error) {
     console.error(`Error setting up listener for ${path}:`, error);
@@ -81,7 +82,10 @@ export const fbSubscribe = <T>(path: string, callback: (data: T[]) => void): Uns
 };
 
 export const fbSet = async (path: string, id: string, data: any) => {
-  if (!db) return;
+  if (!db) {
+      console.error("DB not initialized, cannot set data.");
+      return;
+  }
   try {
     await set(ref(db, `${path}/${id}`), data);
     console.log(`Set success: ${path}/${id}`);
