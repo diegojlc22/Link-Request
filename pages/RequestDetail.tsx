@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -8,7 +8,7 @@ import { RequestStatus, RequestAttachment } from '../types';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { StatusBadge, PriorityBadge } from '../components/ui/Badge';
-import { ArrowLeft, Send, Paperclip, User as UserIcon, ExternalLink, ShoppingBag, Download, ZoomIn, FileText, X, Edit2, Save } from 'lucide-react';
+import { ArrowLeft, Send, Paperclip, User as UserIcon, ExternalLink, ShoppingBag, Download, ZoomIn, FileText, X, Edit2, Save, ChevronLeft, ChevronRight, Info } from 'lucide-react';
 
 export const RequestDetail: React.FC = () => {
   const { id } = useParams();
@@ -48,14 +48,56 @@ export const RequestDetail: React.FC = () => {
     }
   }, [requestComments]);
 
-  // Close lightbox on Escape key
-  useEffect(() => {
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setViewingAttachment(null);
-    };
-    window.addEventListener('keydown', handleEsc);
-    return () => window.removeEventListener('keydown', handleEsc);
+  // Helper to check if attachment is an image
+  const isImage = useCallback((url: string) => {
+    return url.startsWith('data:image') || url.match(/\.(jpeg|jpg|gif|png|webp)$/i) != null;
   }, []);
+
+  // Filter only images for the lightbox navigation
+  const imageAttachments = useMemo(() => {
+    return request?.attachments?.filter(att => isImage(att.url)) || [];
+  }, [request, isImage]);
+
+  // Lightbox Navigation Logic
+  const handleNextImage = useCallback(() => {
+    if (!viewingAttachment || imageAttachments.length <= 1) return;
+    const currentIndex = imageAttachments.findIndex(img => img.id === viewingAttachment.id);
+    const nextIndex = (currentIndex + 1) % imageAttachments.length;
+    setViewingAttachment(imageAttachments[nextIndex]);
+  }, [viewingAttachment, imageAttachments]);
+
+  const handlePrevImage = useCallback(() => {
+    if (!viewingAttachment || imageAttachments.length <= 1) return;
+    const currentIndex = imageAttachments.findIndex(img => img.id === viewingAttachment.id);
+    const prevIndex = (currentIndex - 1 + imageAttachments.length) % imageAttachments.length;
+    setViewingAttachment(imageAttachments[prevIndex]);
+  }, [viewingAttachment, imageAttachments]);
+
+  // Calculate approx size from base64
+  const getFileSize = (url: string) => {
+    if (url.startsWith('data:')) {
+      const base64Length = url.length - (url.indexOf(',') + 1);
+      const padding = (url.charAt(url.length - 1) === '=') ? (url.charAt(url.length - 2) === '=' ? 2 : 1) : 0;
+      const sizeInBytes = (base64Length * 0.75) - padding;
+      
+      if (sizeInBytes > 1024 * 1024) return (sizeInBytes / (1024 * 1024)).toFixed(2) + ' MB';
+      return (sizeInBytes / 1024).toFixed(1) + ' KB';
+    }
+    return 'N/A';
+  };
+
+  // Keyboard navigation for lightbox
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (viewingAttachment) {
+        if (e.key === 'Escape') setViewingAttachment(null);
+        if (e.key === 'ArrowRight') handleNextImage();
+        if (e.key === 'ArrowLeft') handlePrevImage();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [viewingAttachment, handleNextImage, handlePrevImage]);
 
   if (!request) return (
     <div className="p-8 text-center">
@@ -72,7 +114,6 @@ export const RequestDetail: React.FC = () => {
   const canManageStatus = isAdmin || (isLeader && currentUser?.unitId === request.unitId);
   const isCreator = currentUser?.id === request.creatorId;
   
-  // Rule: Can edit if (Admin OR Leader OR Creator) AND status is NOT Resolved/Cancelled
   const isResolvedOrCancelled = [RequestStatus.RESOLVED, RequestStatus.CANCELLED].includes(request.status);
   const canEditContent = (isAdmin || isLeader || isCreator) && !isResolvedOrCancelled;
 
@@ -111,14 +152,12 @@ export const RequestDetail: React.FC = () => {
         return;
     }
     
-    // Security check: Prevent saving if status changed to resolved/cancelled in the meantime
     if (isResolvedOrCancelled) {
         showToast('Não é possível editar requisições finalizadas ou canceladas.', 'error');
         setIsEditing(false);
         return;
     }
 
-    // Basic URL validation if url is provided
     if (editUrl && !editUrl.match(/^https?:\/\/.+/)) {
         showToast('O link do produto deve começar com http:// ou https://', 'error');
         return;
@@ -138,11 +177,6 @@ export const RequestDetail: React.FC = () => {
 
   const handleCancelEdit = () => {
     setIsEditing(false);
-  };
-
-  // Helper to check if attachment is an image (Base64 or direct image link)
-  const isImage = (url: string) => {
-    return url.startsWith('data:image') || url.match(/\.(jpeg|jpg|gif|png|webp)$/i) != null;
   };
 
   return (
@@ -229,7 +263,7 @@ export const RequestDetail: React.FC = () => {
                    </h3>
                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                      {request.attachments.map(att => {
-                       const isImg = isImage(att.url) || att.type === 'image';
+                       const isImg = isImage(att.url);
                        return (
                          <div 
                            key={att.id} 
@@ -244,6 +278,7 @@ export const RequestDetail: React.FC = () => {
                                  src={att.url} 
                                  alt={att.name} 
                                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                                 loading="lazy"
                                />
                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
                                   <ZoomIn className="text-white h-8 w-8 drop-shadow-md" />
@@ -413,38 +448,78 @@ export const RequestDetail: React.FC = () => {
         </div>
       </div>
 
-      {/* Lightbox Modal */}
+      {/* Advanced Lightbox */}
       {viewingAttachment && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-fade-in">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-md p-4 animate-fade-in outline-none" tabIndex={0}>
+          {/* Close Button */}
           <button
             onClick={() => setViewingAttachment(null)}
-            className="absolute top-4 right-4 p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-full transition-colors z-10"
+            className="absolute top-4 right-4 p-3 text-white/70 hover:text-white hover:bg-white/10 rounded-full transition-colors z-20"
             title="Fechar (Esc)"
           >
-            <X className="h-8 w-8" />
+            <X className="h-6 w-6" />
           </button>
 
-          <div className="relative flex flex-col items-center max-w-full max-h-full">
+          {/* Navigation Left */}
+          {imageAttachments.length > 1 && (
+            <button 
+              onClick={(e) => { e.stopPropagation(); handlePrevImage(); }}
+              className="absolute left-4 top-1/2 -translate-y-1/2 p-3 text-white/70 hover:text-white hover:bg-white/10 rounded-full transition-colors z-20 hidden md:block"
+              title="Anterior (Seta Esquerda)"
+            >
+              <ChevronLeft className="h-8 w-8" />
+            </button>
+          )}
+
+          {/* Main Content */}
+          <div className="relative flex flex-col items-center justify-center w-full h-full max-w-7xl">
             <img
               src={viewingAttachment.url}
               alt={viewingAttachment.name}
-              className="max-w-full max-h-[80vh] object-contain rounded-md shadow-2xl"
+              className="max-w-full max-h-[85vh] object-contain shadow-2xl rounded-sm select-none"
             />
             
-            <div className="mt-6 flex items-center gap-4 bg-black/50 px-6 py-3 rounded-full backdrop-blur-md border border-white/10">
-              <span className="text-white font-medium truncate max-w-[200px]">{viewingAttachment.name}</span>
-              <div className="w-px h-4 bg-white/20"></div>
-              <a
-                href={viewingAttachment.url}
-                download={viewingAttachment.name}
-                className="flex items-center gap-2 text-primary-300 hover:text-primary-200 font-medium transition-colors"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <Download className="h-4 w-4" />
-                Baixar
-              </a>
+            {/* Image Info Bar */}
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-4 text-white/90">
+                <div className="flex items-center gap-2 bg-white/10 px-4 py-2 rounded-full backdrop-blur-sm">
+                    <span className="font-medium truncate max-w-[200px] sm:max-w-[300px]">{viewingAttachment.name}</span>
+                    <span className="text-white/40">|</span>
+                    <div className="flex items-center gap-1 text-xs text-white/70">
+                        <Info className="h-3 w-3" />
+                        {getFileSize(viewingAttachment.url)}
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                   {imageAttachments.length > 1 && (
+                     <span className="text-sm text-white/50 px-2">
+                        {imageAttachments.findIndex(i => i.id === viewingAttachment.id) + 1} / {imageAttachments.length}
+                     </span>
+                   )}
+                   
+                   <a
+                    href={viewingAttachment.url}
+                    download={viewingAttachment.name}
+                    className="flex items-center gap-2 bg-primary-600 hover:bg-primary-500 text-white px-4 py-2 rounded-full transition-colors font-medium text-sm"
+                    onClick={(e) => e.stopPropagation()}
+                   >
+                    <Download className="h-4 w-4" />
+                    Baixar Original
+                   </a>
+                </div>
             </div>
           </div>
+
+          {/* Navigation Right */}
+          {imageAttachments.length > 1 && (
+            <button 
+              onClick={(e) => { e.stopPropagation(); handleNextImage(); }}
+              className="absolute right-4 top-1/2 -translate-y-1/2 p-3 text-white/70 hover:text-white hover:bg-white/10 rounded-full transition-colors z-20 hidden md:block"
+              title="Próxima (Seta Direita)"
+            >
+              <ChevronRight className="h-8 w-8" />
+            </button>
+          )}
         </div>
       )}
     </div>
