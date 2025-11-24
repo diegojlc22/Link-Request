@@ -208,12 +208,18 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // --- OPTIMIZATION: MEMOIZED LISTS ---
   // Sort requests by update time (newest first) once, so consumers don't have to sort on every render
   const sortedRequests = useMemo(() => {
+    if (!Array.isArray(requests)) return [];
+    
     return [...requests].sort((a, b) => {
         // Safe sort handling missing dates or NaNs
         const getTime = (dateStr?: string) => {
              if(!dateStr) return 0;
-             const t = new Date(dateStr).getTime();
-             return isNaN(t) ? 0 : t;
+             try {
+               const t = new Date(dateStr).getTime();
+               return isNaN(t) ? 0 : t;
+             } catch (e) {
+               return 0;
+             }
         };
         
         // Use createdAt as fallback if updatedAt is missing/invalid
@@ -226,6 +232,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Sort comments by creation time (oldest first)
   const sortedComments = useMemo(() => {
+    if (!Array.isArray(comments)) return [];
     return [...comments].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
   }, [comments]);
 
@@ -272,22 +279,26 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // --- CRUD ACTIONS (Memoized) ---
 
   const addRequest = useCallback((req: Omit<RequestTicket, 'id' | 'createdAt' | 'updatedAt' | 'viewedByAssignee'>) => {
-    const newRequest: RequestTicket = {
-      ...req,
-      title: sanitizeInput(req.title),
-      description: sanitizeInput(req.description),
-      productUrl: sanitizeInput(req.productUrl || ''),
-      id: `r${Date.now()}`,
-      createdAt: formatISO(new Date()),
-      updatedAt: formatISO(new Date()),
-      attachments: req.attachments || [],
-      viewedByAssignee: false,
-    };
-    
-    if (isDbConnected) {
-      fbSet('requests', newRequest.id, newRequest);
-    } else {
-      setRequests(prev => [newRequest, ...prev]);
+    try {
+      const newRequest: RequestTicket = {
+        ...req,
+        title: sanitizeInput(req.title),
+        description: sanitizeInput(req.description),
+        productUrl: sanitizeInput(req.productUrl || ''),
+        id: `r${Date.now()}`,
+        createdAt: formatISO(new Date()),
+        updatedAt: formatISO(new Date()),
+        attachments: req.attachments || [],
+        viewedByAssignee: false,
+      };
+      
+      if (isDbConnected) {
+        fbSet('requests', newRequest.id, newRequest);
+      } else {
+        setRequests(prev => [newRequest, ...prev]);
+      }
+    } catch (e) {
+      console.error("Failed to add request:", e);
     }
   }, [isDbConnected]);
 

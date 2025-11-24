@@ -58,49 +58,56 @@ export const RequestList: React.FC = () => {
 
   // PERFORMANCE OPTIMIZATION: useMemo ensures filtering only happens when dependencies change
   const filteredRequests = useMemo(() => {
-    if (!currentUser) return [];
+    if (!currentUser || !requests) return [];
 
-    return requests.filter(r => {
-      // 1. Permission Filter (Robust Check)
+    // Normalize Role for safe comparison
+    const userRole = String(currentUser.role);
+
+    return requests.filter(req => {
+      // --- 1. ACCESS CONTROL (Permissions) ---
       let hasAccess = false;
-      
-      // Ensure role string comparison is safe
-      const userRole = String(currentUser.role);
-      
-      // Rule 1: Admins see all requests for their company
-      if (userRole === UserRole.ADMIN || userRole === 'ADMIN') {
-        hasAccess = r.companyId === currentUser.companyId;
-      } 
-      // Rule 2: Leaders see requests for their unit
-      else if (userRole === UserRole.LEADER || userRole === 'LEADER') {
-        hasAccess = r.unitId === currentUser.unitId;
-      }
 
-      // Rule 3: CREATOR ALWAYS SEES THEIR OWN REQUESTS (Overrides previous rules if they failed)
-      // This fixes the issue where a creator couldn't see their own ticket if other conditions failed
-      if (r.creatorId === currentUser.id) {
+      // Rule A: Creator ALWAYS sees their own requests
+      if (req.creatorId === currentUser.id) {
+        hasAccess = true;
+      }
+      // Rule B: Admins see everything in their company
+      else if ((userRole === 'ADMIN' || userRole === UserRole.ADMIN) && req.companyId === currentUser.companyId) {
+        hasAccess = true;
+      }
+      // Rule C: Leaders see everything in their unit
+      else if ((userRole === 'LEADER' || userRole === UserRole.LEADER) && req.unitId === currentUser.unitId) {
         hasAccess = true;
       }
 
       if (!hasAccess) return false;
 
-      // 2. Search Filter (Uses Debounced value)
-      const term = debouncedSearchTerm.toLowerCase();
-      const matchesSearch = !term || r.title.toLowerCase().includes(term) || r.id.toLowerCase().includes(term);
+      // --- 2. VIEW FILTERS (Search & Dropdowns) ---
       
-      // 3. Status Filter
-      const matchesStatus = statusFilter === 'ALL' ? true : r.status === statusFilter;
+      // Search Filter
+      const term = debouncedSearchTerm.toLowerCase();
+      if (term) {
+        const matchesTitle = req.title.toLowerCase().includes(term);
+        const matchesId = req.id.toLowerCase().includes(term);
+        if (!matchesTitle && !matchesId) return false;
+      }
 
-      // 4. Assignee Filter
-      const matchesAssignee = assigneeFilter === 'ALL' 
-        ? true 
-        : assigneeFilter === 'UNASSIGNED' 
-          ? !r.assigneeId 
-          : r.assigneeId === assigneeFilter;
+      // Status Filter
+      if (statusFilter !== 'ALL' && req.status !== statusFilter) {
+        return false;
+      }
 
-      return matchesSearch && matchesStatus && matchesAssignee;
+      // Assignee Filter
+      if (assigneeFilter !== 'ALL') {
+        if (assigneeFilter === 'UNASSIGNED') {
+          if (req.assigneeId) return false;
+        } else {
+          if (req.assigneeId !== assigneeFilter) return false;
+        }
+      }
+
+      return true;
     });
-    // Note: Removed the secondary sort here because 'requests' from useData is already sorted by date.
   }, [requests, currentUser, debouncedSearchTerm, statusFilter, assigneeFilter]);
 
   // Reset to page 1 when filters change, clear selection
