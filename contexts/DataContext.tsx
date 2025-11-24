@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { Company, Unit, User, RequestTicket, Comment, UserRole, RequestStatus, FirebaseConfig } from '../types';
 import { formatISO } from 'date-fns';
-import { initFirebase, fbSet, fbUpdate, fbDelete, fbSubscribe } from '../services/firebaseService';
+import { initFirebase, fbSet, fbUpdate, fbDelete, fbSubscribe, fbUpdateMulti } from '../services/firebaseService';
 
 interface SetupData {
   companyName: string;
@@ -30,6 +30,7 @@ interface DataContextType {
   // Actions
   addRequest: (req: Omit<RequestTicket, 'id' | 'createdAt' | 'updatedAt' | 'viewedByAssignee'>) => void;
   updateRequestStatus: (id: string, status: RequestStatus) => void;
+  bulkUpdateRequestStatus: (ids: string[], status: RequestStatus) => void;
   addComment: (ticketId: string, userId: string, content: string) => void;
   addUnit: (unit: Omit<Unit, 'id'>) => void;
   addUser: (user: Omit<User, 'id'>) => void;
@@ -259,6 +260,23 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const bulkUpdateRequestStatus = (ids: string[], status: RequestStatus) => {
+    const updatedDate = formatISO(new Date());
+    
+    if (isDbConnected) {
+      const updates: Record<string, any> = {};
+      ids.forEach(id => {
+        updates[`requests/${id}/status`] = status;
+        updates[`requests/${id}/updatedAt`] = updatedDate;
+      });
+      fbUpdateMulti(updates);
+    } else {
+      setRequests(prev => prev.map(r => 
+        ids.includes(r.id) ? { ...r, status, updatedAt: updatedDate } : r
+      ));
+    }
+  };
+
   const addComment = (ticketId: string, userId: string, content: string) => {
     const newComment: Comment = {
       id: `cm${Date.now()}`,
@@ -335,7 +353,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const value = useMemo(() => ({
     companies, units, users, requests, comments,
     firebaseConfig, isDbConnected, saveFirebaseConfig, isLoading,
-    addRequest, updateRequestStatus, addComment,
+    addRequest, updateRequestStatus, bulkUpdateRequestStatus, addComment,
     addUnit, addUser, updateUserPassword, updateCompany, deleteUnit, deleteUser,
     getRequestsByUnit, getRequestsByCompany, getCommentsByRequest,
     isSetupDone, setupSystem

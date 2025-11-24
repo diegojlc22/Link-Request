@@ -110,6 +110,17 @@ export const fbUpdate = async (path: string, id: string, data: any) => {
   }
 };
 
+// Atomic multi-path update
+export const fbUpdateMulti = async (updates: Record<string, any>) => {
+  if (!db) return;
+  try {
+    await update(ref(db), updates);
+    console.log(`Multi-path update success: ${Object.keys(updates).length} paths`);
+  } catch (error) {
+    console.error(`Error executing multi-path update:`, error);
+  }
+};
+
 export const fbDelete = async (path: string, id: string) => {
   if (!db) return;
   try {

@@ -6,18 +6,21 @@ import { RequestStatus } from '../types';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { StatusBadge, PriorityBadge } from '../components/ui/Badge';
-import { Plus, Search, Filter, Link as LinkIcon, Image as ImageIcon, X, User as UserIcon, UserCheck, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Search, Filter, Link as LinkIcon, Image as ImageIcon, X, User as UserIcon, UserCheck, Calendar, ChevronLeft, ChevronRight, CheckSquare, Square, MoreHorizontal } from 'lucide-react';
 import { Modal } from '../components/ui/Modal';
 
 export const RequestList: React.FC = () => {
-  const { requests, units, addRequest, users } = useData();
-  const { currentUser } = useAuth();
+  const { requests, units, addRequest, users, bulkUpdateRequestStatus } = useData();
+  const { currentUser, isAdmin, isLeader } = useAuth();
   const navigate = useNavigate();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [assigneeFilter, setAssigneeFilter] = useState<string>('ALL');
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Selection State
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -33,6 +36,9 @@ export const RequestList: React.FC = () => {
   
   // Image Upload State
   const [attachedImage, setAttachedImage] = useState<string | null>(null);
+
+  // Determine if user has permission to manage status
+  const canManageStatus = isAdmin || isLeader;
 
   // PERFORMANCE OPTIMIZATION: useMemo ensures filtering only happens when dependencies change
   const filteredRequests = useMemo(() => {
@@ -62,9 +68,10 @@ export const RequestList: React.FC = () => {
     }).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
   }, [requests, currentUser, searchTerm, statusFilter, assigneeFilter]);
 
-  // Reset to page 1 when filters change
+  // Reset to page 1 when filters change, clear selection
   useEffect(() => {
     setCurrentPage(1);
+    setSelectedIds(new Set());
   }, [searchTerm, statusFilter, assigneeFilter]);
 
   // Pagination Logic
@@ -72,6 +79,35 @@ export const RequestList: React.FC = () => {
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = filteredRequests.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(filteredRequests.length / itemsPerPage);
+
+  // Selection Logic
+  const toggleSelection = (id: string) => {
+    const newSelected = new Set(selectedIds);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedIds(newSelected);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === currentItems.length && currentItems.length > 0) {
+      setSelectedIds(new Set());
+    } else {
+      const allCurrentIds = currentItems.map(r => r.id);
+      setSelectedIds(new Set(allCurrentIds));
+    }
+  };
+
+  const handleBulkStatusChange = (status: RequestStatus) => {
+    if (selectedIds.size === 0) return;
+    
+    if (confirm(`Deseja alterar o status de ${selectedIds.size} requisições para "${status}"?`)) {
+      bulkUpdateRequestStatus(Array.from(selectedIds), status);
+      setSelectedIds(new Set());
+    }
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -128,7 +164,7 @@ export const RequestList: React.FC = () => {
   }), [users, newUnitId]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Requisições</h1>
         <Button onClick={() => setIsModalOpen(true)}>
@@ -190,6 +226,18 @@ export const RequestList: React.FC = () => {
           <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
             <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
               <tr>
+                <th scope="col" className="p-4 w-4">
+                  <div className="flex items-center">
+                    <input 
+                      id="checkbox-all" 
+                      type="checkbox" 
+                      className="w-4 h-4 text-primary-600 bg-gray-100 border-gray-300 rounded focus:ring-primary-500 dark:focus:ring-primary-600 dark:ring-offset-gray-800 dark:focus:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                      checked={currentItems.length > 0 && selectedIds.size === currentItems.length}
+                      onChange={toggleSelectAll}
+                    />
+                    <label htmlFor="checkbox-all" className="sr-only">checkbox</label>
+                  </div>
+                </th>
                 <th className="px-6 py-3">ID / Título</th>
                 <th className="px-6 py-3">Unidade</th>
                 <th className="px-6 py-3">Responsável</th>
@@ -202,18 +250,38 @@ export const RequestList: React.FC = () => {
             <tbody>
               {currentItems.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-8 text-center text-gray-500">Nenhuma requisição encontrada.</td>
+                  <td colSpan={8} className="px-6 py-8 text-center text-gray-500">Nenhuma requisição encontrada.</td>
                 </tr>
               ) : (
                 currentItems.map((req) => {
                   const unitName = units.find(u => u.id === req.unitId)?.name || 'N/A';
                   const assigneeName = users.find(u => u.id === req.assigneeId)?.name || '—';
+                  const isSelected = selectedIds.has(req.id);
+
                   return (
-                    <tr key={req.id} className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                    <tr 
+                      key={req.id} 
+                      className={`
+                        border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors
+                        ${isSelected ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-white dark:bg-gray-800'}
+                      `}
+                    >
+                      <td className="w-4 p-4">
+                        <div className="flex items-center">
+                          <input 
+                            id={`checkbox-${req.id}`} 
+                            type="checkbox" 
+                            className="w-4 h-4 text-primary-600 bg-gray-100 border-gray-300 rounded focus:ring-primary-500 dark:focus:ring-primary-600 dark:ring-offset-gray-800 dark:focus:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                            checked={isSelected}
+                            onChange={() => toggleSelection(req.id)}
+                          />
+                          <label htmlFor={`checkbox-${req.id}`} className="sr-only">checkbox</label>
+                        </div>
+                      </td>
                       <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">
-                        <div className="flex flex-col">
+                        <div className="flex flex-col cursor-pointer" onClick={() => navigate(`/requests/${req.id}`)}>
                            <span className="text-xs text-gray-400">#{req.id}</span>
-                           <span className="font-semibold truncate max-w-[200px]">{req.title}</span>
+                           <span className="font-semibold truncate max-w-[200px] hover:text-primary-600">{req.title}</span>
                         </div>
                       </td>
                       <td className="px-6 py-4">{unitName}</td>
@@ -278,10 +346,8 @@ export const RequestList: React.FC = () => {
                     <ChevronLeft className="h-4 w-4" aria-hidden="true" />
                   </button>
                   
-                  {/* Simple logic for page numbers: Show current, prev, next if possible, or simplified range */}
                   {Array.from({ length: totalPages }).map((_, idx) => {
                     const pageNum = idx + 1;
-                    // Show first, last, current, and immediate neighbors
                     if (
                       pageNum === 1 || 
                       pageNum === totalPages || 
@@ -302,8 +368,6 @@ export const RequestList: React.FC = () => {
                         </button>
                       );
                     }
-                    
-                    // Show ellipsis
                     if (
                       (pageNum === currentPage - 2 && currentPage > 3) || 
                       (pageNum === currentPage + 2 && currentPage < totalPages - 2)
@@ -331,6 +395,46 @@ export const RequestList: React.FC = () => {
           </div>
         )}
       </Card>
+      
+      {/* Floating Bulk Action Bar */}
+      {selectedIds.size > 0 && canManageStatus && (
+        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-2xl rounded-xl p-4 flex flex-col sm:flex-row items-center gap-4 z-40 animate-fade-in w-[90%] sm:w-auto">
+          <div className="flex items-center gap-2 font-medium text-gray-900 dark:text-white border-r border-gray-200 dark:border-gray-700 pr-4">
+             <span className="bg-primary-600 text-white text-xs px-2 py-1 rounded-full">{selectedIds.size}</span>
+             <span>Selecionados</span>
+          </div>
+          <div className="flex items-center gap-2 overflow-x-auto max-w-full pb-2 sm:pb-0">
+             <span className="text-sm text-gray-500 whitespace-nowrap">Alterar para:</span>
+             <div className="flex gap-2">
+                <button 
+                  onClick={() => handleBulkStatusChange(RequestStatus.IN_PROGRESS)}
+                  className="px-3 py-1.5 text-xs font-medium rounded-lg bg-amber-100 text-amber-800 hover:bg-amber-200 transition-colors whitespace-nowrap"
+                >
+                  Em Andamento
+                </button>
+                <button 
+                   onClick={() => handleBulkStatusChange(RequestStatus.WAITING_CLIENT)}
+                   className="px-3 py-1.5 text-xs font-medium rounded-lg bg-purple-100 text-purple-800 hover:bg-purple-200 transition-colors whitespace-nowrap"
+                >
+                   Aguard. Cliente
+                </button>
+                <button 
+                   onClick={() => handleBulkStatusChange(RequestStatus.RESOLVED)}
+                   className="px-3 py-1.5 text-xs font-medium rounded-lg bg-emerald-100 text-emerald-800 hover:bg-emerald-200 transition-colors whitespace-nowrap"
+                >
+                   Resolvido
+                </button>
+             </div>
+          </div>
+          <button 
+            onClick={() => setSelectedIds(new Set())} 
+            className="ml-2 p-1 text-gray-400 hover:text-red-500 transition-colors"
+            title="Cancelar seleção"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+      )}
 
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Nova Requisição">
         <form onSubmit={handleCreate} className="space-y-4">
