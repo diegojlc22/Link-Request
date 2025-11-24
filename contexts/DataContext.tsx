@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import { Company, Unit, User, RequestTicket, Comment, UserRole, RequestStatus, FirebaseConfig } from '../types';
+import { Company, Unit, User, RequestTicket, Comment, UserRole, RequestStatus } from '../types';
 import { formatISO } from 'date-fns';
 import { initFirebase, fbSet, fbUpdate, fbDelete, fbSubscribe, fbUpdateMulti } from '../services/firebaseService';
 
@@ -22,9 +22,7 @@ interface DataContextType {
   setupSystem: (data: SetupData) => void;
 
   // Firebase
-  firebaseConfig: FirebaseConfig | null;
   isDbConnected: boolean;
-  saveFirebaseConfig: (config: FirebaseConfig | null) => void;
   isLoading: boolean;
 
   // Actions
@@ -54,7 +52,6 @@ const MOCK_UNITS: Unit[] = [
   { id: 'u1', companyId: 'c1', name: 'Matriz - São Paulo', location: 'Av. Paulista, 1000' },
 ];
 
-// Default Admin Credentials: admin@admin / admin
 const MOCK_USERS: User[] = [
   { id: 'user1', companyId: 'c1', name: 'Admin', email: 'admin@admin', password: 'admin', role: UserRole.ADMIN, avatarUrl: 'https://ui-avatars.com/api/?name=Admin' },
 ];
@@ -85,11 +82,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [comments, setComments] = useState<Comment[]>(() => loadState('link_req_comments', MOCK_COMMENTS));
   
   // Firebase State
-  const [firebaseConfig, setFirebaseConfig] = useState<FirebaseConfig | null>(() => loadState('link_req_firebase_config', null));
   const [isDbConnected, setIsDbConnected] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Initialize Firebase and Setup Real-time Listeners
+  // Initialize Firebase automatically
   useEffect(() => {
     let unsubCompanies: () => void = () => {};
     let unsubUnits: () => void = () => {};
@@ -98,62 +94,45 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let unsubComments: () => void = () => {};
 
     const initDb = () => {
-      if (firebaseConfig) {
-        setIsLoading(true);
-        console.log("Initializing Firebase connection...");
-        
-        const success = initFirebase(firebaseConfig);
-        
-        if (success) {
-          setIsDbConnected(true);
-          console.log("Firebase initialized. Setting up listeners...");
+      // Tenta iniciar com variáveis de ambiente
+      const success = initFirebase();
+      
+      if (success) {
+        setIsDbConnected(true);
+        console.log("Firebase initialized successfully.");
 
-          // Subscribe to Real-time Updates (Observer Pattern)
-          // O Firebase agora é a fonte da verdade. O que vier de lá, sobrescreve o local.
-          
-          unsubCompanies = fbSubscribe<Company>('companies', (data) => {
-            if (Array.isArray(data)) setCompanies(data);
-          });
+        // Subscribe to Real-time Updates
+        unsubCompanies = fbSubscribe<Company>('companies', (data) => {
+          if (Array.isArray(data) && data.length > 0) setCompanies(data);
+        });
 
-          unsubUnits = fbSubscribe<Unit>('units', (data) => {
-             if (Array.isArray(data)) setUnits(data);
-          });
+        unsubUnits = fbSubscribe<Unit>('units', (data) => {
+           if (Array.isArray(data) && data.length > 0) setUnits(data);
+        });
 
-          unsubUsers = fbSubscribe<User>('users', (data) => {
-             if (Array.isArray(data)) {
-               setUsers(data);
-               // Se conectou ao Firebase com sucesso, mas a lista de usuários está vazia, logar aviso
-               if (data.length === 0) console.log("SYNC: Lista de usuários vazia no Firebase.");
-             }
-          });
+        unsubUsers = fbSubscribe<User>('users', (data) => {
+           if (Array.isArray(data) && data.length > 0) setUsers(data);
+        });
 
-          unsubRequests = fbSubscribe<RequestTicket>('requests', (data) => {
-             if (Array.isArray(data)) {
-               console.log(`SYNC: Recebidos ${data.length} tickets do Firebase.`);
-               setRequests(data);
-             }
-          });
+        unsubRequests = fbSubscribe<RequestTicket>('requests', (data) => {
+           if (Array.isArray(data)) setRequests(data);
+        });
 
-          unsubComments = fbSubscribe<Comment>('comments', (data) => {
-             if (Array.isArray(data)) setComments(data);
-          });
+        unsubComments = fbSubscribe<Comment>('comments', (data) => {
+           if (Array.isArray(data)) setComments(data);
+        });
 
-        } else {
-          console.error("Failed to initialize Firebase connection. Check config.");
-          setIsDbConnected(false);
-        }
-        setIsLoading(false);
       } else {
+        console.log("Running in LOCAL MODE (Offline/Demo). Configure .env to sync.");
         setIsDbConnected(false);
       }
+      setIsLoading(false);
     };
 
     initDb();
 
-    // Cleanup subscriptions on unmount or config change
     return () => {
       if (isDbConnected) {
-        console.log("Cleaning up Firebase listeners...");
         unsubCompanies();
         unsubUnits();
         unsubUsers();
@@ -161,16 +140,16 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         unsubComments();
       }
     };
-  }, [firebaseConfig]);
+  }, []);
 
-  // Update Document Title based on Company Name
+  // Update Document Title
   useEffect(() => {
     if (companies.length > 0 && companies[0].name) {
       document.title = companies[0].name;
     }
   }, [companies]);
 
-  // Persist to LocalStorage (Backup / Offline Mode)
+  // Persist to LocalStorage (Backup)
   useEffect(() => { localStorage.setItem('link_req_companies', JSON.stringify(companies)); }, [companies]);
   useEffect(() => { localStorage.setItem('link_req_units', JSON.stringify(units)); }, [units]);
   useEffect(() => { localStorage.setItem('link_req_users', JSON.stringify(users)); }, [users]);
@@ -206,32 +185,18 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     if (isDbConnected) {
-      console.log("Setting up system in Firebase...");
       fbSet('companies', newCompany.id, newCompany);
       fbSet('units', newUnit.id, newUnit);
       fbSet('users', newAdmin.id, newAdmin);
-      setIsSetupDone(true);
     } else {
       setCompanies([newCompany]);
       setUnits([newUnit]);
       setUsers([newAdmin]);
-      setRequests([]);
-      setComments([]);
-      setIsSetupDone(true);
     }
+    setIsSetupDone(true);
   };
 
-  const saveFirebaseConfig = (config: FirebaseConfig | null) => {
-    if (config) {
-        localStorage.setItem('link_req_firebase_config', JSON.stringify(config));
-    } else {
-        localStorage.removeItem('link_req_firebase_config');
-    }
-    // Reload to ensure clean Firebase instance
-    window.location.reload();
-  };
-
-  // --- WRAPPED ACTIONS (Sync with Firebase if connected) ---
+  // --- CRUD ACTIONS ---
 
   const addRequest = (req: Omit<RequestTicket, 'id' | 'createdAt' | 'updatedAt' | 'viewedByAssignee'>) => {
     const newRequest: RequestTicket = {
@@ -245,7 +210,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     if (isDbConnected) {
       fbSet('requests', newRequest.id, newRequest);
-      // Listener will update state
     } else {
       setRequests(prev => [newRequest, ...prev]);
     }
@@ -352,12 +316,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const value = useMemo(() => ({
     companies, units, users, requests, comments,
-    firebaseConfig, isDbConnected, saveFirebaseConfig, isLoading,
+    isDbConnected, isLoading,
     addRequest, updateRequestStatus, bulkUpdateRequestStatus, addComment,
     addUnit, addUser, updateUserPassword, updateCompany, deleteUnit, deleteUser,
     getRequestsByUnit, getRequestsByCompany, getCommentsByRequest,
     isSetupDone, setupSystem
-  }), [companies, units, users, requests, comments, firebaseConfig, isDbConnected, isLoading, isSetupDone]);
+  }), [companies, units, users, requests, comments, isDbConnected, isLoading, isSetupDone]);
 
   return (
     <DataContext.Provider value={value}>

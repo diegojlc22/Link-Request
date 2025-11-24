@@ -5,27 +5,51 @@ import { FirebaseConfig } from '../types';
 let app: FirebaseApp | null = null;
 let db: Database | null = null;
 
-export const initFirebase = (config: FirebaseConfig) => {
+// Tenta carregar as configs do ambiente (Vite)
+const getEnvConfig = (): FirebaseConfig | null => {
+  const env = (import.meta as any).env;
+  
+  if (!env || !env.VITE_FIREBASE_API_KEY) {
+    return null;
+  }
+
+  return {
+    apiKey: env.VITE_FIREBASE_API_KEY,
+    authDomain: env.VITE_FIREBASE_AUTH_DOMAIN,
+    databaseURL: env.VITE_FIREBASE_DATABASE_URL,
+    projectId: env.VITE_FIREBASE_PROJECT_ID,
+    storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+    appId: env.VITE_FIREBASE_APP_ID
+  };
+};
+
+export const initFirebase = (manualConfig?: FirebaseConfig): boolean => {
   try {
-    // If config is missing vital keys, fail early
-    if (!config.apiKey || !config.databaseURL) {
-      console.error("Firebase init failed: Missing apiKey or databaseURL in config.");
+    // 1. Prioridade: Configuração Automática (.env)
+    let config = getEnvConfig();
+
+    // 2. Fallback: Configuração manual (caso legado ou teste específico)
+    if (!config && manualConfig) {
+      config = manualConfig;
+    }
+
+    if (!config || !config.apiKey || !config.databaseURL) {
+      console.warn("Firebase Init Skipped: Missing configuration (Check .env file).");
       return false;
     }
 
     if (getApps().length === 0) {
       app = initializeApp(config);
-      console.log("Firebase App Initialized.");
+      console.log("Firebase App Initialized via Environment.");
     } else {
       app = getApp();
     }
     
-    // Explicitly pass the databaseURL to getDatabase to avoid region mismatches
     if (config.databaseURL) {
       db = getDatabase(app, config.databaseURL);
-      console.log("Firebase DB connection established to:", config.databaseURL);
+      console.log("Firebase Connected");
     } else {
-      console.error("Missing databaseURL in config");
       return false;
     }
     
@@ -37,8 +61,6 @@ export const initFirebase = (config: FirebaseConfig) => {
 };
 
 export const isFirebaseInitialized = () => !!db;
-
-// Generic CRUD Helpers
 
 export const fbGetAll = async <T>(path: string): Promise<T[]> => {
   if (!db) return [];
@@ -55,31 +77,21 @@ export const fbGetAll = async <T>(path: string): Promise<T[]> => {
   }
 };
 
-// Real-time Listener (Observer Pattern)
 export const fbSubscribe = <T>(path: string, callback: (data: T[]) => void): Unsubscribe => {
   if (!db) {
-    console.warn(`Cannot subscribe to ${path}: DB not initialized. Check your configuration.`);
     return () => {};
   }
   try {
     const dbRef = ref(db, path);
-    console.log(`Subscribing to path: ${path}...`);
-    
-    // The "Engine": Using onValue to listen for real-time changes
     return onValue(dbRef, (snapshot) => {
       const val = snapshot.val();
-      
-      // Transform Firebase Object Map to Array for React
       const data = val ? Object.keys(val).map(key => ({
         ...val[key],
         id: key
       })) : [];
-      
-      // console.log(`Sync update for ${path}:`, data.length, "items");
       callback(data as T[]);
     }, (error) => {
       console.error(`FIREBASE SYNC ERROR on path '${path}':`, error.message);
-      console.error("Check your Firebase Security Rules (read: true) and Database URL.");
     });
   } catch (error) {
     console.error(`Error setting up listener for ${path}:`, error);
@@ -88,13 +100,9 @@ export const fbSubscribe = <T>(path: string, callback: (data: T[]) => void): Uns
 };
 
 export const fbSet = async (path: string, id: string, data: any) => {
-  if (!db) {
-      console.error("DB not initialized, cannot set data.");
-      return;
-  }
+  if (!db) return;
   try {
     await set(ref(db, `${path}/${id}`), data);
-    // console.log(`Set success: ${path}/${id}`);
   } catch (error) {
     console.error(`Error setting doc in ${path}:`, error);
   }
@@ -104,18 +112,15 @@ export const fbUpdate = async (path: string, id: string, data: any) => {
   if (!db) return;
   try {
     await update(ref(db, `${path}/${id}`), data);
-    // console.log(`Update success: ${path}/${id}`);
   } catch (error) {
     console.error(`Error updating doc in ${path}:`, error);
   }
 };
 
-// Atomic multi-path update
 export const fbUpdateMulti = async (updates: Record<string, any>) => {
   if (!db) return;
   try {
     await update(ref(db), updates);
-    console.log(`Multi-path update success: ${Object.keys(updates).length} paths`);
   } catch (error) {
     console.error(`Error executing multi-path update:`, error);
   }
@@ -125,7 +130,6 @@ export const fbDelete = async (path: string, id: string) => {
   if (!db) return;
   try {
     await remove(ref(db, `${path}/${id}`));
-    console.log(`Delete success: ${path}/${id}`);
   } catch (error) {
     console.error(`Error deleting doc in ${path}:`, error);
   }
