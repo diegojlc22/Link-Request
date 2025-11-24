@@ -208,7 +208,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // --- OPTIMIZATION: MEMOIZED LISTS ---
   // Sort requests by update time (newest first) once, so consumers don't have to sort on every render
   const sortedRequests = useMemo(() => {
-    return [...requests].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+    return [...requests].sort((a, b) => {
+        // Safe sort handling missing dates
+        const timeA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+        const timeB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+        return timeB - timeA;
+    });
   }, [requests]);
 
   // Sort comments by creation time (oldest first)

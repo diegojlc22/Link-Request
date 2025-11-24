@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
-import { RequestStatus } from '../types';
+import { RequestStatus, UserRole } from '../types';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { StatusBadge, PriorityBadge } from '../components/ui/Badge';
@@ -58,22 +58,33 @@ export const RequestList: React.FC = () => {
 
   // PERFORMANCE OPTIMIZATION: useMemo ensures filtering only happens when dependencies change
   const filteredRequests = useMemo(() => {
+    if (!currentUser) return [];
+
     return requests.filter(r => {
-      // Permission Filter
+      // 1. Permission Filter (Robust Check)
       let hasAccess = false;
-      if (currentUser?.role === 'ADMIN') hasAccess = r.companyId === currentUser.companyId;
-      else if (currentUser?.role === 'LEADER') hasAccess = r.unitId === currentUser.unitId;
-      else hasAccess = r.creatorId === currentUser?.id;
+      
+      if (currentUser.role === UserRole.ADMIN) {
+        // Admins see all requests for their company
+        hasAccess = r.companyId === currentUser.companyId;
+      } else if (currentUser.role === UserRole.LEADER) {
+        // Leaders see requests for their unit
+        hasAccess = r.unitId === currentUser.unitId;
+      } else {
+        // Users see only their own requests
+        hasAccess = r.creatorId === currentUser.id;
+      }
 
       if (!hasAccess) return false;
 
-      // Search Filter (Uses Debounced value)
-      const matchesSearch = r.title.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) || r.id.includes(debouncedSearchTerm);
+      // 2. Search Filter (Uses Debounced value)
+      const term = debouncedSearchTerm.toLowerCase();
+      const matchesSearch = !term || r.title.toLowerCase().includes(term) || r.id.toLowerCase().includes(term);
       
-      // Status Filter
+      // 3. Status Filter
       const matchesStatus = statusFilter === 'ALL' ? true : r.status === statusFilter;
 
-      // Assignee Filter
+      // 4. Assignee Filter
       const matchesAssignee = assigneeFilter === 'ALL' 
         ? true 
         : assigneeFilter === 'UNASSIGNED' 
@@ -81,7 +92,12 @@ export const RequestList: React.FC = () => {
           : r.assigneeId === assigneeFilter;
 
       return matchesSearch && matchesStatus && matchesAssignee;
-    }).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+    }).sort((a, b) => {
+        // Safe Date Sorting
+        const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+        const dateB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+        return dateB - dateA;
+    });
   }, [requests, currentUser, debouncedSearchTerm, statusFilter, assigneeFilter]);
 
   // Reset to page 1 when filters change, clear selection
@@ -133,7 +149,6 @@ export const RequestList: React.FC = () => {
       // Validate Type
       if (!file.type.startsWith('image/')) {
         showToast('Por favor, selecione apenas arquivos de imagem.', 'error');
-        // Reset input value to allow re-selecting the same file if user made a mistake
         e.target.value = '';
         return;
       }
@@ -242,7 +257,7 @@ export const RequestList: React.FC = () => {
   // Filter users eligible for assignment based on selected Unit (or all if Admin)
   const assignableUsers = useMemo(() => users.filter(u => {
      // Admins can always be assigned
-     if (u.role === 'ADMIN') return true;
+     if (u.role === UserRole.ADMIN) return true;
      // If a unit is selected for the new ticket, filter users from that unit
      if (newUnitId) return u.unitId === newUnitId;
      return true;

@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, UserRole } from '../types';
 import { useData } from './DataContext';
 
@@ -16,7 +16,26 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { users } = useData();
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  
+  // Initialize with persisted user if available
+  const [currentUser, setCurrentUser] = useState<User | null>(() => {
+    try {
+      const saved = localStorage.getItem('link_req_curr_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      console.error("Error reading auth state", e);
+      return null;
+    }
+  });
+
+  // Persist session changes
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem('link_req_curr_user', JSON.stringify(currentUser));
+    } else {
+      localStorage.removeItem('link_req_curr_user');
+    }
+  }, [currentUser]);
 
   const login = (email: string, password: string) => {
     const user = users.find(u => u.email === email);
