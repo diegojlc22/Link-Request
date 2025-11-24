@@ -130,8 +130,19 @@ export const RequestList: React.FC = () => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Validate Type
       if (!file.type.startsWith('image/')) {
         showToast('Por favor, selecione apenas arquivos de imagem.', 'error');
+        // Reset input value to allow re-selecting the same file if user made a mistake
+        e.target.value = '';
+        return;
+      }
+
+      // Validate Size (Max 5MB)
+      const MAX_SIZE = 5 * 1024 * 1024; // 5MB in bytes
+      if (file.size > MAX_SIZE) {
+        showToast('A imagem deve ter no máximo 5MB.', 'error');
+        e.target.value = '';
         return;
       }
 
