@@ -2,7 +2,7 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 import { Company, Unit, User, RequestTicket, Comment, UserRole, RequestStatus, FirebaseConfig } from '../types';
 import { formatISO } from 'date-fns';
-import { initFirebase, fbSet, fbUpdate, fbDelete, fbSubscribe, fbUpdateMulti } from '../services/firebaseService';
+import { initFirebase, fbSet, fbUpdate, fbDelete, fbSubscribe, fbUpdateMulti, fbGetAll } from '../services/firebaseService';
 
 interface SetupData {
   companyName: string;
@@ -95,7 +95,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let unsubRequests: () => void = () => {};
     let unsubComments: () => void = () => {};
 
-    const initDb = () => {
+    const initDb = async () => {
       // 1. Tenta carregar config salva no LocalStorage (User Setup)
       const storedConfig = loadState<FirebaseConfig | null>('link_req_firebase_config', null);
       
@@ -106,7 +106,36 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsDbConnected(true);
         console.log("System initialized in Online Mode.");
 
-        // Subscribe to Real-time Updates
+        try {
+          // 3. Initial Fetch (Parallel) - Optimized Loading
+          const [
+            initialCompanies,
+            initialUnits,
+            initialUsers,
+            initialRequests,
+            initialComments
+          ] = await Promise.all([
+            fbGetAll<Company>('companies'),
+            fbGetAll<Unit>('units'),
+            fbGetAll<User>('users'),
+            fbGetAll<RequestTicket>('requests'),
+            fbGetAll<Comment>('comments')
+          ]);
+
+          // Set Initial State
+          if (initialCompanies.length > 0) setCompanies(initialCompanies);
+          if (initialUnits.length > 0) setUnits(initialUnits);
+          if (initialUsers.length > 0) setUsers(initialUsers);
+          setRequests(initialRequests);
+          setComments(initialComments);
+
+        } catch (err) {
+          console.error("Error fetching initial data:", err);
+        } finally {
+          setIsLoading(false); // Stop loading spinner after initial fetch
+        }
+
+        // 4. Subscribe to Real-time Updates (Keep data in sync)
         unsubCompanies = fbSubscribe<Company>('companies', (data) => {
           if (Array.isArray(data) && data.length > 0) setCompanies(data);
         });
@@ -130,8 +159,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } else {
         console.log("System initialized in Offline Mode.");
         setIsDbConnected(false);
+        setIsLoading(false);
       }
-      setIsLoading(false);
     };
 
     initDb();
