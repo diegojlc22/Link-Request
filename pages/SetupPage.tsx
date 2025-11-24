@@ -28,26 +28,23 @@ export const SetupPage: React.FC = () => {
       try {
         let cleanCode = firebaseJson.trim();
         
-        // Remove variable declaration if present (const config = ...)
-        if (cleanCode.includes('=')) {
-          cleanCode = cleanCode.substring(cleanCode.indexOf('=') + 1);
-        }
+        // Estratégia de extração robusta: Pega tudo entre o primeiro '{' e o último '}'
+        const firstBrace = cleanCode.indexOf('{');
+        const lastBrace = cleanCode.lastIndexOf('}');
         
-        // Remove trailing semicolon
-        if (cleanCode.endsWith(';')) {
-          cleanCode = cleanCode.slice(0, -1);
+        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+            cleanCode = cleanCode.substring(firstBrace, lastBrace + 1);
+        } else {
+             // Se não achar chaves, tenta usar o texto todo (caso o user tenha colado so o miolo sem chaves, o que daria erro, mas tentamos)
         }
-
-        cleanCode = cleanCode.trim();
 
         // Tenta avaliar como objeto JS (chaves sem aspas, aspas simples, etc)
         try {
            // new Function é seguro aqui pois é input do usuário rodando no browser dele mesmo (Client-Side Setup)
-           // Isso permite colar exatamente o que o Firebase fornece
            const evalFn = new Function(`return ${cleanCode}`);
            parsedConfig = evalFn();
         } catch (evalErr) {
-           // Fallback: Tenta parsear como JSON estrito
+           // Fallback: Tenta parsear como JSON estrito se o eval falhar
            parsedConfig = JSON.parse(cleanCode);
         }
         
@@ -62,7 +59,7 @@ export const SetupPage: React.FC = () => {
 
       } catch (err) {
         console.error(err);
-        setConfigError('Erro ao ler a configuração. Certifique-se de copiar o objeto { ... } corretamente do Firebase.');
+        setConfigError('Erro ao ler a configuração. Certifique-se de copiar o objeto { ... } inteiro.');
         return;
       }
     }
@@ -184,7 +181,7 @@ export const SetupPage: React.FC = () => {
                      </p>
                      <p className="mb-2">Não é necessário editar arquivos. Apenas cole o código obtido no console do Firebase.</p>
                      <p className="text-xs opacity-80 mt-2 bg-white/50 dark:bg-black/20 p-2 rounded">
-                        <strong>Dica:</strong> Copie o trecho <code>const firebaseConfig = &#123; ... &#125;;</code>
+                        <strong>Dica:</strong> Cole o objeto inteiro: <code>const firebaseConfig = &#123; ... &#125;;</code> ou apenas <code>&#123; ... &#125;</code>
                      </p>
                    </div>
 
@@ -197,14 +194,12 @@ export const SetupPage: React.FC = () => {
                          setConfigError('');
                        }} 
                        className={`w-full px-4 py-2 rounded-lg border bg-white dark:bg-gray-800 font-mono text-xs h-32 ${configError ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-gray-600 focus:ring-primary-500'}`}
-                       placeholder={`const firebaseConfig = {
+                       placeholder={`{
   apiKey: "AIzaSy...",
   authDomain: "...",
-  projectId: "...",
-  storageBucket: "...",
-  messagingSenderId: "...",
-  appId: "..."
-};`}
+  databaseURL: "...",
+  ...
+}`}
                      />
                      {configError && (
                        <div className="mt-2 text-xs text-red-600 dark:text-red-400 flex items-center gap-1 animate-pulse">
