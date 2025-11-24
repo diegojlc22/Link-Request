@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 import { RequestStatus, RequestAttachment } from '../types';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -14,6 +15,7 @@ export const RequestDetail: React.FC = () => {
   const navigate = useNavigate();
   const { requests, comments, users, units, addComment, updateRequestStatus } = useData();
   const { currentUser, isAdmin, isLeader } = useAuth();
+  const { showToast } = useToast();
   
   const request = requests.find(r => r.id === id);
   const requestComments = comments.filter(c => c.requestId === id);
@@ -58,6 +60,14 @@ export const RequestDetail: React.FC = () => {
         addComment(id, currentUser.id, newComment);
     }
     setNewComment('');
+  };
+
+  const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newStatus = e.target.value as RequestStatus;
+    if(request) {
+        updateRequestStatus(request.id, newStatus);
+        showToast(`Status atualizado para: ${newStatus}`, 'success');
+    }
   };
 
   return (
@@ -222,7 +232,7 @@ export const RequestDetail: React.FC = () => {
                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Alterar Status</label>
                  <select 
                    value={request.status}
-                   onChange={(e) => updateRequestStatus(request.id, e.target.value as RequestStatus)}
+                   onChange={handleStatusChange}
                    className="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm"
                  >
                    {Object.values(RequestStatus).map(s => (

@@ -1,7 +1,9 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 import { RequestStatus } from '../types';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -12,6 +14,7 @@ import { Modal } from '../components/ui/Modal';
 export const RequestList: React.FC = () => {
   const { requests, units, addRequest, users, bulkUpdateRequestStatus } = useData();
   const { currentUser, isAdmin, isLeader } = useAuth();
+  const { showToast } = useToast();
   const navigate = useNavigate();
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -105,6 +108,7 @@ export const RequestList: React.FC = () => {
     
     if (confirm(`Deseja alterar o status de ${selectedIds.size} requisições para "${status}"?`)) {
       bulkUpdateRequestStatus(Array.from(selectedIds), status);
+      showToast(`${selectedIds.size} requisições atualizadas para ${status}`, 'success');
       setSelectedIds(new Set());
     }
   };
@@ -146,7 +150,11 @@ export const RequestList: React.FC = () => {
       priority: newPriority,
       attachments: attachments
     });
+    
+    showToast('Requisição criada com sucesso!', 'success');
     setIsModalOpen(false);
+    
+    // Reset form
     setNewTitle('');
     setNewDesc('');
     setNewProductUrl('');

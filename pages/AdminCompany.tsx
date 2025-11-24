@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Building, Save } from 'lucide-react';
@@ -9,6 +10,7 @@ import { Building, Save } from 'lucide-react';
 export const AdminCompany: React.FC = () => {
   const { companies, updateCompany } = useData();
   const { currentUser } = useAuth();
+  const { showToast } = useToast();
   
   // Assuming single tenant for this view, or finding the user's company
   const company = companies.find(c => c.id === currentUser?.companyId) || companies[0];
@@ -24,7 +26,7 @@ export const AdminCompany: React.FC = () => {
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     updateCompany(company.id, { name });
-    alert('Informações da empresa atualizadas com sucesso!');
+    showToast('Informações da empresa atualizadas com sucesso!', 'success');
   };
 
   return (

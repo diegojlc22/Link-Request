@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   LayoutDashboard, 
   Ticket, 
@@ -15,6 +16,7 @@ import {
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
+import { useToast } from '../contexts/ToastContext';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -22,11 +24,49 @@ interface LayoutProps {
 
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { currentUser, logout, isAdmin } = useAuth();
-  const { companies } = useData();
+  const { companies, requests } = useData();
+  const { showToast } = useToast();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isDark, setIsDark] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Notification Logic: Watch for new requests (Real-time)
+  const previousRequestsRef = useRef<Set<string>>(new Set());
+  const isFirstLoad = useRef(true);
+
+  useEffect(() => {
+    // If it's the first load, just populate the ref and don't notify
+    if (isFirstLoad.current) {
+      if (requests.length > 0) {
+        requests.forEach(r => previousRequestsRef.current.add(r.id));
+        isFirstLoad.current = false;
+      }
+      return;
+    }
+
+    // Check for new IDs
+    if (isAdmin) {
+      requests.forEach(req => {
+        if (!previousRequestsRef.current.has(req.id)) {
+          // Verify if it's actually recent (created in the last minute) 
+          // to avoid alerts from old data syncing late
+          const createdTime = new Date(req.createdAt).getTime();
+          const now = Date.now();
+          const isRecent = (now - createdTime) < 60000; // 1 minute
+
+          if (isRecent) {
+             showToast(`Nova requisição criada: ${req.title}`, 'info');
+          }
+          previousRequestsRef.current.add(req.id);
+        }
+      });
+    } else {
+      // For non-admins, just keep the ref updated to avoid stale state logic
+      requests.forEach(r => previousRequestsRef.current.add(r.id));
+    }
+  }, [requests, isAdmin, showToast]);
+
 
   // Get Current Company (Mock: first one or user's company)
   const currentCompany = companies.find(c => c.id === currentUser?.companyId) || companies[0];
@@ -161,7 +201,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             </button>
             <button className="p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors relative">
               <Bell className="h-5 w-5" />
-              <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-red-500 rounded-full ring-2 ring-white dark:ring-gray-800"></span>
+              {/* Optional: Show badge if there are unread notifications */}
             </button>
           </div>
         </header>

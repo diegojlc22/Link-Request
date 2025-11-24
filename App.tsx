@@ -1,7 +1,9 @@
+
 import React, { Suspense } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { DataProvider, useData } from './contexts/DataContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { ToastProvider } from './contexts/ToastContext';
 import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
 import { RequestList } from './pages/RequestList';
@@ -71,11 +73,13 @@ const AppContent: React.FC = () => {
 const App: React.FC = () => {
   return (
     <HashRouter>
-      <DataProvider>
-        <AuthProvider>
-          <AppContent />
-        </AuthProvider>
-      </DataProvider>
+      <ToastProvider>
+        <DataProvider>
+          <AuthProvider>
+            <AppContent />
+          </AuthProvider>
+        </DataProvider>
+      </ToastProvider>
     </HashRouter>
   );
 };
