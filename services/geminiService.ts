@@ -1,1 +1,1 @@
-export {};
+// Arquivo não utilizado.

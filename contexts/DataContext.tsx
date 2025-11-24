@@ -104,7 +104,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (success) {
         setIsDbConnected(true);
-        console.log("Firebase initialized successfully.");
+        console.log("System initialized in Online Mode.");
 
         // Subscribe to Real-time Updates
         unsubCompanies = fbSubscribe<Company>('companies', (data) => {
@@ -128,7 +128,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
 
       } else {
-        console.log("Running in Local Storage Mode.");
+        console.log("System initialized in Offline Mode.");
         setIsDbConnected(false);
       }
       setIsLoading(false);
@@ -192,14 +192,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Salva configuração do Firebase se fornecida
     if (data.firebaseConfig) {
       localStorage.setItem('link_req_firebase_config', JSON.stringify(data.firebaseConfig));
-      // Tenta reconectar imediatamente (recarregando a página para garantir estado limpo é mais seguro)
+      // Tenta reconectar imediatamente
       setTimeout(() => window.location.reload(), 100);
     }
 
-    // Se estiver conectado (ou vai conectar no reload), define dados iniciais no Firebase?
-    // Nota: Como o reload acontece acima, a persistência inicial pode ser feita na próxima carga se estiver vazio,
-    // ou salvamos localmente agora e o sync cuida depois.
-    
     setCompanies([newCompany]);
     setUnits([newUnit]);
     setUsers([newAdmin]);

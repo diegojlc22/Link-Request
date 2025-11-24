@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useData } from '../contexts/DataContext';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
-import { ShieldCheck, Building2, User, Rocket, Database } from 'lucide-react';
+import { ShieldCheck, Building2, User, Rocket, Database, Info } from 'lucide-react';
 import { FirebaseConfig } from '../types';
 
 export const SetupPage: React.FC = () => {
@@ -36,7 +36,6 @@ export const SetupPage: React.FC = () => {
         }
         
         // Corrige chaves sem aspas (ex: apiKey: "...") para JSON válido ("apiKey": "...")
-        // Esta regex é básica, mas ajuda em colagens diretas do JS
         cleanJson = cleanJson.replace(/(\w+):/g, '"$1":');
         // Remove trailing commas
         cleanJson = cleanJson.replace(/,(\s*[}\]])/g, '$1');
@@ -70,14 +69,14 @@ export const SetupPage: React.FC = () => {
           <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-primary-600 text-white mb-4 shadow-lg shadow-primary-600/30">
             <Rocket className="h-8 w-8" />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Instalação Link-Request</h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-2">Configure seu ambiente em poucos passos.</p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Instalação do Sistema</h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-2">Configuração rápida e simplificada.</p>
         </div>
 
         <Card>
           <CardHeader>
             <CardTitle>
-              {step === 1 ? 'Dados da Empresa' : step === 2 ? 'Conta do Administrador' : 'Banco de Dados (Opcional)'}
+              {step === 1 ? 'Dados da Empresa' : step === 2 ? 'Conta do Administrador' : 'Banco de Dados (Fácil)'}
             </CardTitle>
             <div className="flex gap-2 mt-2">
               <div className={`h-1 flex-1 rounded-full ${step >= 1 ? 'bg-primary-600' : 'bg-gray-200 dark:bg-gray-700'}`} />
@@ -167,14 +166,16 @@ export const SetupPage: React.FC = () => {
                 <div className="space-y-4">
                    <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-100 dark:border-blue-800 text-sm text-blue-800 dark:text-blue-300">
                      <p className="font-semibold mb-1 flex items-center gap-2">
-                       <Database className="h-4 w-4" /> Conexão Firebase (Opcional)
+                       <Database className="h-4 w-4" /> Configuração Fácil do Firebase
                      </p>
-                     <p className="mb-2">Para sincronizar dados em tempo real, cole o objeto de configuração do Firebase abaixo.</p>
-                     <p className="text-xs opacity-80">Encontre em: Firebase Console {'>'} Configurações do Projeto {'>'} Geral {'>'} Seus aplicativos {'>'} SDK setup (Config)</p>
+                     <p className="mb-2">Não é necessário editar arquivos de sistema. Apenas cole a configuração do seu projeto abaixo.</p>
+                     <p className="text-xs opacity-80 mt-2 bg-white/50 dark:bg-black/20 p-2 rounded">
+                        <strong>Dica:</strong> Copie o código em: Firebase Console {'>'} Configurações {'>'} Geral {'>'} Seus aplicativos {'>'} SDK setup (Config)
+                     </p>
                    </div>
 
                    <div>
-                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Configuração JSON</label>
+                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Configuração (Cole o JSON/Objeto aqui)</label>
                      <textarea 
                        value={firebaseJson} 
                        onChange={e => {
@@ -183,9 +184,11 @@ export const SetupPage: React.FC = () => {
                        }} 
                        className={`w-full px-4 py-2 rounded-lg border bg-white dark:bg-gray-800 font-mono text-xs h-32 ${configError ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-gray-600 focus:ring-primary-500'}`}
                        placeholder={`{
-  "apiKey": "...",
-  "authDomain": "...",
-  "databaseURL": "..."
+  "apiKey": "AIzaSy...",
+  "authDomain": "seu-app.firebaseapp.com",
+  "databaseURL": "https://seu-app.firebaseio.com",
+  "projectId": "seu-app",
+  ...
 }`}
                      />
                      {configError && <p className="text-xs text-red-500 mt-1">{configError}</p>}
@@ -196,7 +199,7 @@ export const SetupPage: React.FC = () => {
                        Voltar
                      </Button>
                      <Button type="submit" className="flex-1">
-                       <ShieldCheck className="h-4 w-4 mr-2" /> Concluir Instalação
+                       <ShieldCheck className="h-4 w-4 mr-2" /> Finalizar Instalação
                      </Button>
                    </div>
                 </div>
@@ -205,7 +208,7 @@ export const SetupPage: React.FC = () => {
           </CardContent>
         </Card>
         <p className="text-center text-xs text-gray-400 mt-8">
-           © 2025 Link-Request SaaS. Todos os direitos reservados.
+           O sistema salvará as configurações localmente no seu navegador.
         </p>
       </div>
     </div>

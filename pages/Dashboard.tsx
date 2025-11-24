@@ -52,10 +52,10 @@ export const Dashboard: React.FC = () => {
   );
 
   return (
-    <div className="space-y-6 pb-6">
+    <div className="space-y-4 md:space-y-6 pb-6">
       <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         <StatCard title="Total Requisições" value={stats.total} icon={Send} color="bg-blue-500" />
         <StatCard title="Pendentes" value={stats.pending} icon={AlertCircle} color="bg-orange-500" />
         <StatCard title="Em Andamento" value={stats.inProgress} icon={Clock} color="bg-purple-500" />
