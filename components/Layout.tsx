@@ -92,22 +92,40 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     }
   };
 
-  const menuItems = [
+  const mainNavItems = [
     { path: '/', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/requests', label: 'Requisições', icon: Ticket },
   ];
 
-  if (isAdmin) {
-    menuItems.push(
-      { path: '/admin/units', label: 'Unidades', icon: Building2 },
-      { path: '/admin/users', label: 'Usuários', icon: Users },
-      { path: '/admin/company', label: 'Minha Empresa', icon: Briefcase },
-    );
-  }
+  const adminNavItems = [
+    { path: '/admin/units', label: 'Unidades', icon: Building2 },
+    { path: '/admin/users', label: 'Usuários', icon: Users },
+    { path: '/admin/company', label: 'Minha Empresa', icon: Briefcase },
+  ];
 
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const NavItem = ({ item }: { item: typeof mainNavItems[0] }) => {
+    const Icon = item.icon;
+    const isActive = location.pathname === item.path || (item.path !== '/' && location.pathname.startsWith(item.path));
+    
+    return (
+      <Link
+        to={item.path}
+        onClick={() => setIsSidebarOpen(false)}
+        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-sm font-medium
+          ${isActive 
+            ? 'bg-primary-50 text-primary-700 dark:bg-primary-900/20 dark:text-primary-300' 
+            : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-gray-200'}
+        `}
+      >
+        <Icon className="h-5 w-5" />
+        {item.label}
+      </Link>
+    );
   };
 
   return (
@@ -137,27 +155,22 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         </div>
 
         <nav className="p-4 space-y-1">
-          {menuItems.map((item) => {
-            const Icon = item.icon;
-            // Check if exact match (for dashboard) or starts with (for sub-sections)
-            const isActive = location.pathname === item.path || (item.path !== '/' && location.pathname.startsWith(item.path));
-            
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                onClick={() => setIsSidebarOpen(false)}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-sm font-medium
-                  ${isActive 
-                    ? 'bg-primary-50 text-primary-700 dark:bg-primary-900/20 dark:text-primary-300' 
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-gray-200'}
-                `}
-              >
-                <Icon className="h-5 w-5" />
-                {item.label}
-              </Link>
-            );
-          })}
+          {mainNavItems.map((item) => (
+            <NavItem key={item.path} item={item} />
+          ))}
+
+          {isAdmin && (
+            <>
+              <div className="pt-6 pb-2 px-4">
+                <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+                  Gerenciamento
+                </p>
+              </div>
+              {adminNavItems.map((item) => (
+                <NavItem key={item.path} item={item} />
+              ))}
+            </>
+          )}
         </nav>
 
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 dark:border-gray-700">

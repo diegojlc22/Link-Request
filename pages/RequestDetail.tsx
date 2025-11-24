@@ -8,7 +8,7 @@ import { RequestStatus, RequestAttachment } from '../types';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { StatusBadge, PriorityBadge } from '../components/ui/Badge';
-import { ArrowLeft, Send, Paperclip, User as UserIcon, ExternalLink, ShoppingBag, Image as ImageIcon, X, Download, ZoomIn, FileText } from 'lucide-react';
+import { ArrowLeft, Send, Paperclip, User as UserIcon, ExternalLink, ShoppingBag, Download, ZoomIn, FileText, X } from 'lucide-react';
 
 export const RequestDetail: React.FC = () => {
   const { id } = useParams();
@@ -72,7 +72,7 @@ export const RequestDetail: React.FC = () => {
 
   // Helper to check if attachment is an image (Base64 or direct image link)
   const isImage = (url: string) => {
-    return url.startsWith('data:image') || url.match(/\.(jpeg|jpg|gif|png)$/) != null;
+    return url.startsWith('data:image') || url.match(/\.(jpeg|jpg|gif|png|webp)$/i) != null;
   };
 
   return (
@@ -111,7 +111,8 @@ export const RequestDetail: React.FC = () => {
                    </h3>
                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                      {request.attachments.map(att => {
-                       const isImg = isImage(att.url);
+                       // We primarily support images now, but handle legacy links just in case
+                       const isImg = isImage(att.url) || att.type === 'image';
                        return (
                          <div 
                            key={att.id} 
@@ -133,19 +134,16 @@ export const RequestDetail: React.FC = () => {
                                </div>
                              </div>
                            ) : (
-                             // External Link Card
+                             // Fallback for generic file/link
                              <a 
                                href={att.url} 
                                target="_blank" 
                                rel="noopener noreferrer"
                                className="w-full h-full flex flex-col items-center justify-center p-4 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-center"
                              >
-                               <FileText className="h-10 w-10 text-blue-500 mb-2" />
+                               <FileText className="h-10 w-10 text-gray-400 mb-2" />
                                <span className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate w-full">
                                  {att.name}
-                               </span>
-                               <span className="text-[10px] text-gray-400 mt-1 flex items-center gap-1">
-                                 Abrir Link <ExternalLink className="h-3 w-3" />
                                </span>
                              </a>
                            )}

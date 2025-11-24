@@ -8,7 +8,7 @@ import { RequestStatus } from '../types';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { StatusBadge, PriorityBadge } from '../components/ui/Badge';
-import { Plus, Search, Filter, Link as LinkIcon, Image as ImageIcon, X, User as UserIcon, UserCheck, Calendar, ChevronLeft, ChevronRight, CheckSquare, Square, MoreHorizontal, Globe } from 'lucide-react';
+import { Plus, Search, Filter, Link as LinkIcon, Image as ImageIcon, X, User as UserIcon, UserCheck, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Modal } from '../components/ui/Modal';
 
 export const RequestList: React.FC = () => {
@@ -38,9 +38,8 @@ export const RequestList: React.FC = () => {
   const [newAssigneeId, setNewAssigneeId] = useState('');
   
   // Attachment State
-  const [attachmentType, setAttachmentType] = useState<'image' | 'link'>('image');
   const [attachedImage, setAttachedImage] = useState<string | null>(null);
-  const [attachedLink, setAttachedLink] = useState('');
+  const [isCompressing, setIsCompressing] = useState(false);
 
   // Determine if user has permission to manage status
   const canManageStatus = isAdmin || isLeader;
@@ -115,13 +114,56 @@ export const RequestList: React.FC = () => {
     }
   };
 
+  // IMAGEM COMPRESSION LOGIC
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (!file.type.startsWith('image/')) {
+        showToast('Por favor, selecione apenas arquivos de imagem.', 'error');
+        return;
+      }
+
+      setIsCompressing(true);
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setAttachedImage(reader.result as string);
+      
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          
+          // Max dimensions (Optimization: ~800px is enough for screenshots)
+          const MAX_WIDTH = 800;
+          const MAX_HEIGHT = 800;
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+
+          // Compress to JPEG with 70% quality
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+          
+          setAttachedImage(dataUrl);
+          setIsCompressing(false);
+          showToast('Imagem otimizada com sucesso!', 'info');
+        };
+        img.src = event.target?.result as string;
       };
+      
       reader.readAsDataURL(file);
     }
   };
@@ -132,19 +174,12 @@ export const RequestList: React.FC = () => {
 
     const attachments = [];
 
-    if (attachmentType === 'image' && attachedImage) {
+    if (attachedImage) {
       attachments.push({
         id: `att${Date.now()}`,
         name: 'Imagem Anexada',
         url: attachedImage,
         type: 'image'
-      });
-    } else if (attachmentType === 'link' && attachedLink) {
-      attachments.push({
-        id: `att${Date.now()}`,
-        name: 'Link Externo',
-        url: attachedLink,
-        type: 'link'
       });
     }
 
@@ -173,8 +208,6 @@ export const RequestList: React.FC = () => {
     setNewProductUrl('');
     setNewAssigneeId('');
     setAttachedImage(null);
-    setAttachedLink('');
-    setAttachmentType('image');
   };
 
   // Filter users eligible for assignment based on selected Unit (or all if Admin)
@@ -543,80 +576,50 @@ export const RequestList: React.FC = () => {
           {/* Attachment Section */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Anexos
+              Anexo (Imagem)
             </label>
-
-            {/* Tabs */}
-            <div className="flex gap-4 mb-3 border-b border-gray-200 dark:border-gray-700">
-              <button
-                type="button"
-                onClick={() => setAttachmentType('image')}
-                className={`pb-2 text-sm font-medium border-b-2 transition-colors ${attachmentType === 'image' ? 'border-primary-600 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-              >
-                Enviar Imagem
-              </button>
-              <button
-                type="button"
-                onClick={() => setAttachmentType('link')}
-                className={`pb-2 text-sm font-medium border-b-2 transition-colors ${attachmentType === 'link' ? 'border-primary-600 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-              >
-                Link Externo (Drive/Nuvem)
-              </button>
-            </div>
             
-            {attachmentType === 'image' ? (
-              // Image Upload UI
-              !attachedImage ? (
-                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:hover:border-gray-500">
-                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
+            {!attachedImage ? (
+              <label className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-700 hover:bg-gray-100 transition-colors ${isCompressing ? 'border-primary-500 opacity-70 cursor-wait' : 'border-gray-300 dark:border-gray-600'}`}>
+                <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                  {isCompressing ? (
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mb-2"></div>
+                  ) : (
                     <ImageIcon className="w-8 h-8 mb-2 text-gray-500 dark:text-gray-400" />
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Clique para enviar (JPG, PNG)</p>
-                  </div>
-                  <input 
-                    type="file" 
-                    className="hidden" 
-                    accept="image/*"
-                    onChange={handleFileChange}
-                  />
-                </label>
-              ) : (
-                <div className="relative w-full h-48 bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600">
-                  <img src={attachedImage} alt="Preview" className="w-full h-full object-contain" />
-                  <button
-                    type="button"
-                    onClick={() => setAttachedImage(null)}
-                    className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 shadow-md"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
+                  )}
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {isCompressing ? 'Otimizando imagem...' : 'Clique para enviar foto (Auto-compressão)'}
+                  </p>
                 </div>
-              )
+                <input 
+                  type="file" 
+                  className="hidden" 
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  disabled={isCompressing}
+                />
+              </label>
             ) : (
-              // External Link UI
-              <div className="space-y-2">
-                 <p className="text-xs text-gray-500 dark:text-gray-400">Cole o link compartilhado do Google Drive, Dropbox, ou OneDrive.</p>
-                 <div className="relative">
-                   <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                   <input
-                    type="url"
-                    value={attachedLink}
-                    onChange={(e) => setAttachedLink(e.target.value)}
-                    placeholder="https://drive.google.com/file/..."
-                    className="w-full pl-10 pr-4 py-2 border rounded-lg bg-white dark:bg-gray-700 dark:border-gray-600 text-blue-600"
-                   />
-                 </div>
-                 {attachedLink && (
-                   <div className="flex items-center gap-2 p-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded text-xs border border-blue-100 dark:border-blue-800">
-                     <CheckSquare className="h-3 w-3" /> Link pronto para anexar.
-                   </div>
-                 )}
+              <div className="relative w-full h-48 bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 group">
+                <img src={attachedImage} alt="Preview" className="w-full h-full object-contain" />
+                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <button
+                      type="button"
+                      onClick={() => setAttachedImage(null)}
+                      className="p-2 bg-red-600 text-white rounded-full hover:bg-red-700 shadow-lg transform hover:scale-110 transition-transform"
+                    >
+                      <X className="h-5 w-5" />
+                    </button>
+                </div>
               </div>
             )}
           </div>
 
           <div className="flex justify-end pt-4">
             <Button type="button" variant="ghost" onClick={() => setIsModalOpen(false)} className="mr-2">Cancelar</Button>
-            <Button type="submit">Criar Ticket</Button>
+            <Button type="submit" disabled={isCompressing}>
+              {isCompressing ? 'Processando...' : 'Criar Ticket'}
+            </Button>
           </div>
         </form>
       </Modal>
