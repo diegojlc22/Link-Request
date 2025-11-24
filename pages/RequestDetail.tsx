@@ -70,9 +70,9 @@ export const RequestDetail: React.FC = () => {
   const unit = units.find(u => u.id === request.unitId);
   
   const canManageStatus = isAdmin || (isLeader && currentUser?.unitId === request.unitId);
+  const isCreator = currentUser?.id === request.creatorId;
   
   // Rule: Can edit if (Admin OR Leader OR Creator) AND status is NOT Resolved/Cancelled
-  const isCreator = currentUser?.id === request.creatorId;
   const isResolvedOrCancelled = [RequestStatus.RESOLVED, RequestStatus.CANCELLED].includes(request.status);
   const canEditContent = (isAdmin || isLeader || isCreator) && !isResolvedOrCancelled;
 
@@ -94,12 +94,14 @@ export const RequestDetail: React.FC = () => {
   };
 
   const startEditing = () => {
-    if (request) {
+    if (request && canEditContent) {
       setEditTitle(request.title);
       setEditDesc(request.description);
       setEditPriority(request.priority);
       setEditUrl(request.productUrl || '');
       setIsEditing(true);
+    } else {
+      showToast('Esta requisição não pode ser editada no momento.', 'error');
     }
   };
 
@@ -108,6 +110,20 @@ export const RequestDetail: React.FC = () => {
         showToast('Título e descrição são obrigatórios.', 'error');
         return;
     }
+    
+    // Security check: Prevent saving if status changed to resolved/cancelled in the meantime
+    if (isResolvedOrCancelled) {
+        showToast('Não é possível editar requisições finalizadas ou canceladas.', 'error');
+        setIsEditing(false);
+        return;
+    }
+
+    // Basic URL validation if url is provided
+    if (editUrl && !editUrl.match(/^https?:\/\/.+/)) {
+        showToast('O link do produto deve começar com http:// ou https://', 'error');
+        return;
+    }
+
     if (request) {
         updateRequest(request.id, {
             title: editTitle,
