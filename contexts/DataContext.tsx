@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 import { Company, Unit, User, RequestTicket, Comment, UserRole, RequestStatus, FirebaseConfig } from '../types';
 import { formatISO } from 'date-fns';
 import { initFirebase, fbSet, fbUpdate, fbDelete, fbSubscribe, fbUpdateMulti } from '../services/firebaseService';
@@ -162,9 +162,20 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => { localStorage.setItem('link_req_comments', JSON.stringify(comments)); }, [comments]);
   useEffect(() => { localStorage.setItem('link_req_is_setup_done', JSON.stringify(isSetupDone)); }, [isSetupDone]);
   
-  // --- SYSTEM ACTIONS ---
+  // --- OPTIMIZATION: MEMOIZED LISTS ---
+  // Sort requests by update time (newest first) once, so consumers don't have to sort on every render
+  const sortedRequests = useMemo(() => {
+    return [...requests].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+  }, [requests]);
 
-  const setupSystem = (data: SetupData) => {
+  // Sort comments by creation time (oldest first)
+  const sortedComments = useMemo(() => {
+    return [...comments].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  }, [comments]);
+
+  // --- SYSTEM ACTIONS (Memoized) ---
+
+  const setupSystem = useCallback((data: SetupData) => {
     const newCompany: Company = {
       id: 'c1',
       name: data.companyName,
@@ -200,11 +211,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUnits([newUnit]);
     setUsers([newAdmin]);
     setIsSetupDone(true);
-  };
+  }, []);
 
-  // --- CRUD ACTIONS ---
+  // --- CRUD ACTIONS (Memoized) ---
 
-  const addRequest = (req: Omit<RequestTicket, 'id' | 'createdAt' | 'updatedAt' | 'viewedByAssignee'>) => {
+  const addRequest = useCallback((req: Omit<RequestTicket, 'id' | 'createdAt' | 'updatedAt' | 'viewedByAssignee'>) => {
     const newRequest: RequestTicket = {
       ...req,
       id: `r${Date.now()}`,
@@ -219,18 +230,18 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } else {
       setRequests(prev => [newRequest, ...prev]);
     }
-  };
+  }, [isDbConnected]);
 
-  const updateRequestStatus = (id: string, status: RequestStatus) => {
+  const updateRequestStatus = useCallback((id: string, status: RequestStatus) => {
     const updatedDate = formatISO(new Date());
     if (isDbConnected) {
       fbUpdate('requests', id, { status, updatedAt: updatedDate });
     } else {
       setRequests(prev => prev.map(r => r.id === id ? { ...r, status, updatedAt: updatedDate } : r));
     }
-  };
+  }, [isDbConnected]);
 
-  const bulkUpdateRequestStatus = (ids: string[], status: RequestStatus) => {
+  const bulkUpdateRequestStatus = useCallback((ids: string[], status: RequestStatus) => {
     const updatedDate = formatISO(new Date());
     
     if (isDbConnected) {
@@ -245,9 +256,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         ids.includes(r.id) ? { ...r, status, updatedAt: updatedDate } : r
       ));
     }
-  };
+  }, [isDbConnected]);
 
-  const addComment = (ticketId: string, userId: string, content: string) => {
+  const addComment = useCallback((ticketId: string, userId: string, content: string) => {
     const newComment: Comment = {
       id: `cm${Date.now()}`,
       requestId: ticketId,
@@ -264,70 +275,108 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setComments(prev => [...prev, newComment]);
       setRequests(prev => prev.map(r => r.id === ticketId ? { ...r, updatedAt: updatedDate } : r));
     }
-  };
+  }, [isDbConnected]);
 
-  const addUnit = (unit: Omit<Unit, 'id'>) => {
+  const addUnit = useCallback((unit: Omit<Unit, 'id'>) => {
     const newUnit = { ...unit, id: `u${Date.now()}` };
     if (isDbConnected) {
       fbSet('units', newUnit.id, newUnit);
     } else {
       setUnits(prev => [...prev, newUnit]);
     }
-  };
+  }, [isDbConnected]);
 
-  const addUser = (user: Omit<User, 'id'>) => {
+  const addUser = useCallback((user: Omit<User, 'id'>) => {
     const newUser = { ...user, id: `user${Date.now()}` };
     if (isDbConnected) {
       fbSet('users', newUser.id, newUser);
     } else {
       setUsers(prev => [...prev, newUser]);
     }
-  };
+  }, [isDbConnected]);
 
-  const updateUserPassword = (userId: string, newPassword: string) => {
+  const updateUserPassword = useCallback((userId: string, newPassword: string) => {
     if (isDbConnected) {
       fbUpdate('users', userId, { password: newPassword });
     } else {
       setUsers(prev => prev.map(u => u.id === userId ? { ...u, password: newPassword } : u));
     }
-  };
+  }, [isDbConnected]);
 
-  const updateCompany = (id: string, data: Partial<Company>) => {
+  const updateCompany = useCallback((id: string, data: Partial<Company>) => {
     if (isDbConnected) {
       fbUpdate('companies', id, data);
     } else {
       setCompanies(prev => prev.map(c => c.id === id ? { ...c, ...data } : c));
     }
-  };
+  }, [isDbConnected]);
 
-  const deleteUnit = (id: string) => {
+  const deleteUnit = useCallback((id: string) => {
     if (isDbConnected) {
       fbDelete('units', id);
     } else {
       setUnits(prev => prev.filter(u => u.id !== id));
     }
-  };
+  }, [isDbConnected]);
 
-  const deleteUser = (id: string) => {
+  const deleteUser = useCallback((id: string) => {
     if (isDbConnected) {
       fbDelete('users', id);
     } else {
       setUsers(prev => prev.filter(u => u.id !== id));
     }
-  };
+  }, [isDbConnected]);
 
-  const getRequestsByUnit = (unitId: string) => requests.filter(r => r.unitId === unitId);
-  const getRequestsByCompany = (companyId: string) => requests.filter(r => r.companyId === companyId);
-  const getCommentsByRequest = (requestId: string) => comments.filter(c => c.requestId === requestId).sort((a,b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  // --- GETTERS (Memoized) ---
+  
+  const getRequestsByUnit = useCallback((unitId: string) => {
+    return sortedRequests.filter(r => r.unitId === unitId);
+  }, [sortedRequests]);
 
+  const getRequestsByCompany = useCallback((companyId: string) => {
+    return sortedRequests.filter(r => r.companyId === companyId);
+  }, [sortedRequests]);
+  
+  const getCommentsByRequest = useCallback((requestId: string) => {
+    // Uses already sorted list
+    return sortedComments.filter(c => c.requestId === requestId);
+  }, [sortedComments]);
+
+  // Construct Value with stable references
   const value = useMemo(() => ({
-    companies, units, users, requests, comments,
-    isDbConnected, isLoading,
+    companies, 
+    units, 
+    users, 
+    requests: sortedRequests, // Expose sorted requests by default
+    comments: sortedComments, // Expose sorted comments by default
+    
+    isDbConnected, 
+    isLoading,
+    
+    addRequest, 
+    updateRequestStatus, 
+    bulkUpdateRequestStatus, 
+    addComment,
+    addUnit, 
+    addUser, 
+    updateUserPassword, 
+    updateCompany, 
+    deleteUnit, 
+    deleteUser,
+    
+    getRequestsByUnit, 
+    getRequestsByCompany, 
+    getCommentsByRequest,
+    
+    isSetupDone, 
+    setupSystem
+  }), [
+    companies, units, users, sortedRequests, sortedComments,
+    isDbConnected, isLoading, isSetupDone,
     addRequest, updateRequestStatus, bulkUpdateRequestStatus, addComment,
     addUnit, addUser, updateUserPassword, updateCompany, deleteUnit, deleteUser,
-    getRequestsByUnit, getRequestsByCompany, getCommentsByRequest,
-    isSetupDone, setupSystem
-  }), [companies, units, users, requests, comments, isDbConnected, isLoading, isSetupDone]);
+    getRequestsByUnit, getRequestsByCompany, getCommentsByRequest, setupSystem
+  ]);
 
   return (
     <DataContext.Provider value={value}>
