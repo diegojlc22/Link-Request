@@ -1,10 +1,9 @@
-
-import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { getDatabase, ref, onValue, set, update, remove, get, Database, Unsubscribe } from 'firebase/database';
+import firebase from 'firebase/app';
+import 'firebase/database';
 import { FirebaseConfig } from '../types';
 
-let app: FirebaseApp | null = null;
-let db: Database | null = null;
+let app: firebase.app.App | null = null;
+let db: firebase.database.Database | null = null;
 
 // Tenta carregar as configs do ambiente (Vite)
 const getEnvConfig = (): FirebaseConfig | null => {
@@ -43,15 +42,15 @@ export const initFirebase = (manualConfig?: FirebaseConfig): boolean => {
       return false;
     }
 
-    if (getApps().length === 0) {
-      app = initializeApp(config);
+    if (!firebase.apps.length) {
+      app = firebase.initializeApp(config);
       console.log("Firebase App Initialized.");
     } else {
-      app = getApp();
+      app = firebase.app();
     }
     
     if (config.databaseURL) {
-      db = getDatabase(app, config.databaseURL);
+      db = firebase.database(app!);
       console.log("Firebase Connected");
     } else {
       return false;
@@ -69,7 +68,7 @@ export const isFirebaseInitialized = () => !!db;
 export const fbGetAll = async <T>(path: string): Promise<T[]> => {
   if (!db) return [];
   try {
-    const snapshot = await get(ref(db, path));
+    const snapshot = await db.ref(path).once('value');
     const val = snapshot.val();
     return val ? Object.keys(val).map(key => ({
       ...val[key],
@@ -81,22 +80,28 @@ export const fbGetAll = async <T>(path: string): Promise<T[]> => {
   }
 };
 
-export const fbSubscribe = <T>(path: string, callback: (data: T[]) => void): Unsubscribe => {
+export const fbSubscribe = <T>(path: string, callback: (data: T[]) => void): () => void => {
   if (!db) {
     return () => {};
   }
   try {
-    const dbRef = ref(db, path);
-    return onValue(dbRef, (snapshot) => {
+    const dbRef = db.ref(path);
+    const handler = (snapshot: firebase.database.DataSnapshot) => {
       const val = snapshot.val();
       const data = val ? Object.keys(val).map(key => ({
         ...val[key],
         id: key
       })) : [];
       callback(data as T[]);
-    }, (error) => {
+    };
+    
+    dbRef.on('value', handler, (error: Error) => {
       console.error(`FIREBASE SYNC ERROR on path '${path}':`, error.message);
     });
+
+    return () => {
+      dbRef.off('value', handler);
+    };
   } catch (error) {
     console.error(`Error setting up listener for ${path}:`, error);
     return () => {};
@@ -106,7 +111,7 @@ export const fbSubscribe = <T>(path: string, callback: (data: T[]) => void): Uns
 export const fbSet = async (path: string, id: string, data: any) => {
   if (!db) return;
   try {
-    await set(ref(db, `${path}/${id}`), data);
+    await db.ref(`${path}/${id}`).set(data);
   } catch (error) {
     console.error(`Error setting doc in ${path}:`, error);
   }
@@ -115,7 +120,7 @@ export const fbSet = async (path: string, id: string, data: any) => {
 export const fbUpdate = async (path: string, id: string, data: any) => {
   if (!db) return;
   try {
-    await update(ref(db, `${path}/${id}`), data);
+    await db.ref(`${path}/${id}`).update(data);
   } catch (error) {
     console.error(`Error updating doc in ${path}:`, error);
   }
@@ -124,7 +129,7 @@ export const fbUpdate = async (path: string, id: string, data: any) => {
 export const fbUpdateMulti = async (updates: Record<string, any>) => {
   if (!db) return;
   try {
-    await update(ref(db), updates);
+    await db.ref().update(updates);
   } catch (error) {
     console.error(`Error executing multi-path update:`, error);
   }
@@ -133,7 +138,7 @@ export const fbUpdateMulti = async (updates: Record<string, any>) => {
 export const fbDelete = async (path: string, id: string) => {
   if (!db) return;
   try {
-    await remove(ref(db, `${path}/${id}`));
+    await db.ref(`${path}/${id}`).remove();
   } catch (error) {
     console.error(`Error deleting doc in ${path}:`, error);
   }

@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useData } from '../contexts/DataContext';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
-import { ShieldCheck, Building2, User, Rocket, Database, Info } from 'lucide-react';
+import { ShieldCheck, Building2, User, Rocket, Database, AlertCircle } from 'lucide-react';
 import { FirebaseConfig } from '../types';
 
 export const SetupPage: React.FC = () => {
@@ -26,44 +26,43 @@ export const SetupPage: React.FC = () => {
 
     if (firebaseJson.trim()) {
       try {
-        // Tenta limpar o JSON se o usuário colou "const firebaseConfig = { ... }"
-        let cleanJson = firebaseJson;
-        if (cleanJson.includes('=')) {
-          cleanJson = cleanJson.substring(cleanJson.indexOf('=') + 1);
-        }
-        if (cleanJson.trim().endsWith(';')) {
-          cleanJson = cleanJson.trim().slice(0, -1);
+        let cleanCode = firebaseJson.trim();
+        
+        // Remove variable declaration if present (const config = ...)
+        if (cleanCode.includes('=')) {
+          cleanCode = cleanCode.substring(cleanCode.indexOf('=') + 1);
         }
         
-        // --- Lógica de Correção de JS para JSON ---
-        // 1. Remove comentários de linha //
-        cleanJson = cleanJson.replace(/\/\/.*$/gm, '');
-        // 2. Remove comentários de bloco /* */
-        cleanJson = cleanJson.replace(/\/\*[\s\S]*?\*\//g, '');
-        
-        // 3. Regex Segura: Corrige chaves sem aspas (ex: apiKey: "...") para JSON válido ("apiKey": "...")
-        // Apenas substitui se a palavra for seguida de dois pontos e estiver no início da linha, ou após { ou ,
-        // Isso evita quebrar URLs como "https://..." onde "https" é seguido de dois pontos mas não é uma chave
-        cleanJson = cleanJson.replace(/(^|{|,)\s*([a-zA-Z0-9_]+)\s*:/g, '$1"$2":');
-        
-        // 4. Troca aspas simples por duplas (caso o usuário tenha copiado JS com 'string')
-        // Cuidado: isso é simplificado e pode falhar se houver aspas simples dentro do texto, 
-        // mas cobre 99% dos casos de config padrão do Firebase.
-        cleanJson = cleanJson.replace(/'/g, '"');
+        // Remove trailing semicolon
+        if (cleanCode.endsWith(';')) {
+          cleanCode = cleanCode.slice(0, -1);
+        }
 
-        // 5. Remove vírgulas sobrando no final de objetos (Trailing commas)
-        cleanJson = cleanJson.replace(/,(\s*[}\]])/g, '$1');
+        cleanCode = cleanCode.trim();
 
-        parsedConfig = JSON.parse(cleanJson);
+        // Tenta avaliar como objeto JS (chaves sem aspas, aspas simples, etc)
+        try {
+           // new Function é seguro aqui pois é input do usuário rodando no browser dele mesmo (Client-Side Setup)
+           // Isso permite colar exatamente o que o Firebase fornece
+           const evalFn = new Function(`return ${cleanCode}`);
+           parsedConfig = evalFn();
+        } catch (evalErr) {
+           // Fallback: Tenta parsear como JSON estrito
+           parsedConfig = JSON.parse(cleanCode);
+        }
         
-        if (!parsedConfig?.apiKey || !parsedConfig?.databaseURL) {
-           setConfigError('O JSON parece incompleto. Certifique-se de que "apiKey" e "databaseURL" estão presentes.');
+        if (!parsedConfig || typeof parsedConfig !== 'object') {
+            throw new Error('Formato inválido.');
+        }
+
+        if (!parsedConfig.apiKey || !parsedConfig.databaseURL) {
+           setConfigError('O código parece incompleto. "apiKey" e "databaseURL" são obrigatórios.');
            return;
         }
 
       } catch (err) {
         console.error(err);
-        setConfigError('Erro ao ler a configuração. Certifique-se de colar o objeto de configuração correto.');
+        setConfigError('Erro ao ler a configuração. Certifique-se de copiar o objeto { ... } corretamente do Firebase.');
         return;
       }
     }
@@ -207,7 +206,12 @@ export const SetupPage: React.FC = () => {
   appId: "..."
 };`}
                      />
-                     {configError && <p className="text-xs text-red-500 mt-1">{configError}</p>}
+                     {configError && (
+                       <div className="mt-2 text-xs text-red-600 dark:text-red-400 flex items-center gap-1 animate-pulse">
+                         <AlertCircle className="h-3 w-3" />
+                         {configError}
+                       </div>
+                     )}
                    </div>
                    
                    <div className="flex gap-3 pt-4">
@@ -223,9 +227,6 @@ export const SetupPage: React.FC = () => {
             </form>
           </CardContent>
         </Card>
-        <p className="text-center text-xs text-gray-400 mt-8">
-           O sistema salvará as configurações localmente no seu navegador.
-        </p>
       </div>
     </div>
   );
