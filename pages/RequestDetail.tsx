@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -18,7 +18,15 @@ export const RequestDetail: React.FC = () => {
   const { showToast } = useToast();
   
   const request = requests.find(r => r.id === id);
-  const requestComments = comments.filter(c => c.requestId === id);
+  
+  // OPTIMIZATION: Memoize and sort comments to prevent unnecessary re-renders and ensure chronological order
+  const requestComments = useMemo(() => {
+    if (!id) return [];
+    return comments
+      .filter(c => c.requestId === id)
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  }, [comments, id]);
+
   const [newComment, setNewComment] = useState('');
   
   // State for Image Lightbox
@@ -33,8 +41,11 @@ export const RequestDetail: React.FC = () => {
 
   const commentsEndRef = useRef<HTMLDivElement>(null);
 
+  // Auto-scroll to bottom when comments change
   useEffect(() => {
-    commentsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (commentsEndRef.current) {
+      commentsEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [requestComments]);
 
   // Close lightbox on Escape key
