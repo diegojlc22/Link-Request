@@ -252,10 +252,12 @@ export const RequestList: React.FC = () => {
     <div className="space-y-6 relative">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Requisições</h1>
-        <Button onClick={() => setIsModalOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Nova Requisição
-        </Button>
+        {!isAdmin && (
+          <Button onClick={() => setIsModalOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Nova Requisição
+          </Button>
+        )}
       </div>
 
       <Card>
