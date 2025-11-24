@@ -35,9 +35,23 @@ export const SetupPage: React.FC = () => {
           cleanJson = cleanJson.trim().slice(0, -1);
         }
         
-        // Corrige chaves sem aspas (ex: apiKey: "...") para JSON válido ("apiKey": "...")
-        cleanJson = cleanJson.replace(/(\w+):/g, '"$1":');
-        // Remove trailing commas
+        // --- Lógica de Correção de JS para JSON ---
+        // 1. Remove comentários de linha //
+        cleanJson = cleanJson.replace(/\/\/.*$/gm, '');
+        // 2. Remove comentários de bloco /* */
+        cleanJson = cleanJson.replace(/\/\*[\s\S]*?\*\//g, '');
+        
+        // 3. Regex Segura: Corrige chaves sem aspas (ex: apiKey: "...") para JSON válido ("apiKey": "...")
+        // Apenas substitui se a palavra for seguida de dois pontos e estiver no início da linha, ou após { ou ,
+        // Isso evita quebrar URLs como "https://..." onde "https" é seguido de dois pontos mas não é uma chave
+        cleanJson = cleanJson.replace(/(^|{|,)\s*([a-zA-Z0-9_]+)\s*:/g, '$1"$2":');
+        
+        // 4. Troca aspas simples por duplas (caso o usuário tenha copiado JS com 'string')
+        // Cuidado: isso é simplificado e pode falhar se houver aspas simples dentro do texto, 
+        // mas cobre 99% dos casos de config padrão do Firebase.
+        cleanJson = cleanJson.replace(/'/g, '"');
+
+        // 5. Remove vírgulas sobrando no final de objetos (Trailing commas)
         cleanJson = cleanJson.replace(/,(\s*[}\]])/g, '$1');
 
         parsedConfig = JSON.parse(cleanJson);
@@ -48,7 +62,8 @@ export const SetupPage: React.FC = () => {
         }
 
       } catch (err) {
-        setConfigError('Erro ao ler a configuração. Certifique-se de colar apenas o objeto JSON (entre chaves {}).');
+        console.error(err);
+        setConfigError('Erro ao ler a configuração. Certifique-se de colar o objeto de configuração correto.');
         return;
       }
     }
@@ -168,14 +183,14 @@ export const SetupPage: React.FC = () => {
                      <p className="font-semibold mb-1 flex items-center gap-2">
                        <Database className="h-4 w-4" /> Configuração Fácil do Firebase
                      </p>
-                     <p className="mb-2">Não é necessário editar arquivos de sistema. Apenas cole a configuração do seu projeto abaixo.</p>
+                     <p className="mb-2">Não é necessário editar arquivos. Apenas cole o código obtido no console do Firebase.</p>
                      <p className="text-xs opacity-80 mt-2 bg-white/50 dark:bg-black/20 p-2 rounded">
-                        <strong>Dica:</strong> Copie o código em: Firebase Console {'>'} Configurações {'>'} Geral {'>'} Seus aplicativos {'>'} SDK setup (Config)
+                        <strong>Dica:</strong> Copie o trecho <code>const firebaseConfig = &#123; ... &#125;;</code>
                      </p>
                    </div>
 
                    <div>
-                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Configuração (Cole o JSON/Objeto aqui)</label>
+                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Configuração (Cole aqui)</label>
                      <textarea 
                        value={firebaseJson} 
                        onChange={e => {
@@ -183,13 +198,14 @@ export const SetupPage: React.FC = () => {
                          setConfigError('');
                        }} 
                        className={`w-full px-4 py-2 rounded-lg border bg-white dark:bg-gray-800 font-mono text-xs h-32 ${configError ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-gray-600 focus:ring-primary-500'}`}
-                       placeholder={`{
-  "apiKey": "AIzaSy...",
-  "authDomain": "seu-app.firebaseapp.com",
-  "databaseURL": "https://seu-app.firebaseio.com",
-  "projectId": "seu-app",
-  ...
-}`}
+                       placeholder={`const firebaseConfig = {
+  apiKey: "AIzaSy...",
+  authDomain: "...",
+  projectId: "...",
+  storageBucket: "...",
+  messagingSenderId: "...",
+  appId: "..."
+};`}
                      />
                      {configError && <p className="text-xs text-red-500 mt-1">{configError}</p>}
                    </div>
