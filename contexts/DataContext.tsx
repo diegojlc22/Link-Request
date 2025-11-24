@@ -72,6 +72,18 @@ const loadState = <T,>(key: string, fallback: T): T => {
   }
 };
 
+// --- SECURITY UTILS ---
+// Remove tags HTML e scripts maliciosos básicos para prevenir XSS
+const sanitizeInput = (str: string): string => {
+  if (!str) return '';
+  return str
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/script/gi, "")
+    .replace(/javascript:/gi, "")
+    .trim();
+};
+
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // System State
   const [isSetupDone, setIsSetupDone] = useState<boolean>(() => loadState('link_req_is_setup_done', true));
@@ -207,7 +219,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const setupSystem = useCallback((data: SetupData) => {
     const newCompany: Company = {
       id: 'c1',
-      name: data.companyName,
+      name: sanitizeInput(data.companyName),
       domain: 'system.local',
       logoUrl: ''
     };
@@ -222,11 +234,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const newAdmin: User = {
       id: 'admin1',
       companyId: 'c1',
-      name: data.adminName,
-      email: data.adminEmail,
-      password: data.adminPassword,
+      name: sanitizeInput(data.adminName),
+      email: sanitizeInput(data.adminEmail),
+      password: data.adminPassword, // Password not sanitized to allow special chars, handled by Auth
       role: UserRole.ADMIN,
-      avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(data.adminName)}&background=random`
+      avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(sanitizeInput(data.adminName))}&background=random`
     };
 
     // Salva configuração do Firebase se fornecida
@@ -247,6 +259,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const addRequest = useCallback((req: Omit<RequestTicket, 'id' | 'createdAt' | 'updatedAt' | 'viewedByAssignee'>) => {
     const newRequest: RequestTicket = {
       ...req,
+      title: sanitizeInput(req.title),
+      description: sanitizeInput(req.description),
+      productUrl: sanitizeInput(req.productUrl || ''),
       id: `r${Date.now()}`,
       createdAt: formatISO(new Date()),
       updatedAt: formatISO(new Date()),
@@ -292,7 +307,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       id: `cm${Date.now()}`,
       requestId: ticketId,
       userId,
-      content,
+      content: sanitizeInput(content),
       createdAt: formatISO(new Date())
     };
     const updatedDate = formatISO(new Date());
@@ -307,7 +322,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [isDbConnected]);
 
   const addUnit = useCallback((unit: Omit<Unit, 'id'>) => {
-    const newUnit = { ...unit, id: `u${Date.now()}` };
+    const newUnit = { 
+      ...unit, 
+      name: sanitizeInput(unit.name),
+      location: sanitizeInput(unit.location),
+      id: `u${Date.now()}` 
+    };
     if (isDbConnected) {
       fbSet('units', newUnit.id, newUnit);
     } else {
@@ -316,7 +336,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [isDbConnected]);
 
   const addUser = useCallback((user: Omit<User, 'id'>) => {
-    const newUser = { ...user, id: `user${Date.now()}` };
+    const newUser = { 
+      ...user, 
+      name: sanitizeInput(user.name),
+      email: sanitizeInput(user.email),
+      id: `user${Date.now()}` 
+    };
     if (isDbConnected) {
       fbSet('users', newUser.id, newUser);
     } else {
@@ -333,10 +358,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [isDbConnected]);
 
   const updateCompany = useCallback((id: string, data: Partial<Company>) => {
+    const sanitizedData = { ...data };
+    if (sanitizedData.name) sanitizedData.name = sanitizeInput(sanitizedData.name);
+    
     if (isDbConnected) {
-      fbUpdate('companies', id, data);
+      fbUpdate('companies', id, sanitizedData);
     } else {
-      setCompanies(prev => prev.map(c => c.id === id ? { ...c, ...data } : c));
+      setCompanies(prev => prev.map(c => c.id === id ? { ...c, ...sanitizedData } : c));
     }
   }, [isDbConnected]);
 

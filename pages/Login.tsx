@@ -1,10 +1,11 @@
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Loader2 } from 'lucide-react';
 
 export const Login: React.FC = () => {
   const { login } = useAuth();
@@ -14,29 +15,38 @@ export const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   // Use first company for login screen branding
   const company = companies[0];
   const companyName = company?.name || 'Link-Request';
   const companyLogoLetter = companyName.charAt(0).toUpperCase();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLoggingIn) return;
+    
     setError('');
+    setIsLoggingIn(true);
     
     // Basic Sanitization/Validation
     if (!email.includes('@') || password.length < 1) {
         setError('Formato de email inválido ou senha vazia.');
+        setIsLoggingIn(false);
         return;
     }
 
-    const success = login(email, password);
-    if (!success) {
-      setError('Credenciais inválidas! Verifique seu email e senha.');
-    } else {
-      // Successful login
-      navigate('/');
-    }
+    // Simulate network delay for security (prevent timing attacks / brute force visual feedback)
+    setTimeout(() => {
+        const success = login(email, password);
+        if (!success) {
+          setError('Credenciais inválidas! Verifique seu email e senha.');
+          setIsLoggingIn(false);
+        } else {
+          // Successful login
+          navigate('/');
+        }
+    }, 600);
   };
 
   return (
@@ -73,6 +83,7 @@ export const Login: React.FC = () => {
                   placeholder="seu@email.com"
                   required
                   maxLength={100}
+                  disabled={isLoggingIn}
                 />
               </div>
               <div>
@@ -86,10 +97,15 @@ export const Login: React.FC = () => {
                   placeholder="********"
                   required
                   maxLength={50}
+                  disabled={isLoggingIn}
                 />
               </div>
-              <Button type="submit" className="w-full py-2.5" size="lg">
-                Entrar
+              <Button type="submit" className="w-full py-2.5" size="lg" disabled={isLoggingIn}>
+                {isLoggingIn ? (
+                    <span className="flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" /> Verificando...
+                    </span>
+                ) : 'Entrar'}
               </Button>
             </form>
           </CardContent>

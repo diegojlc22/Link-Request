@@ -17,9 +17,12 @@ export const RequestList: React.FC = () => {
   const { showToast } = useToast();
   const navigate = useNavigate();
 
+  // Search and Filter State
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(''); // Performance optimization
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [assigneeFilter, setAssigneeFilter] = useState<string>('ALL');
+  
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Selection State
@@ -44,6 +47,15 @@ export const RequestList: React.FC = () => {
   // Determine if user has permission to manage status
   const canManageStatus = isAdmin || isLeader;
 
+  // --- PERFORMANCE: DEBOUNCE EFFECT ---
+  // Wait 300ms after user stops typing to update filter
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
   // PERFORMANCE OPTIMIZATION: useMemo ensures filtering only happens when dependencies change
   const filteredRequests = useMemo(() => {
     return requests.filter(r => {
@@ -55,8 +67,8 @@ export const RequestList: React.FC = () => {
 
       if (!hasAccess) return false;
 
-      // Search Filter
-      const matchesSearch = r.title.toLowerCase().includes(searchTerm.toLowerCase()) || r.id.includes(searchTerm);
+      // Search Filter (Uses Debounced value)
+      const matchesSearch = r.title.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) || r.id.includes(debouncedSearchTerm);
       
       // Status Filter
       const matchesStatus = statusFilter === 'ALL' ? true : r.status === statusFilter;
@@ -70,13 +82,13 @@ export const RequestList: React.FC = () => {
 
       return matchesSearch && matchesStatus && matchesAssignee;
     }).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-  }, [requests, currentUser, searchTerm, statusFilter, assigneeFilter]);
+  }, [requests, currentUser, debouncedSearchTerm, statusFilter, assigneeFilter]);
 
   // Reset to page 1 when filters change, clear selection
   useEffect(() => {
     setCurrentPage(1);
     setSelectedIds(new Set());
-  }, [searchTerm, statusFilter, assigneeFilter]);
+  }, [debouncedSearchTerm, statusFilter, assigneeFilter]);
 
   // Pagination Logic
   const indexOfLastItem = currentPage * itemsPerPage;
