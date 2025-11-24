@@ -1,77 +1,97 @@
 
 # Link-Request SaaS - Plataforma de Gestão de Solicitações
 
-Bem-vindo ao **Link-Request**, uma plataforma moderna de Helpdesk e gestão de solicitações internas (SaaS), desenvolvida com tecnologias de ponta para garantir eficiência e organização no atendimento.
+Bem-vindo ao **Link-Request**, uma plataforma moderna de Helpdesk e gestão de solicitações internas (SaaS), desenvolvida com tecnologias de ponta (React 19, TypeScript, Firebase) para garantir eficiência, performance e organização no atendimento corporativo.
 
-## 🚀 Visão Geral
+## 🚀 Visão Geral do Sistema
 
-O Link-Request permite que empresas gerenciem solicitações entre diferentes unidades e departamentos. O sistema conta com perfis de acesso hierárquicos e dashboards analíticos integrados.
+O Link-Request foi projetado para gerenciar solicitações entre diferentes unidades e departamentos de uma empresa. O sistema opera com um **banco de dados híbrido**, funcionando imediatamente em modo local (demonstração) ou sincronizado em tempo real com o Firebase.
 
 ### ✨ Principais Funcionalidades
 
-- **Gestão de Tickets:** Criação, acompanhamento e resolução de chamados.
-- **Multi-Tenant (Simulado):** Estrutura preparada para gerenciar múltiplas empresas e unidades.
-- **Banco de Dados Híbrido:** Funciona totalmente offline com `LocalStorage` (modo demo) ou conectado ao **Google Firebase Realtime Database** para persistência real e sincronização automática.
-- **Dashboard Analítico:** Gráficos de volume, status e desempenho por unidade.
-- **Modo Escuro (Dark Mode):** Interface adaptável para conforto visual.
+*   **⚡ Performance Extrema:** Otimizações avançadas com *Lazy Loading*, *Memoization* e *Debounce* na busca para garantir fluidez mesmo com muitos dados.
+*   **📸 Compressão Inteligente de Imagens:** Upload de anexos com redimensionamento e compressão automática no navegador. Imagens de 5MB são convertidas para ~50kb instantaneamente, poupando dados e armazenamento.
+*   **🛠️ Instalação "No-Code":** Configuração do banco de dados feita diretamente pela interface do usuário, sem necessidade de editar arquivos de código.
+*   **Gestão Multi-Unidade:** Controle centralizado de múltiplas filiais ou departamentos.
+*   **Dashboard Analítico:** Gráficos interativos (Recharts) para monitorar volume, status e KPIs.
+*   **Segurança:** Proteção contra XSS (Sanitização de inputs) e Rate Limiting no login.
 
-## 👥 Perfis de Acesso e Permissões
+---
 
-O sistema é dividido em 3 níveis hierárquicos, determinando o que cada usuário pode visualizar e gerenciar:
+## 👥 Perfis de Acesso (RBAC)
+
+O sistema possui controle de acesso baseado em funções (Role-Based Access Control):
 
 ### 1. 👤 Usuário Comum (USER)
-*   **Foco:** Solicitante / Operacional.
-*   **Visibilidade:** Enxerga apenas as requisições que **ele mesmo criou**.
-*   **Ações:**
-    *   Criar novas requisições.
-    *   Interagir via comentários nos seus tickets.
-    *   Anexar arquivos e imagens.
+*   **Perfil:** Colaborador / Solicitante.
+*   **Acesso:** Visualiza apenas as requisições que **ele mesmo criou**.
+*   **Permissões:** Abrir chamados, anexar fotos, comentar em seus tickets.
 
 ### 2. 🛡️ Líder de Unidade (LEADER)
-*   **Foco:** Gestão Local / Gerente de Filial.
-*   **Visibilidade:** Enxerga **todas** as requisições pertencentes à sua **Unidade** (ex: Filial Centro), independente de quem criou.
-*   **Ações:**
-    *   Todas as permissões de Usuário Comum.
-    *   **Alterar Status** das requisições da sua unidade (Resolver, Colocar em andamento, Cancelar).
-    *   Visualizar métricas da sua unidade no Dashboard.
+*   **Perfil:** Gerente de Filial / Supervisor.
+*   **Acesso:** Visualiza todas as requisições da **sua Unidade**.
+*   **Permissões:** Além de criar, pode **Alterar Status** (Resolver, Cancelar, Em andamento) das requisições da sua filial.
 
 ### 3. 👑 Administrador (ADMIN)
-*   **Foco:** Gestão Global / Superusuário.
-*   **Visibilidade:** Acesso total a **todas as unidades** e requisições da empresa.
-*   **Ações:**
-    *   Gerenciar tickets de qualquer unidade.
-    *   **Gestão de Cadastro:** Criar, editar e excluir **Unidades** e **Usuários**.
-    *   **Configuração do Sistema:** Alterar nome/logo da empresa.
-    *   Resetar senhas de outros usuários.
+*   **Perfil:** Gestão Global / TI / Suporte Nível 2.
+*   **Acesso:** Visão total de **todas as unidades** e empresas.
+*   **Permissões:**
+    *   Gerenciar tickets de qualquer lugar.
+    *   **Menu de Gerenciamento:** Criar/Excluir Unidades e Usuários.
+    *   Alterar configurações globais da empresa (Nome, Logo).
+    *   Resetar senhas de usuários.
+
+---
 
 ## 🛠️ Tecnologias Utilizadas
 
-*   **Frontend:** React 19, TypeScript
-*   **Estilização:** Tailwind CSS
-*   **Ícones:** Lucide React
-*   **Gráficos:** Recharts
-*   **Banco de Dados:** Firebase Realtime Database (RTDB)
-*   **Build Tool:** Vite
+*   **Core:** React 19, TypeScript, Vite.
+*   **Estilização:** Tailwind CSS (com Dark Mode automático).
+*   **Dados:** Firebase Realtime Database (RTDB) + LocalStorage (Cache/Offline).
+*   **Gráficos:** Recharts.
+*   **Ícones:** Lucide React.
+*   **Performance:** Code-splitting manual, React.lazy, React.useMemo.
 
-## 🔑 Acesso Admin (Demo)
+---
 
-O sistema vem pré-configurado com um acesso de administrador para demonstração:
+## 🚀 Guia de Instalação e Execução
 
-| Perfil | Email | Senha |
-| :--- | :--- | :--- |
-| **Admin Geral** | `admin@admin` | `admin` |
+### 1. Instalar Dependências
+```bash
+npm install
+# ou
+yarn install
+```
 
-> **Nota:** Este usuário tem acesso total para criar novas unidades, usuários e gerenciar as configurações da empresa.
+### 2. Rodar o Projeto
+```bash
+npm run dev
+# ou
+yarn dev
+```
 
-## ⚙️ Configuração do Banco de Dados (Sincronização em Tempo Real)
+### 3. Configuração Inicial (Assistente de Instalação)
+Ao abrir o sistema pela primeira vez, você verá a tela de **Instalação do Sistema**. Siga os passos:
 
-O projeto utiliza **Variáveis de Ambiente** para conectar ao Firebase de forma segura e automática. Siga os passos abaixo:
+1.  **Dados da Empresa:** Defina o nome da sua organização.
+2.  **Conta Admin:** Crie o usuário mestre (Seu email e senha).
+3.  **Banco de Dados (Fácil):**
+    *   O sistema pedirá o JSON de configuração do Firebase.
+    *   Basta colar o objeto de configuração (obtido no Console do Firebase) na caixa de texto.
+    *   O sistema salvará e conectará automaticamente.
 
-### 1. Criar o Projeto no Firebase
-1.  Acesse o [Firebase Console](https://console.firebase.google.com/).
-2.  Crie um novo projeto.
-3.  No menu lateral, vá em **Criação** > **Realtime Database** e clique em "Criar Banco de Dados".
-4.  **IMPORTANTE (Regras de Segurança):** Vá na aba **Regras** e altere para o seguinte (como o app usa autenticação própria, precisamos liberar o acesso inicial):
+> **Nota:** Não é obrigatório criar arquivos `.env` manualmente, embora o sistema ainda suporte `VITE_FIREBASE_...` para ambientes de CI/CD.
+
+---
+
+## ⚙️ Como obter a Configuração do Firebase
+
+Para que o sistema sincronize em tempo real entre múltiplos dispositivos:
+
+1.  Acesse [console.firebase.google.com](https://console.firebase.google.com/).
+2.  Crie um projeto e adicione um app **Web**.
+3.  Copie o código de configuração (`const firebaseConfig = { ... }`).
+4.  Crie um **Realtime Database** e configure as regras de segurança para teste:
     ```json
     {
       "rules": {
@@ -80,47 +100,28 @@ O projeto utiliza **Variáveis de Ambiente** para conectar ao Firebase de forma 
       }
     }
     ```
-
-### 2. Obter as Credenciais
-1.  Nas configurações do projeto (ícone de engrenagem), vá em **Geral**.
-2.  Em "Seus aplicativos", clique no ícone Web `</>`.
-3.  Registre o app e copie as chaves exibidas no objeto `firebaseConfig`.
-
-### 3. Criar o arquivo `.env`
-Na **raiz do projeto** (junto com `package.json`), crie um arquivo chamado `.env` e preencha com suas chaves seguindo este modelo exato:
-
-```env
-VITE_FIREBASE_API_KEY=Cole_Sua_ApiKey_Aqui
-VITE_FIREBASE_AUTH_DOMAIN=seu-projeto.firebaseapp.com
-VITE_FIREBASE_DATABASE_URL=https://seu-projeto-default-rtdb.firebaseio.com
-VITE_FIREBASE_PROJECT_ID=seu-projeto
-VITE_FIREBASE_STORAGE_BUCKET=seu-projeto.appspot.com
-VITE_FIREBASE_MESSAGING_SENDER_ID=123456789
-VITE_FIREBASE_APP_ID=1:123456:web:abcdef
-```
-
-> **Atenção:** Certifique-se de preencher `VITE_FIREBASE_DATABASE_URL`, pois é essencial para o funcionamento do Realtime Database.
-
-### 4. Rodar o Projeto
-Após criar o arquivo `.env`, você deve reiniciar o servidor de desenvolvimento para que as variáveis sejam carregadas:
-
-```bash
-# Pare o servidor atual (Ctrl + C) e rode novamente:
-npm run dev
-# ou
-yarn dev
-```
-
-Se tudo estiver correto, você verá um indicador verde **"Sincronizado"** no canto superior direito da tela de login.
-
-## 📂 Estrutura do Projeto
-
-*   `/components`: Componentes de UI reutilizáveis.
-*   `/contexts`: Gerenciamento de estado global e autenticação.
-*   `/pages`: Telas da aplicação.
-*   `/services`: Integrações externas (`firebaseService`).
-*   `/types`: Definições de Tipos TypeScript e Enums.
+5.  Cole o JSON copiado na **Tela de Instalação** do Link-Request.
 
 ---
 
-Desenvolvido com foco em performance e UX moderna.
+## 📂 Estrutura de Pastas
+
+*   `/components`: Elementos de UI (Botões, Cards, Modal, Layout).
+*   `/contexts`: Lógica global (Autenticação, Dados, Toast).
+*   `/pages`: Telas da aplicação (Dashboard, Listas, Admin).
+*   `/services`: Comunicação com Firebase e lógica de compressão.
+*   `/types`: Tipagem TypeScript para garantir segurança de código.
+
+---
+
+## 🔐 Credenciais de Demonstração (Modo Local)
+
+Se você pular a configuração do Firebase ou rodar em modo offline, o sistema pode ser reiniciado via LocalStorage.
+
+| Perfil | Email | Senha Padrão |
+| :--- | :--- | :--- |
+| **Admin** | `admin@admin` | `admin` |
+
+---
+
+Desenvolvido com foco em **UX**, **Performance** e **Escalabilidade**.
