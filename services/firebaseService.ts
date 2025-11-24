@@ -1,3 +1,4 @@
+
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getDatabase, ref, onValue, set, update, remove, get, Database, Unsubscribe } from 'firebase/database';
 import { FirebaseConfig } from '../types';
@@ -9,39 +10,42 @@ let db: Database | null = null;
 const getEnvConfig = (): FirebaseConfig | null => {
   const env = (import.meta as any).env;
   
-  if (!env || !env.VITE_FIREBASE_API_KEY) {
-    return null;
+  // Se existir .env, usa ele
+  if (env && env.VITE_FIREBASE_API_KEY) {
+    return {
+      apiKey: env.VITE_FIREBASE_API_KEY,
+      authDomain: env.VITE_FIREBASE_AUTH_DOMAIN,
+      databaseURL: env.VITE_FIREBASE_DATABASE_URL,
+      projectId: env.VITE_FIREBASE_PROJECT_ID,
+      storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET,
+      messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+      appId: env.VITE_FIREBASE_APP_ID
+    };
   }
-
-  return {
-    apiKey: env.VITE_FIREBASE_API_KEY,
-    authDomain: env.VITE_FIREBASE_AUTH_DOMAIN,
-    databaseURL: env.VITE_FIREBASE_DATABASE_URL,
-    projectId: env.VITE_FIREBASE_PROJECT_ID,
-    storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-    appId: env.VITE_FIREBASE_APP_ID
-  };
+  return null;
 };
 
 export const initFirebase = (manualConfig?: FirebaseConfig): boolean => {
   try {
-    // 1. Prioridade: Configuração Automática (.env)
-    let config = getEnvConfig();
+    let config: FirebaseConfig | null = null;
 
-    // 2. Fallback: Configuração manual (caso legado ou teste específico)
-    if (!config && manualConfig) {
+    // 1. Configuração Manual (passada pelo Setup/LocalStorage) tem prioridade
+    if (manualConfig && manualConfig.apiKey && manualConfig.databaseURL) {
       config = manualConfig;
+    } 
+    // 2. Configuração de Ambiente (.env)
+    else {
+      config = getEnvConfig();
     }
 
-    if (!config || !config.apiKey || !config.databaseURL) {
-      console.warn("Firebase Init Skipped: Missing configuration (Check .env file).");
+    if (!config) {
+      console.warn("Firebase Init Skipped: Missing configuration.");
       return false;
     }
 
     if (getApps().length === 0) {
       app = initializeApp(config);
-      console.log("Firebase App Initialized via Environment.");
+      console.log("Firebase App Initialized.");
     } else {
       app = getApp();
     }

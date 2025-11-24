@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -51,7 +52,7 @@ export const Dashboard: React.FC = () => {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-6">
       <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -88,7 +89,7 @@ export const Dashboard: React.FC = () => {
                   />
                 </PieChart>
              </ResponsiveContainer>
-             <div className="flex justify-center gap-4 mt-[-20px]">
+             <div className="flex justify-center gap-4 mt-[-20px] flex-wrap">
                {dataByStatus.map((entry) => (
                  <div key={entry.name} className="flex items-center text-sm text-gray-600 dark:text-gray-400">
                    <span className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: entry.color }}></span>

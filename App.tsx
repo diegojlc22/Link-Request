@@ -15,7 +15,6 @@ import { Layout } from './components/Layout';
 const AdminUnits = React.lazy(() => import('./pages/AdminUnits').then(module => ({ default: module.AdminUnits })));
 const AdminUsers = React.lazy(() => import('./pages/AdminUsers').then(module => ({ default: module.AdminUsers })));
 const AdminCompany = React.lazy(() => import('./pages/AdminCompany').then(module => ({ default: module.AdminCompany })));
-const AdminDatabase = React.lazy(() => import('./pages/AdminDatabase').then(module => ({ default: module.AdminDatabase })));
 
 const LoadingSpinner = () => (
   <div className="flex items-center justify-center h-full min-h-[200px]">
@@ -54,7 +53,6 @@ const AppContent: React.FC = () => {
                   <Route path="/admin/units" element={<AdminUnits />} />
                   <Route path="/admin/users" element={<AdminUsers />} />
                   <Route path="/admin/company" element={<AdminCompany />} />
-                  <Route path="/admin/database" element={<AdminDatabase />} />
                   
                   {/* Catch-all redirect to dashboard */}
                   <Route path="*" element={<Navigate to="/" replace />} />

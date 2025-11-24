@@ -247,11 +247,11 @@ export const RequestList: React.FC = () => {
                   </div>
                 </th>
                 <th className="px-6 py-3">ID / Título</th>
-                <th className="px-6 py-3">Unidade</th>
-                <th className="px-6 py-3">Responsável</th>
+                <th className="px-6 py-3 hidden md:table-cell">Unidade</th>
+                <th className="px-6 py-3 hidden lg:table-cell">Responsável</th>
                 <th className="px-6 py-3">Status</th>
-                <th className="px-6 py-3">Prioridade</th>
-                <th className="px-6 py-3">Atualizado</th>
+                <th className="px-6 py-3 hidden md:table-cell">Prioridade</th>
+                <th className="px-6 py-3 hidden xl:table-cell">Atualizado</th>
                 <th className="px-6 py-3">Ação</th>
               </tr>
             </thead>
@@ -289,18 +289,19 @@ export const RequestList: React.FC = () => {
                       <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">
                         <div className="flex flex-col cursor-pointer" onClick={() => navigate(`/requests/${req.id}`)}>
                            <span className="text-xs text-gray-400">#{req.id}</span>
-                           <span className="font-semibold truncate max-w-[200px] hover:text-primary-600">{req.title}</span>
+                           <span className="font-semibold truncate max-w-[150px] sm:max-w-[200px] hover:text-primary-600">{req.title}</span>
+                           <span className="text-xs text-gray-500 md:hidden mt-1">{unitName}</span>
                         </div>
                       </td>
-                      <td className="px-6 py-4">{unitName}</td>
-                      <td className="px-6 py-4 text-gray-900 dark:text-gray-300">{assigneeName}</td>
+                      <td className="px-6 py-4 hidden md:table-cell">{unitName}</td>
+                      <td className="px-6 py-4 hidden lg:table-cell text-gray-900 dark:text-gray-300">{assigneeName}</td>
                       <td className="px-6 py-4">
                         <StatusBadge status={req.status} />
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 hidden md:table-cell">
                         <PriorityBadge priority={req.priority} />
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 hidden xl:table-cell">
                         {new Date(req.updatedAt).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4">

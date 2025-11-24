@@ -1,5 +1,6 @@
+
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import { Company, Unit, User, RequestTicket, Comment, UserRole, RequestStatus } from '../types';
+import { Company, Unit, User, RequestTicket, Comment, UserRole, RequestStatus, FirebaseConfig } from '../types';
 import { formatISO } from 'date-fns';
 import { initFirebase, fbSet, fbUpdate, fbDelete, fbSubscribe, fbUpdateMulti } from '../services/firebaseService';
 
@@ -8,6 +9,7 @@ interface SetupData {
   adminName: string;
   adminEmail: string;
   adminPassword: string;
+  firebaseConfig?: FirebaseConfig;
 }
 
 interface DataContextType {
@@ -94,8 +96,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let unsubComments: () => void = () => {};
 
     const initDb = () => {
-      // Tenta iniciar com variáveis de ambiente
-      const success = initFirebase();
+      // 1. Tenta carregar config salva no LocalStorage (User Setup)
+      const storedConfig = loadState<FirebaseConfig | null>('link_req_firebase_config', null);
+      
+      // 2. Inicializa (Prioriza config manual se existir, senão usa .env)
+      const success = initFirebase(storedConfig || undefined);
       
       if (success) {
         setIsDbConnected(true);
@@ -184,15 +189,20 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(data.adminName)}&background=random`
     };
 
-    if (isDbConnected) {
-      fbSet('companies', newCompany.id, newCompany);
-      fbSet('units', newUnit.id, newUnit);
-      fbSet('users', newAdmin.id, newAdmin);
-    } else {
-      setCompanies([newCompany]);
-      setUnits([newUnit]);
-      setUsers([newAdmin]);
+    // Salva configuração do Firebase se fornecida
+    if (data.firebaseConfig) {
+      localStorage.setItem('link_req_firebase_config', JSON.stringify(data.firebaseConfig));
+      // Tenta reconectar imediatamente (recarregando a página para garantir estado limpo é mais seguro)
+      setTimeout(() => window.location.reload(), 100);
     }
+
+    // Se estiver conectado (ou vai conectar no reload), define dados iniciais no Firebase?
+    // Nota: Como o reload acontece acima, a persistência inicial pode ser feita na próxima carga se estiver vazio,
+    // ou salvamos localmente agora e o sync cuida depois.
+    
+    setCompanies([newCompany]);
+    setUnits([newUnit]);
+    setUsers([newAdmin]);
     setIsSetupDone(true);
   };
 

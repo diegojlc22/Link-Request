@@ -10,8 +10,7 @@ import {
   Sun, 
   Moon,
   Bell,
-  Briefcase,
-  Database
+  Briefcase
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -92,7 +91,6 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       { path: '/admin/units', label: 'Unidades', icon: Building2 },
       { path: '/admin/users', label: 'Usuários', icon: Users },
       { path: '/admin/company', label: 'Minha Empresa', icon: Briefcase },
-      { path: '/admin/database', label: 'Banco de Dados', icon: Database },
     );
   }
 
