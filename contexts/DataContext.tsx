@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { Company, Unit, User, RequestTicket, Comment, UserRole, RequestStatus, FirebaseConfig } from '../types';
 import { formatISO } from 'date-fns';
@@ -74,7 +73,7 @@ const loadState = <T,>(key: string, fallback: T): T => {
 };
 
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // System State - Defaults to true so admin@admin works immediately
+  // System State
   const [isSetupDone, setIsSetupDone] = useState<boolean>(() => loadState('link_req_is_setup_done', true));
 
   // Local Data State
@@ -91,28 +90,27 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Initialize Firebase and Setup Real-time Listeners
   useEffect(() => {
-    let unsubCompanies: () => void;
-    let unsubUnits: () => void;
-    let unsubUsers: () => void;
-    let unsubRequests: () => void;
-    let unsubComments: () => void;
+    let unsubCompanies: () => void = () => {};
+    let unsubUnits: () => void = () => {};
+    let unsubUsers: () => void = () => {};
+    let unsubRequests: () => void = () => {};
+    let unsubComments: () => void = () => {};
 
-    // REMOVED 'async' keyword here. Firebase init and subscription setup are synchronous operations
-    // in the context of setting up the listeners (onValue is sync).
     const initDb = () => {
       if (firebaseConfig) {
         setIsLoading(true);
+        console.log("Initializing Firebase connection...");
+        
         const success = initFirebase(firebaseConfig);
         
         if (success) {
           setIsDbConnected(true);
-          console.log("Firebase Connected Successfully. Listening for updates...");
+          console.log("Firebase initialized. Setting up listeners...");
 
           // Subscribe to Real-time Updates (Observer Pattern)
           // O Firebase agora é a fonte da verdade. O que vier de lá, sobrescreve o local.
           
           unsubCompanies = fbSubscribe<Company>('companies', (data) => {
-            // Only update if we receive valid data array
             if (Array.isArray(data)) setCompanies(data);
           });
 
@@ -123,16 +121,16 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           unsubUsers = fbSubscribe<User>('users', (data) => {
              if (Array.isArray(data)) {
                setUsers(data);
-               // Se conectou ao Firebase com sucesso, mas a lista de usuários está vazia,
-               // significa que é um banco novo/zerado.
-               if (data.length === 0) {
-                  console.log("Banco Firebase vazio detectado.");
-               }
+               // Se conectou ao Firebase com sucesso, mas a lista de usuários está vazia, logar aviso
+               if (data.length === 0) console.log("SYNC: Lista de usuários vazia no Firebase.");
              }
           });
 
           unsubRequests = fbSubscribe<RequestTicket>('requests', (data) => {
-             if (Array.isArray(data)) setRequests(data);
+             if (Array.isArray(data)) {
+               console.log(`SYNC: Recebidos ${data.length} tickets do Firebase.`);
+               setRequests(data);
+             }
           });
 
           unsubComments = fbSubscribe<Comment>('comments', (data) => {
@@ -140,7 +138,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           });
 
         } else {
-          console.error("Failed to initialize Firebase connection.");
+          console.error("Failed to initialize Firebase connection. Check config.");
           setIsDbConnected(false);
         }
         setIsLoading(false);
@@ -153,11 +151,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Cleanup subscriptions on unmount or config change
     return () => {
-      if (unsubCompanies) unsubCompanies();
-      if (unsubUnits) unsubUnits();
-      if (unsubUsers) unsubUsers();
-      if (unsubRequests) unsubRequests();
-      if (unsubComments) unsubComments();
+      if (isDbConnected) {
+        console.log("Cleaning up Firebase listeners...");
+        unsubCompanies();
+        unsubUnits();
+        unsubUsers();
+        unsubRequests();
+        unsubComments();
+      }
     };
   }, [firebaseConfig]);
 
@@ -169,8 +170,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [companies]);
 
   // Persist to LocalStorage (Backup / Offline Mode)
-  // NOTE: We only persist to LS if NOT connected to DB, OR to keep a cache.
-  // Here we keep cache to support "instant load" before Firebase syncs.
   useEffect(() => { localStorage.setItem('link_req_companies', JSON.stringify(companies)); }, [companies]);
   useEffect(() => { localStorage.setItem('link_req_units', JSON.stringify(units)); }, [units]);
   useEffect(() => { localStorage.setItem('link_req_users', JSON.stringify(users)); }, [users]);
@@ -206,12 +205,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     if (isDbConnected) {
-      // Ensure we wait a microtick or log the action
       console.log("Setting up system in Firebase...");
       fbSet('companies', newCompany.id, newCompany);
       fbSet('units', newUnit.id, newUnit);
       fbSet('users', newAdmin.id, newAdmin);
-      // We do NOT set state manually here, we wait for the listeners to fire
       setIsSetupDone(true);
     } else {
       setCompanies([newCompany]);
@@ -224,13 +221,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const saveFirebaseConfig = (config: FirebaseConfig | null) => {
-    // Directly save to localStorage to ensure persistence before reload
     if (config) {
         localStorage.setItem('link_req_firebase_config', JSON.stringify(config));
     } else {
         localStorage.removeItem('link_req_firebase_config');
     }
-    // Reload page to force fresh Firebase instance with new config
+    // Reload to ensure clean Firebase instance
     window.location.reload();
   };
 
@@ -248,6 +244,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     if (isDbConnected) {
       fbSet('requests', newRequest.id, newRequest);
+      // Listener will update state
     } else {
       setRequests(prev => [newRequest, ...prev]);
     }
@@ -331,12 +328,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Memoize getters to avoid recreation
   const getRequestsByUnit = (unitId: string) => requests.filter(r => r.unitId === unitId);
   const getRequestsByCompany = (companyId: string) => requests.filter(r => r.companyId === companyId);
   const getCommentsByRequest = (requestId: string) => comments.filter(c => c.requestId === requestId).sort((a,b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
-  // CRITICAL PERFORMANCE FIX: Memoize the context value
   const value = useMemo(() => ({
     companies, units, users, requests, comments,
     firebaseConfig, isDbConnected, saveFirebaseConfig, isLoading,
