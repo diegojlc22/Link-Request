@@ -8,7 +8,7 @@ import { RequestStatus } from '../types';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { StatusBadge, PriorityBadge } from '../components/ui/Badge';
-import { Plus, Search, Filter, Link as LinkIcon, Image as ImageIcon, X, User as UserIcon, UserCheck, Calendar, ChevronLeft, ChevronRight, CheckSquare, Square, MoreHorizontal } from 'lucide-react';
+import { Plus, Search, Filter, Link as LinkIcon, Image as ImageIcon, X, User as UserIcon, UserCheck, Calendar, ChevronLeft, ChevronRight, CheckSquare, Square, MoreHorizontal, Globe } from 'lucide-react';
 import { Modal } from '../components/ui/Modal';
 
 export const RequestList: React.FC = () => {
@@ -37,8 +37,10 @@ export const RequestList: React.FC = () => {
   const [newUnitId, setNewUnitId] = useState(currentUser?.unitId || '');
   const [newAssigneeId, setNewAssigneeId] = useState('');
   
-  // Image Upload State
+  // Attachment State
+  const [attachmentType, setAttachmentType] = useState<'image' | 'link'>('image');
   const [attachedImage, setAttachedImage] = useState<string | null>(null);
+  const [attachedLink, setAttachedLink] = useState('');
 
   // Determine if user has permission to manage status
   const canManageStatus = isAdmin || isLeader;
@@ -128,12 +130,23 @@ export const RequestList: React.FC = () => {
     e.preventDefault();
     if (!currentUser) return;
 
-    const attachments = attachedImage ? [{
-      id: `att${Date.now()}`,
-      name: 'Imagem da Requisição',
-      url: attachedImage,
-      type: 'image'
-    }] : [];
+    const attachments = [];
+
+    if (attachmentType === 'image' && attachedImage) {
+      attachments.push({
+        id: `att${Date.now()}`,
+        name: 'Imagem Anexada',
+        url: attachedImage,
+        type: 'image'
+      });
+    } else if (attachmentType === 'link' && attachedLink) {
+      attachments.push({
+        id: `att${Date.now()}`,
+        name: 'Link Externo',
+        url: attachedLink,
+        type: 'link'
+      });
+    }
 
     // Determine final unit ID (fallback to first unit if empty/admin)
     const finalUnitId = newUnitId || units[0]?.id;
@@ -160,6 +173,8 @@ export const RequestList: React.FC = () => {
     setNewProductUrl('');
     setNewAssigneeId('');
     setAttachedImage(null);
+    setAttachedLink('');
+    setAttachmentType('image');
   };
 
   // Filter users eligible for assignment based on selected Unit (or all if Admin)
@@ -525,35 +540,76 @@ export const RequestList: React.FC = () => {
             />
           </div>
 
+          {/* Attachment Section */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
-              <ImageIcon className="h-4 w-4" />
-              Anexar Imagem
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Anexos
             </label>
+
+            {/* Tabs */}
+            <div className="flex gap-4 mb-3 border-b border-gray-200 dark:border-gray-700">
+              <button
+                type="button"
+                onClick={() => setAttachmentType('image')}
+                className={`pb-2 text-sm font-medium border-b-2 transition-colors ${attachmentType === 'image' ? 'border-primary-600 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+              >
+                Enviar Imagem
+              </button>
+              <button
+                type="button"
+                onClick={() => setAttachmentType('link')}
+                className={`pb-2 text-sm font-medium border-b-2 transition-colors ${attachmentType === 'link' ? 'border-primary-600 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+              >
+                Link Externo (Drive/Nuvem)
+              </button>
+            </div>
             
-            {!attachedImage ? (
-              <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:hover:border-gray-500">
-                <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                  <ImageIcon className="w-8 h-8 mb-2 text-gray-500 dark:text-gray-400" />
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Clique para enviar (JPG, PNG)</p>
+            {attachmentType === 'image' ? (
+              // Image Upload UI
+              !attachedImage ? (
+                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:hover:border-gray-500">
+                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                    <ImageIcon className="w-8 h-8 mb-2 text-gray-500 dark:text-gray-400" />
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Clique para enviar (JPG, PNG)</p>
+                  </div>
+                  <input 
+                    type="file" 
+                    className="hidden" 
+                    accept="image/*"
+                    onChange={handleFileChange}
+                  />
+                </label>
+              ) : (
+                <div className="relative w-full h-48 bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600">
+                  <img src={attachedImage} alt="Preview" className="w-full h-full object-contain" />
+                  <button
+                    type="button"
+                    onClick={() => setAttachedImage(null)}
+                    className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 shadow-md"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
                 </div>
-                <input 
-                  type="file" 
-                  className="hidden" 
-                  accept="image/*"
-                  onChange={handleFileChange}
-                />
-              </label>
+              )
             ) : (
-              <div className="relative w-full h-48 bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden">
-                <img src={attachedImage} alt="Preview" className="w-full h-full object-contain" />
-                <button
-                  type="button"
-                  onClick={() => setAttachedImage(null)}
-                  className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
-                >
-                  <X className="h-4 w-4" />
-                </button>
+              // External Link UI
+              <div className="space-y-2">
+                 <p className="text-xs text-gray-500 dark:text-gray-400">Cole o link compartilhado do Google Drive, Dropbox, ou OneDrive.</p>
+                 <div className="relative">
+                   <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                   <input
+                    type="url"
+                    value={attachedLink}
+                    onChange={(e) => setAttachedLink(e.target.value)}
+                    placeholder="https://drive.google.com/file/..."
+                    className="w-full pl-10 pr-4 py-2 border rounded-lg bg-white dark:bg-gray-700 dark:border-gray-600 text-blue-600"
+                   />
+                 </div>
+                 {attachedLink && (
+                   <div className="flex items-center gap-2 p-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded text-xs border border-blue-100 dark:border-blue-800">
+                     <CheckSquare className="h-3 w-3" /> Link pronto para anexar.
+                   </div>
+                 )}
               </div>
             )}
           </div>

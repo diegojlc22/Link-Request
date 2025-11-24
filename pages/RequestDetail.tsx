@@ -8,7 +8,7 @@ import { RequestStatus, RequestAttachment } from '../types';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { StatusBadge, PriorityBadge } from '../components/ui/Badge';
-import { ArrowLeft, Send, Paperclip, User as UserIcon, ExternalLink, ShoppingBag, Image as ImageIcon, X, Download, ZoomIn } from 'lucide-react';
+import { ArrowLeft, Send, Paperclip, User as UserIcon, ExternalLink, ShoppingBag, Image as ImageIcon, X, Download, ZoomIn, FileText } from 'lucide-react';
 
 export const RequestDetail: React.FC = () => {
   const { id } = useParams();
@@ -70,6 +70,11 @@ export const RequestDetail: React.FC = () => {
     }
   };
 
+  // Helper to check if attachment is an image (Base64 or direct image link)
+  const isImage = (url: string) => {
+    return url.startsWith('data:image') || url.match(/\.(jpeg|jpg|gif|png)$/) != null;
+  };
+
   return (
     <div className="max-w-5xl mx-auto space-y-6 pb-8">
       <Button variant="ghost" onClick={() => navigate('/requests')} className="mb-4 pl-0 hover:bg-transparent hover:text-primary-600">
@@ -102,26 +107,51 @@ export const RequestDetail: React.FC = () => {
                {request.attachments && request.attachments.length > 0 && (
                  <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-700">
                    <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-                     <ImageIcon className="h-4 w-4" /> Anexos
+                     <Paperclip className="h-4 w-4" /> Anexos
                    </h3>
                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                     {request.attachments.map(att => (
-                       <div 
-                         key={att.id} 
-                         className="relative group rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 cursor-pointer aspect-square bg-gray-100 dark:bg-gray-800"
-                         onClick={() => setViewingAttachment(att)}
-                       >
-                         <img 
-                           src={att.url} 
-                           alt={att.name} 
-                           className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-                         />
-                         {/* Hover Overlay */}
-                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-                            <ZoomIn className="text-white h-8 w-8 drop-shadow-md" />
+                     {request.attachments.map(att => {
+                       const isImg = isImage(att.url);
+                       return (
+                         <div 
+                           key={att.id} 
+                           className="relative group rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 aspect-[4/3]"
+                         >
+                           {isImg ? (
+                             // Image Preview
+                             <div 
+                               className="w-full h-full cursor-pointer"
+                               onClick={() => setViewingAttachment(att)}
+                             >
+                               <img 
+                                 src={att.url} 
+                                 alt={att.name} 
+                                 className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                               />
+                               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                                  <ZoomIn className="text-white h-8 w-8 drop-shadow-md" />
+                               </div>
+                             </div>
+                           ) : (
+                             // External Link Card
+                             <a 
+                               href={att.url} 
+                               target="_blank" 
+                               rel="noopener noreferrer"
+                               className="w-full h-full flex flex-col items-center justify-center p-4 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-center"
+                             >
+                               <FileText className="h-10 w-10 text-blue-500 mb-2" />
+                               <span className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate w-full">
+                                 {att.name}
+                               </span>
+                               <span className="text-[10px] text-gray-400 mt-1 flex items-center gap-1">
+                                 Abrir Link <ExternalLink className="h-3 w-3" />
+                               </span>
+                             </a>
+                           )}
                          </div>
-                       </div>
-                     ))}
+                       );
+                     })}
                    </div>
                  </div>
                )}
