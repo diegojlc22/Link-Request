@@ -23,10 +23,11 @@ interface LayoutProps {
 
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { currentUser, logout, isAdmin } = useAuth();
-  const { companies, requests } = useData();
+  const { companies, requests, units } = useData();
   const { showToast } = useToast();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isDark, setIsDark] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -55,7 +56,10 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           const isRecent = (now - createdTime) < 60000; // 1 minute
 
           if (isRecent) {
-             showToast(`Nova requisição criada: ${req.title}`, 'info');
+             const unit = units.find(u => u.id === req.unitId);
+             const unitName = unit ? unit.name : 'Unidade Desconhecida';
+             showToast(`Nova Requisição: ${req.title} - ${unitName}`, 'info');
+             setUnreadCount(prev => prev + 1);
           }
           previousRequestsRef.current.add(req.id);
         }
@@ -64,7 +68,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       // For non-admins, just keep the ref updated to avoid stale state logic
       requests.forEach(r => previousRequestsRef.current.add(r.id));
     }
-  }, [requests, isAdmin, showToast]);
+  }, [requests, isAdmin, showToast, units]);
 
 
   // Get Current Company (Mock: first one or user's company)
@@ -78,6 +82,13 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       document.documentElement.classList.remove('dark');
     } else {
       document.documentElement.classList.add('dark');
+    }
+  };
+
+  const handleClearNotifications = () => {
+    if (unreadCount > 0) {
+      setUnreadCount(0);
+      showToast('Notificações marcadas como lidas', 'success');
     }
   };
 
@@ -197,9 +208,18 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             >
               {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             </button>
-            <button className="p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors relative">
+            <button 
+              onClick={handleClearNotifications}
+              className="p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors relative"
+              title={unreadCount > 0 ? `${unreadCount} novas notificações` : 'Sem novas notificações'}
+            >
               <Bell className="h-5 w-5" />
-              {/* Optional: Show badge if there are unread notifications */}
+              {unreadCount > 0 && (
+                <span className="absolute top-1.5 right-1.5 flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500 border-2 border-white dark:border-gray-800"></span>
+                </span>
+              )}
             </button>
           </div>
         </header>
