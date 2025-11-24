@@ -64,15 +64,22 @@ export const RequestList: React.FC = () => {
       // 1. Permission Filter (Robust Check)
       let hasAccess = false;
       
-      if (currentUser.role === UserRole.ADMIN) {
-        // Admins see all requests for their company
+      // Ensure role string comparison is safe
+      const userRole = String(currentUser.role);
+      
+      // Rule 1: Admins see all requests for their company
+      if (userRole === UserRole.ADMIN || userRole === 'ADMIN') {
         hasAccess = r.companyId === currentUser.companyId;
-      } else if (currentUser.role === UserRole.LEADER) {
-        // Leaders see requests for their unit
+      } 
+      // Rule 2: Leaders see requests for their unit
+      else if (userRole === UserRole.LEADER || userRole === 'LEADER') {
         hasAccess = r.unitId === currentUser.unitId;
-      } else {
-        // Users see only their own requests
-        hasAccess = r.creatorId === currentUser.id;
+      }
+
+      // Rule 3: CREATOR ALWAYS SEES THEIR OWN REQUESTS (Overrides previous rules if they failed)
+      // This fixes the issue where a creator couldn't see their own ticket if other conditions failed
+      if (r.creatorId === currentUser.id) {
+        hasAccess = true;
       }
 
       if (!hasAccess) return false;
@@ -92,12 +99,8 @@ export const RequestList: React.FC = () => {
           : r.assigneeId === assigneeFilter;
 
       return matchesSearch && matchesStatus && matchesAssignee;
-    }).sort((a, b) => {
-        // Safe Date Sorting
-        const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
-        const dateB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
-        return dateB - dateA;
     });
+    // Note: Removed the secondary sort here because 'requests' from useData is already sorted by date.
   }, [requests, currentUser, debouncedSearchTerm, statusFilter, assigneeFilter]);
 
   // Reset to page 1 when filters change, clear selection
@@ -352,7 +355,11 @@ export const RequestList: React.FC = () => {
             <tbody>
               {currentItems.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-8 text-center text-gray-500">Nenhuma requisição encontrada.</td>
+                  <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
+                    {filteredRequests.length === 0 && requests.length > 0 
+                      ? "Nenhum resultado para os filtros aplicados." 
+                      : "Nenhuma requisição encontrada."}
+                  </td>
                 </tr>
               ) : (
                 currentItems.map((req) => {

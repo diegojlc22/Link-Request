@@ -209,9 +209,17 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Sort requests by update time (newest first) once, so consumers don't have to sort on every render
   const sortedRequests = useMemo(() => {
     return [...requests].sort((a, b) => {
-        // Safe sort handling missing dates
-        const timeA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
-        const timeB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+        // Safe sort handling missing dates or NaNs
+        const getTime = (dateStr?: string) => {
+             if(!dateStr) return 0;
+             const t = new Date(dateStr).getTime();
+             return isNaN(t) ? 0 : t;
+        };
+        
+        // Use createdAt as fallback if updatedAt is missing/invalid
+        const timeA = getTime(a.updatedAt) || getTime(a.createdAt);
+        const timeB = getTime(b.updatedAt) || getTime(b.createdAt);
+        
         return timeB - timeA;
     });
   }, [requests]);
