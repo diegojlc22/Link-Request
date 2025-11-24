@@ -87,7 +87,8 @@ const sanitizeInput = (str: string): string => {
 
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // System State
-  const [isSetupDone, setIsSetupDone] = useState<boolean>(() => loadState('link_req_is_setup_done', true));
+  // FIX: Alterado fallback para false para forçar Setup na primeira execução
+  const [isSetupDone, setIsSetupDone] = useState<boolean>(() => loadState('link_req_is_setup_done', false));
 
   // Local Data State
   const [companies, setCompanies] = useState<Company[]>(() => loadState('link_req_companies', MOCK_COMPANIES));
