@@ -37,16 +37,6 @@ export const RequestDetail: React.FC = () => {
     commentsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [requestComments]);
 
-  // Load request data into edit state when entering edit mode or when request loads
-  useEffect(() => {
-    if (request) {
-        setEditTitle(request.title);
-        setEditDesc(request.description);
-        setEditPriority(request.priority);
-        setEditUrl(request.productUrl || '');
-    }
-  }, [request, isEditing]);
-
   // Close lightbox on Escape key
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
@@ -92,6 +82,16 @@ export const RequestDetail: React.FC = () => {
     }
   };
 
+  const startEditing = () => {
+    if (request) {
+      setEditTitle(request.title);
+      setEditDesc(request.description);
+      setEditPriority(request.priority);
+      setEditUrl(request.productUrl || '');
+      setIsEditing(true);
+    }
+  };
+
   const handleSaveEdit = () => {
     if (!editTitle.trim() || !editDesc.trim()) {
         showToast('Título e descrição são obrigatórios.', 'error');
@@ -111,11 +111,6 @@ export const RequestDetail: React.FC = () => {
 
   const handleCancelEdit = () => {
     setIsEditing(false);
-    // Reset fields
-    setEditTitle(request.title);
-    setEditDesc(request.description);
-    setEditPriority(request.priority);
-    setEditUrl(request.productUrl || '');
   };
 
   // Helper to check if attachment is an image (Base64 or direct image link)
@@ -163,7 +158,7 @@ export const RequestDetail: React.FC = () => {
                         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{request.title}</h1>
                         {canEditContent && (
                             <button 
-                                onClick={() => setIsEditing(true)} 
+                                onClick={startEditing} 
                                 className="p-1 text-gray-400 hover:text-primary-600 transition-colors"
                                 title="Editar Requisição"
                             >
