@@ -8,12 +8,12 @@ import { RequestStatus, RequestAttachment } from '../types';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { StatusBadge, PriorityBadge } from '../components/ui/Badge';
-import { ArrowLeft, Send, Paperclip, User as UserIcon, ExternalLink, ShoppingBag, Download, ZoomIn, FileText, X } from 'lucide-react';
+import { ArrowLeft, Send, Paperclip, User as UserIcon, ExternalLink, ShoppingBag, Download, ZoomIn, FileText, X, Edit2, Save } from 'lucide-react';
 
 export const RequestDetail: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { requests, comments, users, units, addComment, updateRequestStatus } = useData();
+  const { requests, comments, users, units, addComment, updateRequestStatus, updateRequest } = useData();
   const { currentUser, isAdmin, isLeader } = useAuth();
   const { showToast } = useToast();
   
@@ -24,11 +24,28 @@ export const RequestDetail: React.FC = () => {
   // State for Image Lightbox
   const [viewingAttachment, setViewingAttachment] = useState<RequestAttachment | null>(null);
   
+  // State for Edit Mode
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDesc, setEditDesc] = useState('');
+  const [editPriority, setEditPriority] = useState<'Low'|'Medium'|'High'|'Critical'>('Low');
+  const [editUrl, setEditUrl] = useState('');
+
   const commentsEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     commentsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [requestComments]);
+
+  // Load request data into edit state when entering edit mode or when request loads
+  useEffect(() => {
+    if (request) {
+        setEditTitle(request.title);
+        setEditDesc(request.description);
+        setEditPriority(request.priority);
+        setEditUrl(request.productUrl || '');
+    }
+  }, [request, isEditing]);
 
   // Close lightbox on Escape key
   useEffect(() => {
@@ -51,7 +68,12 @@ export const RequestDetail: React.FC = () => {
   const creator = users.find(u => u.id === request.creatorId);
   const unit = units.find(u => u.id === request.unitId);
   
-  const canManage = isAdmin || (isLeader && currentUser?.unitId === request.unitId);
+  const canManageStatus = isAdmin || (isLeader && currentUser?.unitId === request.unitId);
+  
+  // Rule: Can edit if (Admin OR Leader OR Creator) AND status is NOT Resolved/Cancelled
+  const isCreator = currentUser?.id === request.creatorId;
+  const isResolvedOrCancelled = [RequestStatus.RESOLVED, RequestStatus.CANCELLED].includes(request.status);
+  const canEditContent = (isAdmin || isLeader || isCreator) && !isResolvedOrCancelled;
 
   const handleSendComment = (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,6 +92,32 @@ export const RequestDetail: React.FC = () => {
     }
   };
 
+  const handleSaveEdit = () => {
+    if (!editTitle.trim() || !editDesc.trim()) {
+        showToast('Título e descrição são obrigatórios.', 'error');
+        return;
+    }
+    if (request) {
+        updateRequest(request.id, {
+            title: editTitle,
+            description: editDesc,
+            priority: editPriority,
+            productUrl: editUrl
+        });
+        setIsEditing(false);
+        showToast('Requisição atualizada com sucesso!', 'success');
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    // Reset fields
+    setEditTitle(request.title);
+    setEditDesc(request.description);
+    setEditPriority(request.priority);
+    setEditUrl(request.productUrl || '');
+  };
+
   // Helper to check if attachment is an image (Base64 or direct image link)
   const isImage = (url: string) => {
     return url.startsWith('data:image') || url.match(/\.(jpeg|jpg|gif|png|webp)$/i) != null;
@@ -77,18 +125,54 @@ export const RequestDetail: React.FC = () => {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 pb-8">
-      <Button variant="ghost" onClick={() => navigate('/requests')} className="mb-4 pl-0 hover:bg-transparent hover:text-primary-600">
-        <ArrowLeft className="h-4 w-4 mr-2" />
-        Voltar para a lista
-      </Button>
+      <div className="flex justify-between items-center mb-4">
+        <Button variant="ghost" onClick={() => navigate('/requests')} className="pl-0 hover:bg-transparent hover:text-primary-600">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Voltar para a lista
+        </Button>
+        {isEditing && (
+            <div className="flex gap-2">
+                <Button variant="ghost" onClick={handleCancelEdit} className="text-red-500 hover:text-red-700 hover:bg-red-50">
+                    <X className="h-4 w-4 mr-2" /> Cancelar
+                </Button>
+                <Button onClick={handleSaveEdit}>
+                    <Save className="h-4 w-4 mr-2" /> Salvar
+                </Button>
+            </div>
+        )}
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Content: Ticket Info & Chat */}
         <div className="lg:col-span-2 space-y-6">
-          <Card>
+          <Card className={`${isEditing ? 'ring-2 ring-primary-500' : ''} transition-shadow`}>
              <CardHeader className="flex flex-row items-start justify-between">
-               <div>
-                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">{request.title}</h1>
+               <div className="flex-1 mr-4">
+                 {isEditing ? (
+                    <div className="mb-2">
+                        <label className="block text-xs text-gray-400 mb-1">Título</label>
+                        <input 
+                            type="text" 
+                            value={editTitle}
+                            onChange={(e) => setEditTitle(e.target.value)}
+                            className="w-full text-xl font-bold p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        />
+                    </div>
+                 ) : (
+                    <div className="flex items-center gap-2 mb-2">
+                        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{request.title}</h1>
+                        {canEditContent && (
+                            <button 
+                                onClick={() => setIsEditing(true)} 
+                                className="p-1 text-gray-400 hover:text-primary-600 transition-colors"
+                                title="Editar Requisição"
+                            >
+                                <Edit2 className="h-4 w-4" />
+                            </button>
+                        )}
+                    </div>
+                 )}
+                 
                  <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
                    <UserIcon className="h-4 w-4" />
                    <span>{creator?.name}</span>
@@ -100,7 +184,19 @@ export const RequestDetail: React.FC = () => {
              </CardHeader>
              <CardContent className="border-b border-gray-100 dark:border-gray-700">
                <div className="prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300">
-                 <p>{request.description}</p>
+                 {isEditing ? (
+                    <div>
+                         <label className="block text-xs text-gray-400 mb-1">Descrição</label>
+                         <textarea 
+                            rows={6}
+                            value={editDesc}
+                            onChange={(e) => setEditDesc(e.target.value)}
+                            className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                         />
+                    </div>
+                 ) : (
+                    <p className="whitespace-pre-wrap">{request.description}</p>
+                 )}
                </div>
                
                {/* Attachments Gallery */}
@@ -111,7 +207,6 @@ export const RequestDetail: React.FC = () => {
                    </h3>
                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                      {request.attachments.map(att => {
-                       // We primarily support images now, but handle legacy links just in case
                        const isImg = isImage(att.url) || att.type === 'image';
                        return (
                          <div 
@@ -119,7 +214,6 @@ export const RequestDetail: React.FC = () => {
                            className="relative group rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 aspect-[4/3]"
                          >
                            {isImg ? (
-                             // Image Preview
                              <div 
                                className="w-full h-full cursor-pointer"
                                onClick={() => setViewingAttachment(att)}
@@ -134,7 +228,6 @@ export const RequestDetail: React.FC = () => {
                                </div>
                              </div>
                            ) : (
-                             // Fallback for generic file/link
                              <a 
                                href={att.url} 
                                target="_blank" 
@@ -223,7 +316,20 @@ export const RequestDetail: React.FC = () => {
                </div>
                <div>
                  <label className="text-gray-500 block mb-1">Prioridade</label>
-                 <PriorityBadge priority={request.priority} />
+                 {isEditing ? (
+                    <select 
+                        value={editPriority}
+                        onChange={(e) => setEditPriority(e.target.value as any)}
+                        className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    >
+                        <option value="Low">Baixa</option>
+                        <option value="Medium">Média</option>
+                        <option value="High">Alta</option>
+                        <option value="Critical">Crítica</option>
+                    </select>
+                 ) : (
+                     <PriorityBadge priority={request.priority} />
+                 )}
                </div>
                <div>
                  <label className="text-gray-500 block mb-1">Responsável</label>
@@ -235,25 +341,37 @@ export const RequestDetail: React.FC = () => {
                  </div>
                </div>
 
-               {request.productUrl && (
-                 <div className="pt-4 border-t border-gray-100 dark:border-gray-700">
-                   <label className="text-gray-500 block mb-2 flex items-center gap-2">
-                     <ShoppingBag className="h-4 w-4" /> Link do Produto
-                   </label>
-                   <a 
-                     href={request.productUrl} 
-                     target="_blank" 
-                     rel="noopener noreferrer"
-                     className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium"
-                   >
-                     Acessar Link <ExternalLink className="h-3 w-3" />
-                   </a>
-                 </div>
-               )}
+               <div className="pt-4 border-t border-gray-100 dark:border-gray-700">
+                 <label className="text-gray-500 block mb-2 flex items-center gap-2">
+                    <ShoppingBag className="h-4 w-4" /> Link do Produto
+                 </label>
+                 {isEditing ? (
+                    <input 
+                        type="url"
+                        value={editUrl}
+                        onChange={(e) => setEditUrl(e.target.value)}
+                        placeholder="https://..."
+                        className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                 ) : (
+                    request.productUrl ? (
+                        <a 
+                            href={request.productUrl} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium break-all"
+                        >
+                            Acessar Link <ExternalLink className="h-3 w-3" />
+                        </a>
+                    ) : (
+                        <span className="text-gray-400 italic">Nenhum link informado</span>
+                    )
+                 )}
+               </div>
              </CardContent>
            </Card>
 
-           {canManage && request && (
+           {canManageStatus && request && !isEditing && (
              <Card>
                <CardHeader><CardTitle>Gerenciar</CardTitle></CardHeader>
                <CardContent className="space-y-3">

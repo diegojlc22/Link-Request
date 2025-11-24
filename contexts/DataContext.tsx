@@ -30,6 +30,7 @@ interface DataContextType {
   // Actions
   addRequest: (req: Omit<RequestTicket, 'id' | 'createdAt' | 'updatedAt' | 'viewedByAssignee'>) => void;
   updateRequestStatus: (id: string, status: RequestStatus) => void;
+  updateRequest: (id: string, data: Partial<RequestTicket>) => void; // Nova função
   bulkUpdateRequestStatus: (ids: string[], status: RequestStatus) => void;
   addComment: (ticketId: string, userId: string, content: string) => void;
   addUnit: (unit: Omit<Unit, 'id'>) => void;
@@ -285,6 +286,24 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [isDbConnected]);
 
+  const updateRequest = useCallback((id: string, data: Partial<RequestTicket>) => {
+    const updatedDate = formatISO(new Date());
+    const sanitizedData = { ...data };
+    
+    // Sanitize text fields if present
+    if (sanitizedData.title) sanitizedData.title = sanitizeInput(sanitizedData.title);
+    if (sanitizedData.description) sanitizedData.description = sanitizeInput(sanitizedData.description);
+    if (sanitizedData.productUrl) sanitizedData.productUrl = sanitizeInput(sanitizedData.productUrl);
+    
+    const finalUpdate = { ...sanitizedData, updatedAt: updatedDate };
+
+    if (isDbConnected) {
+      fbUpdate('requests', id, finalUpdate);
+    } else {
+      setRequests(prev => prev.map(r => r.id === id ? { ...r, ...finalUpdate } : r));
+    }
+  }, [isDbConnected]);
+
   const bulkUpdateRequestStatus = useCallback((ids: string[], status: RequestStatus) => {
     const updatedDate = formatISO(new Date());
     
@@ -411,7 +430,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isLoading,
     
     addRequest, 
-    updateRequestStatus, 
+    updateRequestStatus,
+    updateRequest, // Exported new function
     bulkUpdateRequestStatus, 
     addComment,
     addUnit, 
@@ -430,7 +450,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }), [
     companies, units, users, sortedRequests, sortedComments,
     isDbConnected, isLoading, isSetupDone,
-    addRequest, updateRequestStatus, bulkUpdateRequestStatus, addComment,
+    addRequest, updateRequestStatus, updateRequest, bulkUpdateRequestStatus, addComment,
     addUnit, addUser, updateUserPassword, updateCompany, deleteUnit, deleteUser,
     getRequestsByUnit, getRequestsByCompany, getCommentsByRequest, setupSystem
   ]);
