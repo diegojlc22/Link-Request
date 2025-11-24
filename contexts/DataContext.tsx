@@ -123,7 +123,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
 
       } else {
-        console.log("Running in LOCAL MODE (Offline/Demo). Configure .env to sync.");
+        console.log("Running in Local Storage Mode.");
         setIsDbConnected(false);
       }
       setIsLoading(false);

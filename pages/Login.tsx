@@ -4,11 +4,11 @@ import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
-import { AlertCircle, CheckCircle2, WifiOff } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 
 export const Login: React.FC = () => {
   const { login } = useAuth();
-  const { companies, isDbConnected } = useData();
+  const { companies } = useData();
   const navigate = useNavigate();
   
   const [email, setEmail] = useState('');
@@ -32,10 +32,7 @@ export const Login: React.FC = () => {
 
     const success = login(email, password);
     if (!success) {
-      setError(isDbConnected 
-        ? 'Credenciais inválidas! Verifique seu email e senha.' 
-        : 'Usuário não encontrado. (Modo Local: Use as contas padrão ou configure o .env)'
-      );
+      setError('Credenciais inválidas! Verifique seu email e senha.');
     } else {
       // Successful login
       navigate('/');
@@ -44,21 +41,6 @@ export const Login: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
-      {/* Status Indicator */}
-      <div className="absolute top-4 right-4">
-        {isDbConnected ? (
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-green-100 text-green-700 rounded-full text-xs font-medium dark:bg-green-900/30 dark:text-green-400">
-            <CheckCircle2 className="h-3 w-3" />
-            Sincronizado
-          </div>
-        ) : (
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-200 text-gray-600 rounded-full text-xs font-medium dark:bg-gray-800 dark:text-gray-400 cursor-help" title="Configure o arquivo .env para conectar">
-            <WifiOff className="h-3 w-3" />
-            Modo Local / Demo
-          </div>
-        )}
-      </div>
-
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center h-12 w-12 rounded-xl bg-primary-600 text-white text-2xl font-bold mb-4 shadow-lg shadow-primary-600/30">
