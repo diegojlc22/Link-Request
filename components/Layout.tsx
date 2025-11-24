@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   LayoutDashboard, 
@@ -108,7 +107,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     navigate('/login');
   };
 
-  const NavItem = ({ item }: { item: typeof mainNavItems[0] }) => {
+  const NavItem: React.FC<{ item: typeof mainNavItems[0] }> = ({ item }) => {
     const Icon = item.icon;
     const isActive = location.pathname === item.path || (item.path !== '/' && location.pathname.startsWith(item.path));
     
