@@ -19,7 +19,7 @@ export const RequestList: React.FC = () => {
 
   // Search and Filter State
   const [searchTerm, setSearchTerm] = useState('');
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(''); // Performance optimization
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [assigneeFilter, setAssigneeFilter] = useState<string>('ALL');
   
@@ -48,7 +48,6 @@ export const RequestList: React.FC = () => {
   const canManageStatus = isAdmin || isLeader;
 
   // --- PERFORMANCE: DEBOUNCE EFFECT ---
-  // Wait 300ms after user stops typing to update filter
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearchTerm(searchTerm);
@@ -56,39 +55,44 @@ export const RequestList: React.FC = () => {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  // PERFORMANCE OPTIMIZATION: useMemo ensures filtering only happens when dependencies change
+  // --- FILTERING LOGIC CORRECTION ---
   const filteredRequests = useMemo(() => {
     if (!currentUser || !requests) return [];
 
-    // Normalize Role for safe comparison
-    const userRole = String(currentUser.role);
+    // Normalize comparison values
+    const currentUserId = currentUser.id;
+    const currentUserRole = String(currentUser.role);
+    const currentUserCompany = currentUser.companyId;
+    const currentUserUnit = currentUser.unitId;
 
     return requests.filter(req => {
-      // --- 1. ACCESS CONTROL (Permissions) ---
+      // 1. ACCESS CONTROL (Permissões de Visualização)
       let hasAccess = false;
 
-      // Rule A: Creator ALWAYS sees their own requests
-      if (req.creatorId === currentUser.id) {
+      // Regra 1: O Criador SEMPRE vê sua requisição (independente de role)
+      if (req.creatorId === currentUserId) {
         hasAccess = true;
       }
-      // Rule B: Admins see everything in their company
-      else if ((userRole === 'ADMIN' || userRole === UserRole.ADMIN) && req.companyId === currentUser.companyId) {
+      // Regra 2: Admin vê tudo da sua empresa
+      else if ((currentUserRole === 'ADMIN' || currentUserRole === UserRole.ADMIN) && req.companyId === currentUserCompany) {
         hasAccess = true;
       }
-      // Rule C: Leaders see everything in their unit
-      else if ((userRole === 'LEADER' || userRole === UserRole.LEADER) && req.unitId === currentUser.unitId) {
+      // Regra 3: Líder vê tudo da sua unidade
+      else if ((currentUserRole === 'LEADER' || currentUserRole === UserRole.LEADER) && req.unitId === currentUserUnit) {
         hasAccess = true;
       }
-
+      
+      // Se não caiu em nenhuma regra, oculta
       if (!hasAccess) return false;
 
-      // --- 2. VIEW FILTERS (Search & Dropdowns) ---
+      // 2. VIEW FILTERS (Busca e Dropdowns)
       
       // Search Filter
       const term = debouncedSearchTerm.toLowerCase();
       if (term) {
-        const matchesTitle = req.title.toLowerCase().includes(term);
-        const matchesId = req.id.toLowerCase().includes(term);
+        const matchesTitle = req.title?.toLowerCase().includes(term);
+        const matchesId = req.id?.toLowerCase().includes(term);
+        // Fallback safe check
         if (!matchesTitle && !matchesId) return false;
       }
 
@@ -110,7 +114,7 @@ export const RequestList: React.FC = () => {
     });
   }, [requests, currentUser, debouncedSearchTerm, statusFilter, assigneeFilter]);
 
-  // Reset to page 1 when filters change, clear selection
+  // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
     setSelectedIds(new Set());
@@ -122,7 +126,6 @@ export const RequestList: React.FC = () => {
   const currentItems = filteredRequests.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(filteredRequests.length / itemsPerPage);
 
-  // Selection Logic
   const toggleSelection = (id: string) => {
     const newSelected = new Set(selectedIds);
     if (newSelected.has(id)) {
@@ -156,15 +159,12 @@ export const RequestList: React.FC = () => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Validate Type
       if (!file.type.startsWith('image/')) {
         showToast('Por favor, selecione apenas arquivos de imagem.', 'error');
         e.target.value = '';
         return;
       }
-
-      // Validate Size (Max 5MB)
-      const MAX_SIZE = 5 * 1024 * 1024; // 5MB in bytes
+      const MAX_SIZE = 5 * 1024 * 1024;
       if (file.size > MAX_SIZE) {
         showToast('A imagem deve ter no máximo 5MB.', 'error');
         e.target.value = '';
@@ -180,8 +180,6 @@ export const RequestList: React.FC = () => {
           const canvas = document.createElement('canvas');
           let width = img.width;
           let height = img.height;
-          
-          // Max dimensions (Optimization: ~800px is enough for screenshots)
           const MAX_WIDTH = 800;
           const MAX_HEIGHT = 800;
 
@@ -202,13 +200,11 @@ export const RequestList: React.FC = () => {
           const ctx = canvas.getContext('2d');
           
           if (ctx) {
-            // Fill white background to prevent black background on transparent PNGs when converting to JPEG
             ctx.fillStyle = '#FFFFFF';
             ctx.fillRect(0, 0, width, height);
             ctx.drawImage(img, 0, 0, width, height);
           }
 
-          // Compress to JPEG with 70% quality
           const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
           
           setAttachedImage(dataUrl);
@@ -237,11 +233,13 @@ export const RequestList: React.FC = () => {
       });
     }
 
-    // Determine final unit ID (fallback to first unit if empty/admin)
+    // Fallback: If no Unit is selected (e.g. Admin creating), pick the first one from DB
+    // Also ensures companyId is never empty, using the first company as fallback if currentUser's is missing
     const finalUnitId = newUnitId || units[0]?.id;
+    const finalCompanyId = currentUser.companyId || units[0]?.companyId || 'c1';
 
     addRequest({
-      companyId: currentUser.companyId,
+      companyId: finalCompanyId,
       unitId: finalUnitId,
       creatorId: currentUser.id,
       assigneeId: newAssigneeId || undefined,
@@ -256,7 +254,6 @@ export const RequestList: React.FC = () => {
     showToast('Requisição criada com sucesso!', 'success');
     setIsModalOpen(false);
     
-    // Reset form
     setNewTitle('');
     setNewDesc('');
     setNewProductUrl('');
@@ -264,11 +261,8 @@ export const RequestList: React.FC = () => {
     setAttachedImage(null);
   };
 
-  // Filter users eligible for assignment based on selected Unit (or all if Admin)
   const assignableUsers = useMemo(() => users.filter(u => {
-     // Admins can always be assigned
      if (u.role === UserRole.ADMIN) return true;
-     // If a unit is selected for the new ticket, filter users from that unit
      if (newUnitId) return u.unitId === newUnitId;
      return true;
   }), [users, newUnitId]);
@@ -277,17 +271,15 @@ export const RequestList: React.FC = () => {
     <div className="space-y-6 relative">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Requisições</h1>
-        {!isAdmin && (
-          <Button onClick={() => setIsModalOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Nova Requisição
-          </Button>
-        )}
+        {/* Removed restriction: Leaders and Admins can also create tickets */}
+        <Button onClick={() => setIsModalOpen(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Nova Requisição
+        </Button>
       </div>
 
       <Card>
         <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex flex-col md:flex-row gap-4">
-          {/* Search Bar */}
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
@@ -299,9 +291,7 @@ export const RequestList: React.FC = () => {
             />
           </div>
 
-          {/* Filters Group */}
           <div className="flex flex-col sm:flex-row gap-2">
-            {/* Assignee Filter */}
             <div className="flex items-center gap-2">
               <UserIcon className="h-4 w-4 text-gray-500" />
               <select
@@ -317,7 +307,6 @@ export const RequestList: React.FC = () => {
               </select>
             </div>
 
-            {/* Status Filter */}
             <div className="flex items-center gap-2">
               <Filter className="h-4 w-4 text-gray-500" />
               <select
@@ -365,7 +354,7 @@ export const RequestList: React.FC = () => {
                   <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
                     {filteredRequests.length === 0 && requests.length > 0 
                       ? "Nenhum resultado para os filtros aplicados." 
-                      : "Nenhuma requisição encontrada."}
+                      : "Nenhuma requisição encontrada. Clique em 'Nova Requisição' para começar."}
                   </td>
                 </tr>
               ) : (
@@ -425,7 +414,6 @@ export const RequestList: React.FC = () => {
           </table>
         </div>
 
-        {/* Pagination Controls */}
         {filteredRequests.length > 0 && (
           <div className="flex items-center justify-between border-t border-gray-100 dark:border-gray-700 px-4 py-3 sm:px-6">
             <div className="flex flex-1 justify-between sm:hidden">
@@ -513,7 +501,6 @@ export const RequestList: React.FC = () => {
         )}
       </Card>
       
-      {/* Floating Bulk Action Bar */}
       {selectedIds.size > 0 && canManageStatus && (
         <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-2xl rounded-xl p-4 flex flex-col sm:flex-row items-center gap-4 z-40 animate-fade-in w-[90%] sm:w-auto">
           <div className="flex items-center gap-2 font-medium text-gray-900 dark:text-white border-r border-gray-200 dark:border-gray-700 pr-4">
@@ -633,7 +620,6 @@ export const RequestList: React.FC = () => {
             />
           </div>
 
-          {/* Attachment Section */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Anexo (Imagem)
