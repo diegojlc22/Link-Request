@@ -8,13 +8,13 @@ let db: Database | undefined;
 
 // --- CONFIGURAÇÃO FIXA (PREENCHA AQUI PARA FUNCIONAR EM QUALQUER DISPOSITIVO) ---
 const FIXED_CONFIG: FirebaseConfig | null = {
-  apiKey: "", // Cole sua apiKey aqui
-  authDomain: "", // Cole seu authDomain aqui
-  databaseURL: "", // Cole sua databaseURL aqui
-  projectId: "", // Cole seu projectId aqui
-  storageBucket: "", // Cole seu storageBucket aqui
-  messagingSenderId: "", // Cole seu messagingSenderId aqui
-  appId: "" // Cole seu appId aqui
+  apiKey: "AIzaSyBDHw4KVz1xEqyx_rpl-427brY77kPa9wo",
+  authDomain: "link-request-43543.firebaseapp.com",
+  databaseURL: "https://link-request-43543-default-rtdb.firebaseio.com",
+  projectId: "link-request-43543",
+  storageBucket: "link-request-43543.firebasestorage.app",
+  messagingSenderId: "695289301024",
+  appId: "1:695289301024:web:252286047e003c436d5445"
 };
 
 // Tenta carregar as configs do ambiente (Vite), Fixas ou LocalStorage

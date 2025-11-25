@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useData } from '../contexts/DataContext';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
-import { ShieldCheck, Building2, User, Rocket, AlertTriangle, Settings, RefreshCw } from 'lucide-react';
+import { ShieldCheck, Building2, User, Rocket, AlertTriangle, Settings, RefreshCw, FileCode } from 'lucide-react';
 import { FirebaseConfig } from '../types';
 
 export const SetupPage: React.FC = () => {
@@ -45,6 +45,37 @@ export const SetupPage: React.FC = () => {
     window.location.reload();
   };
 
+  const handleCodePaste = (code: string) => {
+    try {
+      // Extract values using regex to handle JS object syntax key: "value"
+      const extract = (key: string) => {
+        // Regex looks for key followed by colon, optional space, quote, value, quote
+        const regex = new RegExp(`${key}\\s*:\\s*["']([^"']+)["']`);
+        const match = code.match(regex);
+        return match ? match[1] : '';
+      };
+
+      const newConfig = { ...manualConfig };
+      let foundAny = false;
+      
+      const keys: (keyof FirebaseConfig)[] = ['apiKey', 'authDomain', 'databaseURL', 'projectId', 'storageBucket', 'messagingSenderId', 'appId'];
+      
+      keys.forEach(k => {
+        const val = extract(k);
+        if (val) {
+          newConfig[k] = val;
+          foundAny = true;
+        }
+      });
+
+      if (foundAny) {
+        setManualConfig(newConfig);
+      }
+    } catch (e) {
+      console.warn("Error parsing config", e);
+    }
+  };
+
   if (!isDbConnected) {
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center justify-center p-4">
@@ -77,6 +108,18 @@ export const SetupPage: React.FC = () => {
                             <CardTitle>Configuração do Firebase</CardTitle>
                         </CardHeader>
                         <CardContent>
+                            <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+                                   <FileCode className="h-4 w-4" /> Importar via Código (Opcional)
+                                </label>
+                                <textarea 
+                                  className="w-full h-20 p-3 text-xs font-mono border rounded bg-white dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-primary-500 text-gray-600 dark:text-gray-300"
+                                  placeholder={`Cole o objeto de configuração aqui...\nEx: const firebaseConfig = { apiKey: "AIza...", ... };`}
+                                  onChange={(e) => handleCodePaste(e.target.value)}
+                                />
+                                <p className="text-[10px] text-gray-500 mt-1">Cole o snippet do Firebase para preencher os campos abaixo automaticamente.</p>
+                            </div>
+
                             <form onSubmit={handleSaveConfig} className="space-y-3">
                                 <div className="p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 text-xs rounded mb-2">
                                     Essas configurações serão salvas neste navegador.
