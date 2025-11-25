@@ -59,26 +59,30 @@ export const RequestList: React.FC = () => {
   const filteredRequests = useMemo(() => {
     if (!currentUser || !requests) return [];
 
-    // Normalize comparison values
-    const currentUserId = currentUser.id;
+    // Normalize comparison values to Strings to avoid type mismatch issues
+    const currentUserId = String(currentUser.id);
     const currentUserRole = String(currentUser.role);
-    const currentUserCompany = currentUser.companyId;
-    const currentUserUnit = currentUser.unitId;
+    const currentUserCompany = String(currentUser.companyId || '');
+    const currentUserUnit = String(currentUser.unitId || '');
 
     return requests.filter(req => {
       // 1. ACCESS CONTROL (Permissões de Visualização)
       let hasAccess = false;
+      
+      const reqCreator = String(req.creatorId || '');
+      const reqCompany = String(req.companyId || '');
+      const reqUnit = String(req.unitId || '');
 
-      // Regra 1: O Criador SEMPRE vê sua requisição (independente de role)
-      if (req.creatorId === currentUserId) {
+      // Regra 1: O Criador SEMPRE vê sua requisição
+      if (reqCreator === currentUserId) {
         hasAccess = true;
       }
       // Regra 2: Admin vê tudo da sua empresa
-      else if ((currentUserRole === 'ADMIN' || currentUserRole === UserRole.ADMIN) && req.companyId === currentUserCompany) {
+      else if ((currentUserRole === 'ADMIN' || currentUserRole === UserRole.ADMIN) && reqCompany === currentUserCompany) {
         hasAccess = true;
       }
       // Regra 3: Líder vê tudo da sua unidade
-      else if ((currentUserRole === 'LEADER' || currentUserRole === UserRole.LEADER) && req.unitId === currentUserUnit) {
+      else if ((currentUserRole === 'LEADER' || currentUserRole === UserRole.LEADER) && reqUnit === currentUserUnit) {
         hasAccess = true;
       }
       
@@ -234,9 +238,16 @@ export const RequestList: React.FC = () => {
     }
 
     // Fallback: If no Unit is selected (e.g. Admin creating), pick the first one from DB
-    // Also ensures companyId is never empty, using the first company as fallback if currentUser's is missing
-    const finalUnitId = newUnitId || units[0]?.id;
-    const finalCompanyId = currentUser.companyId || units[0]?.companyId || 'c1';
+    const finalUnitId = newUnitId || (units.length > 0 ? units[0].id : '');
+    
+    // Determine Company ID: Use Current User's -> Unit's -> Fallback
+    const selectedUnit = units.find(u => u.id === finalUnitId);
+    const finalCompanyId = currentUser.companyId || selectedUnit?.companyId || (units.length > 0 ? units[0].companyId : 'c1');
+
+    if (!finalUnitId) {
+        showToast("Erro: É necessário selecionar uma unidade.", "error");
+        return;
+    }
 
     addRequest({
       companyId: finalCompanyId,
@@ -261,17 +272,12 @@ export const RequestList: React.FC = () => {
     setAttachedImage(null);
   };
 
-  const assignableUsers = useMemo(() => users.filter(u => {
-     if (u.role === UserRole.ADMIN) return true;
-     if (newUnitId) return u.unitId === newUnitId;
-     return true;
-  }), [users, newUnitId]);
+  const assignableUsers = useMemo(() => users.filter(u => u.role === UserRole.ADMIN || !newUnitId || u.unitId === newUnitId), [users, newUnitId]);
 
   return (
     <div className="space-y-6 relative">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Requisições</h1>
-        {/* Removed restriction: Leaders and Admins can also create tickets */}
         <Button onClick={() => setIsModalOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
           Nova Requisição
