@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useData } from '../contexts/DataContext';
@@ -10,12 +11,12 @@ import { StatusBadge, PriorityBadge } from '../components/ui/Badge';
 import { 
   Plus, Search, Link as LinkIcon, Image as ImageIcon, X, 
   ChevronLeft, ChevronRight, Trash2,
-  LayoutGrid, List as ListIcon, FileSpreadsheet, Calendar
+  LayoutGrid, List as ListIcon, FileSpreadsheet, Calendar, AlertTriangle
 } from 'lucide-react';
 import { Modal } from '../components/ui/Modal';
 
 export const RequestList: React.FC = () => {
-  const { requests, units, addRequest, users, bulkUpdateRequestStatus, updateRequestStatus } = useData();
+  const { requests, units, addRequest, users, bulkUpdateRequestStatus, updateRequestStatus, deleteRequest } = useData();
   const { currentUser, isAdmin, isLeader } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
@@ -36,6 +37,9 @@ export const RequestList: React.FC = () => {
   const [draggedRequestId, setDraggedRequestId] = useState<string | null>(null);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
+  
+  // Delete Confirmation State
+  const [requestToDelete, setRequestToDelete] = useState<string | null>(null);
 
   // Selection State
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -191,6 +195,19 @@ export const RequestList: React.FC = () => {
       bulkUpdateRequestStatus(Array.from(selectedIds), status);
       showToast(`${selectedIds.size} requisições atualizadas para ${status}`, 'success');
       setSelectedIds(new Set());
+    }
+  };
+
+  const handleDeleteClick = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    setRequestToDelete(id);
+  };
+
+  const confirmDelete = () => {
+    if (requestToDelete) {
+        deleteRequest(requestToDelete);
+        showToast('Requisição excluída com sucesso.', 'success');
+        setRequestToDelete(null);
     }
   };
 
@@ -619,9 +636,20 @@ export const RequestList: React.FC = () => {
                           {new Date(req.updatedAt).toLocaleDateString()}
                         </td>
                         <td className="px-3 md:px-6 py-4">
-                          <Button size="sm" variant="secondary" onClick={() => navigate(`/requests/${req.id}`)}>
-                            Ver
-                          </Button>
+                           <div className="flex items-center gap-2">
+                              <Button size="sm" variant="secondary" onClick={() => navigate(`/requests/${req.id}`)}>
+                                Ver
+                              </Button>
+                              {canManageStatus && (
+                                <button 
+                                    onClick={(e) => handleDeleteClick(e, req.id)}
+                                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                                    title="Excluir"
+                                >
+                                    <Trash2 className="h-4 w-4" />
+                                </button>
+                              )}
+                           </div>
                         </td>
                       </tr>
                     );
@@ -756,7 +784,7 @@ export const RequestList: React.FC = () => {
                         onClick={() => navigate(`/requests/${req.id}`)}
                         className={`
                           bg-white dark:bg-gray-800 p-3 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 
-                          cursor-pointer hover:shadow-md transition-all active:cursor-grabbing
+                          cursor-pointer hover:shadow-md transition-all active:cursor-grabbing relative group
                           ${canManageStatus ? 'cursor-grab' : ''}
                         `}
                       >
@@ -778,6 +806,16 @@ export const RequestList: React.FC = () => {
                                {new Date(req.updatedAt).toLocaleDateString(undefined, {month:'short', day:'numeric'})}
                             </span>
                          </div>
+                         
+                         {canManageStatus && (
+                            <button 
+                                onClick={(e) => handleDeleteClick(e, req.id)}
+                                className="absolute top-2 right-2 p-1.5 bg-white dark:bg-gray-700 rounded-md shadow-sm opacity-0 group-hover:opacity-100 transition-opacity hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30"
+                                title="Excluir"
+                            >
+                                <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                         )}
                       </div>
                     ))}
                     {statusRequests.length === 0 && (
@@ -831,6 +869,32 @@ export const RequestList: React.FC = () => {
           </button>
         </div>
       )}
+      
+      {/* CONFIRM DELETE MODAL */}
+      <Modal 
+         isOpen={!!requestToDelete} 
+         onClose={() => setRequestToDelete(null)}
+         title="Confirmar Exclusão"
+      >
+         <div className="flex flex-col items-center text-center p-4">
+            <div className="h-12 w-12 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 flex items-center justify-center mb-4">
+                <AlertTriangle className="h-6 w-6" />
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Excluir Requisição?</h3>
+            <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">
+                Tem certeza que deseja excluir esta requisição permanentemente? <br/>
+                Esta ação não pode ser desfeita.
+            </p>
+            <div className="flex gap-3 w-full">
+                <Button variant="secondary" onClick={() => setRequestToDelete(null)} className="flex-1">
+                    Cancelar
+                </Button>
+                <Button variant="danger" onClick={confirmDelete} className="flex-1">
+                    Sim, Excluir
+                </Button>
+            </div>
+         </div>
+      </Modal>
 
       {/* MODAL CREATE (Existing) */}
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Nova Requisição">

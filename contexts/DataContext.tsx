@@ -32,6 +32,7 @@ interface DataContextType {
   updateRequestStatus: (id: string, status: RequestStatus) => void;
   updateRequest: (id: string, data: Partial<RequestTicket>) => void;
   bulkUpdateRequestStatus: (ids: string[], status: RequestStatus) => void;
+  deleteRequest: (id: string) => void;
   addComment: (ticketId: string, userId: string, content: string) => void;
   addUnit: (unit: Omit<Unit, 'id'>) => void;
   addUser: (user: Omit<User, 'id'>) => void;
@@ -292,6 +293,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [isDbConnected]);
 
+  const deleteRequest = useCallback((id: string) => {
+    setRequests(prev => prev.filter(r => r.id !== id));
+    if (isDbConnected) {
+      fbDelete('requests', id);
+    }
+  }, [isDbConnected]);
+
   const addComment = useCallback((ticketId: string, userId: string, content: string) => {
     const newComment: Comment = {
       id: `cm${Date.now()}`,
@@ -393,14 +401,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const value = useMemo(() => ({
     companies, units, users, requests: sortedRequests, comments: sortedComments,
     isDbConnected, isLoading,
-    addRequest, updateRequestStatus, updateRequest, bulkUpdateRequestStatus, addComment,
+    addRequest, updateRequestStatus, updateRequest, bulkUpdateRequestStatus, deleteRequest, addComment,
     addUnit, addUser, updateUserPassword, updateUser, updateCompany, deleteUnit, deleteUser,
     getRequestsByUnit, getRequestsByCompany, getCommentsByRequest,
     isSetupDone, setupSystem
   }), [
     companies, units, users, sortedRequests, sortedComments,
     isDbConnected, isLoading, isSetupDone,
-    addRequest, updateRequestStatus, updateRequest, bulkUpdateRequestStatus, addComment,
+    addRequest, updateRequestStatus, updateRequest, bulkUpdateRequestStatus, deleteRequest, addComment,
     addUnit, addUser, updateUserPassword, updateUser, updateCompany, deleteUnit, deleteUser,
     getRequestsByUnit, getRequestsByCompany, getCommentsByRequest, setupSystem
   ]);
