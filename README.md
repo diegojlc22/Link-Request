@@ -1,103 +1,121 @@
 
-# Link-Request SaaS - Plataforma de Gestão de Solicitações
-
-![Banner Tecnologia](https://forbes.com.br/wp-content/uploads/2024/01/Tech_tecnologias2024_divulgacao.jpg)
-
 <div align="center">
 
-**[📖 Sobre o Projeto](#-sobre-o-projeto)** • **[☁️ Onde Hospedar (Compatibilidade)](#-guia-de-hospedagem-e-deploy)** • **[⚙️ Instalação Local](#-instalação-e-execução-local)**
+![Link-Request Banner](https://forbes.com.br/wp-content/uploads/2024/01/Tech_tecnologias2024_divulgacao.jpg)
+
+# Link-Request SaaS
+### Plataforma Corporativa de Gestão de Solicitações
+
+<!-- MENU DE NAVEGAÇÃO ESTILO ABAS -->
+<p align="center">
+  <a href="#-sobre-o-projeto">
+    <img src="https://img.shields.io/badge/🏠_SOBRE_O_PROJETO-2563eb?style=for-the-badge&logoColor=white" alt="Sobre" />
+  </a>
+  &nbsp;&nbsp;&nbsp;
+  <a href="#-instalação-e-deploy">
+    <img src="https://img.shields.io/badge/🚀_INSTALAÇÃO_E_DEPLOY-10b981?style=for-the-badge&logoColor=white" alt="Instalação" />
+  </a>
+</p>
 
 </div>
 
 ---
 
-## 📖 Sobre o Projeto
+<div id="-sobre-o-projeto"></div>
 
-Bem-vindo ao **Link-Request**, uma plataforma moderna de Helpdesk e gestão de solicitações internas (SaaS), desenvolvida com tecnologias de ponta (**React 19, TypeScript, Firebase**) para garantir eficiência, performance e organização no atendimento corporativo.
+## 🏠 Sobre o Projeto
 
-O sistema opera com um **banco de dados híbrido**, funcionando imediatamente em modo local (demonstração) ou sincronizado em tempo real com o Firebase, ideal para gerenciar múltiplas unidades e departamentos.
+O **Link-Request** é uma solução SaaS (Software as a Service) desenvolvida para modernizar o Helpdesk e a comunicação interna de empresas multi-unidades.
 
-### ✨ Funcionalidades Principais
+Diferente de sistemas de tickets tradicionais, o Link-Request foca em **agilidade visual** e **hierarquia simplificada**, permitindo que líderes de unidades abram chamados que são gerenciados centralmente ou distribuídos por setores.
 
-*   **⚡ Performance Extrema:** Otimizações avançadas com *Lazy Loading* e *Memoization*.
-*   **📸 Compressão de Imagens:** Upload de até 5 fotos com compressão automática (5MB -> 50kb).
-*   **📊 Dashboard & Kanban:** Visualização de dados em gráficos e quadro de tarefas *drag-and-drop*.
-*   **👥 Perfis de Acesso (RBAC):**
-    *   **USER:** Cria e acompanha seus tickets.
-    *   **LEADER:** Gerencia tickets da sua unidade.
-    *   **ADMIN:** Controle total, gestão de usuários e configurações globais.
+### ✨ Principais Recursos
+
+<table>
+  <tr>
+    <td width="50%">
+      <h3>🎨 Experiência do Usuário</h3>
+      <ul>
+        <li><strong>Dashboard Interativo:</strong> Métricas em tempo real com gráficos.</li>
+        <li><strong>Kanban Drag & Drop:</strong> Gestão visual de tarefas arrastando cards.</li>
+        <li><strong>Modo Escuro:</strong> Suporte nativo a Dark Mode.</li>
+        <li><strong>Responsivo:</strong> Funciona perfeitamente em Mobile e Desktop.</li>
+      </ul>
+    </td>
+    <td width="50%">
+      <h3>⚙️ Potência Técnica</h3>
+      <ul>
+        <li><strong>Compressão Automática:</strong> Uploads de imagens são otimizados no cliente (5MB vira 50KB).</li>
+        <li><strong>Offline-First:</strong> O sistema carrega instantaneamente, mesmo com internet instável.</li>
+        <li><strong>Multitenancy (Simulado):</strong> Suporte a múltiplas empresas e unidades no mesmo banco.</li>
+      </ul>
+    </td>
+  </tr>
+</table>
+
+### 🛠️ Stack Tecnológica
+
+O projeto utiliza as versões mais recentes e estáveis do ecossistema React:
+
+<div align="center">
+  <img src="https://img.shields.io/badge/React_19-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" />
+  <img src="https://img.shields.io/badge/TypeScript-5.0-007ACC?style=for-the-badge&logo=typescript&logoColor=white" />
+  <img src="https://img.shields.io/badge/Vite-5.0-646CFF?style=for-the-badge&logo=vite&logoColor=white" />
+  <img src="https://img.shields.io/badge/Tailwind_CSS-3.0-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white" />
+  <img src="https://img.shields.io/badge/Firebase-10-FFCA28?style=for-the-badge&logo=firebase&logoColor=black" />
+</div>
+
+<br/><br/>
 
 ---
 
-## ☁️ Guia de Hospedagem e Deploy
+<div id="-instalação-e-deploy"></div>
 
-Este projeto é uma **SPA (Single Page Application)** construída com Vite. Abaixo está a lista oficial de provedores testados e **100% compatíveis** com a arquitetura do projeto e integração contínua (CI/CD) com GitHub.
+## 🚀 Instalação e Deploy
 
-### 🏆 Top 5 Provedores Recomendados
+Guia completo para colocar seu projeto no ar ou rodar em sua máquina.
 
-| Ranking | Provedor | Compatibilidade | Integração GitHub | Custo (Tier Grátis) | Dificuldade |
-| :--- | :--- | :---: | :---: | :--- | :---: |
-| 🥇 **1º** | **Vercel** | **100%** | ✅ Automática | Grátis Ilimitado (Hobby) | ⭐ (Muito Fácil) |
-| 🥈 **2º** | **Netlify** | **100%** | ✅ Automática | Grátis Generoso | ⭐ (Muito Fácil) |
-| 🥉 **3º** | **Firebase Hosting** | **100%** | ✅ Via GitHub Actions | Grátis (Spark) | ⭐⭐ (Médio) |
-| **4º** | **Cloudflare Pages** | **100%** | ✅ Automática | Grátis Ilimitado | ⭐⭐ (Médio) |
-| **5º** | **Render** | **98%*** | ✅ Automática | Grátis (Limitado) | ⭐⭐⭐ (Requer Config) |
+### ☁️ Onde Hospedar (Compatibilidade 100%)
 
-> ***Render Nota:** Requer configuração manual de regra de reescrita (Rewrite) para SPAs direcionando todas as rotas para `index.html`.
+Este projeto é uma SPA (Single Page Application). Abaixo, os melhores lugares para hospedar gratuitamente com integração automática ao GitHub.
 
-### ⚠️ Configuração Importante para Deploy
+| Provedor | Custo | Dificuldade | Integração GitHub | Observação |
+| :--- | :--- | :---: | :---: | :--- |
+| **Vercel** 🥇 | Grátis | ⭐ | ✅ Automática | **Recomendado.** Detecta Vite automaticamente. Zero config. |
+| **Netlify** 🥈 | Grátis | ⭐ | ✅ Automática | Adicione o arquivo `_redirects` na pasta public. |
+| **Firebase Hosting** 🥉 | Grátis | ⭐⭐ | ✅ Actions | Ótimo para manter Front e Banco no mesmo lugar. |
 
-Como o projeto usa **React Router**, ao hospedar, você deve garantir que o servidor redirecione todas as requisições para o `index.html` (Regra de SPA).
+### 🔧 Instalação Local (Desenvolvedores)
 
-*   **Vercel / Cloudflare:** Configuração automática (Zero Config).
-*   **Netlify:** O projeto já inclui (ou você deve criar) um arquivo `_redirects` na pasta `public` com o conteúdo: `/* /index.html 200`.
-*   **Firebase:** Configurar `rewrites` no `firebase.json`.
+Siga os passos abaixo para rodar o ambiente de desenvolvimento em sua máquina.
 
----
+**1. Pré-requisitos**
+*   Node.js v18+
+*   Git
 
-## ⚙️ Instalação e Execução Local
+**2. Passo a Passo**
 
-Siga este guia se você é um desenvolvedor e deseja rodar o projeto na sua máquina.
-
-### 1. Pré-requisitos
-*   Node.js (Versão 18 ou superior)
-*   NPM ou Yarn
-
-### 2. Instalação
 ```bash
-# Clone o repositório
+# 1. Clone o repositório
 git clone https://github.com/seu-usuario/link-request.git
 
-# Entre na pasta
+# 2. Acesse a pasta
 cd link-request
 
-# Instale as dependências
+# 3. Instale as dependências
 npm install
-```
 
-### 3. Rodando o Projeto
-```bash
+# 4. Inicie o servidor local
 npm run dev
 ```
-O projeto abrirá em `http://localhost:5173`.
 
-### 4. Configuração Inicial (Setup Wizard)
-Ao abrir o sistema pela primeira vez, você verá a tela de **Instalação do Sistema**.
-1.  Defina o nome da empresa e crie o Admin.
-2.  **Banco de Dados:** O sistema pedirá o JSON de configuração do Firebase.
-    *   Vá ao [Console do Firebase](https://console.firebase.google.com/).
-    *   Crie um projeto Web e copie o objeto `const firebaseConfig = { ... }`.
-    *   Cole esse código na tela de instalação do Link-Request.
+**3. Configuração Inicial**
+Ao abrir `http://localhost:5173` pela primeira vez, você verá o **Setup Wizard**.
+1. Crie o nome da empresa e o usuário Admin.
+2. Cole as credenciais do seu projeto Firebase quando solicitado (não requer criação de arquivo `.env` manual).
 
 ---
 
-## 🛠️ Tecnologias
-
-<div style="display: flex; gap: 10px;">
-  <img src="https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" />
-  <img src="https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white" />
-  <img src="https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white" />
-  <img src="https://img.shields.io/badge/Firebase-039BE5?style=for-the-badge&logo=Firebase&logoColor=white" />
-  <img src="https://img.shields.io/badge/Vite-B73BFE?style=for-the-badge&logo=vite&logoColor=FFD62E" />
+<div align="center">
+  <small>Desenvolvido com ❤️ para gestão eficiente.</small>
 </div>
-
