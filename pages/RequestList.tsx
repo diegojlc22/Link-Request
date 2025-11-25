@@ -11,7 +11,8 @@ import { StatusBadge, PriorityBadge } from '../components/ui/Badge';
 import { 
   Plus, Search, Link as LinkIcon, Image as ImageIcon, X, 
   ChevronLeft, ChevronRight, Trash2,
-  LayoutGrid, List as ListIcon, FileSpreadsheet, Calendar, AlertTriangle, Loader2
+  LayoutGrid, List as ListIcon, FileSpreadsheet, Calendar, AlertTriangle, Loader2,
+  ListFilter
 } from 'lucide-react';
 import { Modal } from '../components/ui/Modal';
 import { fbUploadImage } from '../services/firebaseService';
@@ -47,7 +48,7 @@ export const RequestList: React.FC = () => {
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 20;
+  const [itemsPerPage, setItemsPerPage] = useState(20);
 
   // Form state
   const [newTitle, setNewTitle] = useState('');
@@ -160,7 +161,7 @@ export const RequestList: React.FC = () => {
   useEffect(() => {
     setCurrentPage(1);
     setSelectedIds(new Set());
-  }, [debouncedSearchTerm, statusFilter, assigneeFilter, startDate, endDate, dateType]);
+  }, [debouncedSearchTerm, statusFilter, assigneeFilter, startDate, endDate, dateType, itemsPerPage]);
 
   useEffect(() => {
     if (currentPage > totalPages) {
@@ -481,7 +482,7 @@ export const RequestList: React.FC = () => {
         <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto justify-start xl:justify-end">
             
             {/* Date Filters */}
-            <div className="flex items-center gap-2 p-1 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center gap-2 p-1 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
                <Calendar className="h-4 w-4 text-gray-400 ml-2" />
                <select
                   value={dateType}
@@ -540,6 +541,27 @@ export const RequestList: React.FC = () => {
             </select>
             
             <div className="h-6 w-px bg-gray-300 dark:bg-gray-600 mx-1 hidden md:block"></div>
+
+            {/* Pagination Size Selector - NEW */}
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <ListFilter className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => {
+                    setItemsPerPage(Number(e.target.value));
+                    setCurrentPage(1); // Reset to first page
+                  }}
+                  className="pl-8 pr-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary-500 appearance-none min-w-[130px]"
+                  title="Itens por página"
+                >
+                  <option value={10}>10 por pág.</option>
+                  <option value={20}>20 por pág.</option>
+                  <option value={50}>50 por pág.</option>
+                  <option value={100}>100 por pág.</option>
+                </select>
+              </div>
+            </div>
 
             {/* View Toggles */}
             <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
