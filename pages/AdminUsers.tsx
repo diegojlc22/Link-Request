@@ -1,13 +1,14 @@
+
 import React, { useState } from 'react';
 import { useData } from '../contexts/DataContext';
-import { UserRole } from '../types';
+import { UserRole, User } from '../types';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
-import { Plus, Trash2, User as UserIcon, Key } from 'lucide-react';
+import { Plus, Trash2, Key, Edit2 } from 'lucide-react';
 
 export const AdminUsers: React.FC = () => {
-  const { users, units, addUser, updateUserPassword, deleteUser } = useData();
+  const { users, units, addUser, updateUserPassword, updateUser, deleteUser } = useData();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -17,6 +18,13 @@ export const AdminUsers: React.FC = () => {
   // State for password reset modal
   const [resetUserId, setResetUserId] = useState<string | null>(null);
   const [newResetPassword, setNewResetPassword] = useState('');
+
+  // State for Edit User Modal
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editRole, setEditRole] = useState<UserRole>(UserRole.USER);
+  const [editUnitId, setEditUnitId] = useState('');
 
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,6 +52,34 @@ export const AdminUsers: React.FC = () => {
       setNewResetPassword('');
       alert('Senha atualizada com sucesso!');
     }
+  };
+
+  const openEditModal = (user: User) => {
+    setEditingUser(user);
+    setEditName(user.name);
+    setEditEmail(user.email);
+    setEditRole(user.role);
+    setEditUnitId(user.unitId || '');
+  };
+
+  const handleUpdateUser = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUser) return;
+
+    // Se não for admin, unidade é obrigatória
+    if (editRole !== UserRole.ADMIN && !editUnitId) {
+       alert("É necessário selecionar uma unidade para usuários não administradores.");
+       return;
+    }
+
+    updateUser(editingUser.id, {
+        name: editName,
+        email: editEmail,
+        role: editRole,
+        unitId: editRole !== UserRole.ADMIN ? editUnitId : undefined
+    });
+    
+    setEditingUser(null);
   };
 
   return (
@@ -83,6 +119,14 @@ export const AdminUsers: React.FC = () => {
                         {units.find(u => u.id === user.unitId)?.name || (user.role === UserRole.ADMIN ? 'Todas' : '-')}
                       </td>
                       <td className="px-4 py-3 text-right space-x-2">
+                        <Button 
+                          variant="secondary" 
+                          size="sm" 
+                          onClick={() => openEditModal(user)}
+                          title="Editar Dados"
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
                         <Button 
                           variant="secondary" 
                           size="sm" 
@@ -170,6 +214,47 @@ export const AdminUsers: React.FC = () => {
            <div className="flex justify-end pt-4">
              <Button type="button" variant="ghost" onClick={() => setResetUserId(null)} className="mr-2">Cancelar</Button>
              <Button type="submit">Salvar Nova Senha</Button>
+           </div>
+        </form>
+      </Modal>
+
+      {/* Modal Edit User Details */}
+      <Modal 
+        isOpen={!!editingUser} 
+        onClose={() => setEditingUser(null)} 
+        title="Editar Dados do Usuário"
+      >
+        <form onSubmit={handleUpdateUser} className="space-y-4">
+           <div>
+             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome</label>
+             <input required value={editName} onChange={e => setEditName(e.target.value)} className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 dark:border-gray-600" />
+           </div>
+           <div>
+             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
+             <input type="email" required value={editEmail} onChange={e => setEditEmail(e.target.value)} className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 dark:border-gray-600" />
+           </div>
+           <div>
+             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Função</label>
+             <select value={editRole} onChange={e => setEditRole(e.target.value as UserRole)} className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 dark:border-gray-600">
+                <option value={UserRole.USER}>Usuário Comum</option>
+                <option value={UserRole.LEADER}>Líder de Unidade</option>
+                <option value={UserRole.ADMIN}>Admin Geral</option>
+             </select>
+           </div>
+           
+           {editRole !== UserRole.ADMIN && (
+             <div>
+               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Unidade</label>
+               <select required value={editUnitId} onChange={e => setEditUnitId(e.target.value)} className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 dark:border-gray-600">
+                 <option value="">Selecione...</option>
+                 {units.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+               </select>
+             </div>
+           )}
+
+           <div className="flex justify-end pt-4">
+             <Button type="button" variant="ghost" onClick={() => setEditingUser(null)} className="mr-2">Cancelar</Button>
+             <Button type="submit">Salvar Alterações</Button>
            </div>
         </form>
       </Modal>

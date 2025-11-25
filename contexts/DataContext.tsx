@@ -36,6 +36,7 @@ interface DataContextType {
   addUnit: (unit: Omit<Unit, 'id'>) => void;
   addUser: (user: Omit<User, 'id'>) => void;
   updateUserPassword: (userId: string, newPassword: string) => void;
+  updateUser: (userId: string, data: Partial<User>) => void; // Added
   updateCompany: (id: string, data: Partial<Company>) => void;
   deleteUnit: (id: string) => void;
   deleteUser: (id: string) => void;
@@ -362,6 +363,23 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [isDbConnected]);
 
+  const updateUser = useCallback((userId: string, data: Partial<User>) => {
+    const sanitizedData = { ...data };
+    if (sanitizedData.name) sanitizedData.name = sanitizeInput(sanitizedData.name);
+    if (sanitizedData.email) sanitizedData.email = sanitizeInput(sanitizedData.email);
+
+    // If name changed, update avatar as well if not provided
+    if (sanitizedData.name && !sanitizedData.avatarUrl) {
+       sanitizedData.avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(sanitizedData.name)}&background=random`;
+    }
+
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, ...sanitizedData } : u));
+    
+    if (isDbConnected) {
+      fbUpdate('users', userId, sanitizedData);
+    }
+  }, [isDbConnected]);
+
   const updateCompany = useCallback((id: string, data: Partial<Company>) => {
     const sanitizedData = { ...data };
     if (sanitizedData.name) sanitizedData.name = sanitizeInput(sanitizedData.name);
@@ -392,14 +410,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     companies, units, users, requests: sortedRequests, comments: sortedComments,
     isDbConnected, isLoading,
     addRequest, updateRequestStatus, updateRequest, bulkUpdateRequestStatus, addComment,
-    addUnit, addUser, updateUserPassword, updateCompany, deleteUnit, deleteUser,
+    addUnit, addUser, updateUserPassword, updateUser, updateCompany, deleteUnit, deleteUser,
     getRequestsByUnit, getRequestsByCompany, getCommentsByRequest,
     isSetupDone, setupSystem
   }), [
     companies, units, users, sortedRequests, sortedComments,
     isDbConnected, isLoading, isSetupDone,
     addRequest, updateRequestStatus, updateRequest, bulkUpdateRequestStatus, addComment,
-    addUnit, addUser, updateUserPassword, updateCompany, deleteUnit, deleteUser,
+    addUnit, addUser, updateUserPassword, updateUser, updateCompany, deleteUnit, deleteUser,
     getRequestsByUnit, getRequestsByCompany, getCommentsByRequest, setupSystem
   ]);
 

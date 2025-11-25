@@ -8,7 +8,7 @@ import { RequestStatus, UserRole } from '../types';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { StatusBadge, PriorityBadge } from '../components/ui/Badge';
-import { Plus, Search, Filter, Link as LinkIcon, Image as ImageIcon, X, User as UserIcon, UserCheck, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Search, Filter, Link as LinkIcon, Image as ImageIcon, X, User as UserIcon, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Modal } from '../components/ui/Modal';
 
 export const RequestList: React.FC = () => {
@@ -38,7 +38,7 @@ export const RequestList: React.FC = () => {
   const [newProductUrl, setNewProductUrl] = useState('');
   const [newPriority, setNewPriority] = useState<'Low'|'Medium'|'High'>('Medium');
   const [newUnitId, setNewUnitId] = useState(currentUser?.unitId || '');
-  const [newAssigneeId, setNewAssigneeId] = useState('');
+  // Removed assignee state selection for creation
   
   // Attachment State
   const [attachedImage, setAttachedImage] = useState<string | null>(null);
@@ -237,7 +237,7 @@ export const RequestList: React.FC = () => {
       });
     }
 
-    // Fallback: If no Unit is selected (e.g. Admin creating), pick the first one from DB
+    // Fallback: If no Unit is selected (e.g. Admin creating, though now disabled for Admin), pick the first one from DB
     const finalUnitId = newUnitId || (units.length > 0 ? units[0].id : '');
     
     // Determine Company ID: Use Current User's -> Unit's -> Fallback
@@ -253,7 +253,7 @@ export const RequestList: React.FC = () => {
       companyId: finalCompanyId,
       unitId: finalUnitId,
       creatorId: currentUser.id,
-      assigneeId: newAssigneeId || undefined,
+      assigneeId: undefined, // Always undefined on creation
       title: newTitle,
       description: newDesc,
       productUrl: newProductUrl,
@@ -268,20 +268,19 @@ export const RequestList: React.FC = () => {
     setNewTitle('');
     setNewDesc('');
     setNewProductUrl('');
-    setNewAssigneeId('');
     setAttachedImage(null);
   };
-
-  const assignableUsers = useMemo(() => users.filter(u => u.role === UserRole.ADMIN || !newUnitId || u.unitId === newUnitId), [users, newUnitId]);
 
   return (
     <div className="space-y-6 relative">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Requisições</h1>
-        <Button onClick={() => setIsModalOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Nova Requisição
-        </Button>
+        {!isAdmin && (
+          <Button onClick={() => setIsModalOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Nova Requisição
+          </Button>
+        )}
       </div>
 
       <Card>
@@ -360,7 +359,9 @@ export const RequestList: React.FC = () => {
                   <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
                     {filteredRequests.length === 0 && requests.length > 0 
                       ? "Nenhum resultado para os filtros aplicados." 
-                      : "Nenhuma requisição encontrada. Clique em 'Nova Requisição' para começar."}
+                      : isAdmin 
+                        ? "Nenhuma requisição encontrada."
+                        : "Nenhuma requisição encontrada. Clique em 'Nova Requisição' para começar."}
                   </td>
                 </tr>
               ) : (
@@ -562,7 +563,7 @@ export const RequestList: React.FC = () => {
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-2">
                  <Calendar className="h-3 w-3" /> Data de Criação
@@ -581,18 +582,6 @@ export const RequestList: React.FC = () => {
                 <option value="Low">Baixa</option>
                 <option value="Medium">Média</option>
                 <option value="High">Alta</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-2">
-                 <UserCheck className="h-3 w-3" /> Responsável
-              </label>
-              <select value={newAssigneeId} onChange={e => setNewAssigneeId(e.target.value)} className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 dark:border-gray-600">
-                <option value="">Não Atribuído</option>
-                {assignableUsers.map(u => (
-                  <option key={u.id} value={u.id}>{u.name}</option>
-                ))}
               </select>
             </div>
           </div>
