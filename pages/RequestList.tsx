@@ -8,7 +8,7 @@ import { RequestStatus, UserRole } from '../types';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { StatusBadge, PriorityBadge } from '../components/ui/Badge';
-import { Plus, Search, Filter, Link as LinkIcon, Image as ImageIcon, X, User as UserIcon, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Search, Filter, Link as LinkIcon, Image as ImageIcon, X, User as UserIcon, Calendar, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 import { Modal } from '../components/ui/Modal';
 
 export const RequestList: React.FC = () => {
@@ -38,10 +38,9 @@ export const RequestList: React.FC = () => {
   const [newProductUrl, setNewProductUrl] = useState('');
   const [newPriority, setNewPriority] = useState<'Low'|'Medium'|'High'>('Medium');
   const [newUnitId, setNewUnitId] = useState(currentUser?.unitId || '');
-  // Removed assignee state selection for creation
   
-  // Attachment State
-  const [attachedImage, setAttachedImage] = useState<string | null>(null);
+  // Attachment State (Multiple Images)
+  const [attachedImages, setAttachedImages] = useState<string[]>([]);
   const [isCompressing, setIsCompressing] = useState(false);
 
   // Determine if user has permission to manage status
@@ -159,25 +158,10 @@ export const RequestList: React.FC = () => {
     }
   };
 
-  // IMAGEM COMPRESSION LOGIC
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (!file.type.startsWith('image/')) {
-        showToast('Por favor, selecione apenas arquivos de imagem.', 'error');
-        e.target.value = '';
-        return;
-      }
-      const MAX_SIZE = 5 * 1024 * 1024;
-      if (file.size > MAX_SIZE) {
-        showToast('A imagem deve ter no máximo 5MB.', 'error');
-        e.target.value = '';
-        return;
-      }
-
-      setIsCompressing(true);
+  // IMAGEM COMPRESSION LOGIC (Multi-file)
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      
       reader.onload = (event) => {
         const img = new Image();
         img.onload = () => {
@@ -209,33 +193,75 @@ export const RequestList: React.FC = () => {
             ctx.drawImage(img, 0, 0, width, height);
           }
 
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-          
-          setAttachedImage(dataUrl);
-          setIsCompressing(false);
-          showToast('Imagem otimizada com sucesso!', 'info');
+          resolve(canvas.toDataURL('image/jpeg', 0.7));
         };
+        img.onerror = (err) => reject(err);
         img.src = event.target?.result as string;
       };
-      
+      reader.onerror = (err) => reject(err);
       reader.readAsDataURL(file);
+    });
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    if (files.length + attachedImages.length > 5) {
+      showToast('Você pode adicionar no máximo 5 imagens.', 'error');
+      // Reset input
+      e.target.value = '';
+      return;
     }
+
+    setIsCompressing(true);
+    const validFiles = [];
+
+    // Validation
+    for (const file of files) {
+       if (!file.type.startsWith('image/')) {
+          showToast(`Arquivo ${file.name} ignorado: Apenas imagens são permitidas.`, 'error');
+          continue;
+       }
+       const MAX_SIZE = 5 * 1024 * 1024;
+       if (file.size > MAX_SIZE) {
+          showToast(`Arquivo ${file.name} ignorado: Tamanho maior que 5MB.`, 'error');
+          continue;
+       }
+       validFiles.push(file);
+    }
+
+    try {
+      const compressedPromises = validFiles.map(file => compressImage(file));
+      const newImages = await Promise.all(compressedPromises);
+      
+      setAttachedImages(prev => [...prev, ...newImages]);
+      showToast(`${newImages.length} imagem(ns) adicionada(s)!`, 'info');
+    } catch (error) {
+      console.error("Compression error", error);
+      showToast("Erro ao processar imagem.", 'error');
+    } finally {
+      setIsCompressing(false);
+      // Reset input so same file can be selected again if needed
+      e.target.value = '';
+    }
+  };
+
+  const removeImage = (index: number) => {
+    setAttachedImages(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser) return;
 
-    const attachments = [];
-
-    if (attachedImage) {
-      attachments.push({
-        id: `att${Date.now()}`,
-        name: 'Imagem Anexada',
-        url: attachedImage,
-        type: 'image'
-      });
-    }
+    // Build Attachments Array
+    const attachments = attachedImages.map((imgUrl, index) => ({
+      id: `att${Date.now()}-${index}`,
+      name: `Imagem ${index + 1}`,
+      url: imgUrl,
+      type: 'image'
+    }));
 
     // Fallback: If no Unit is selected (e.g. Admin creating, though now disabled for Admin), pick the first one from DB
     const finalUnitId = newUnitId || (units.length > 0 ? units[0].id : '');
@@ -265,10 +291,11 @@ export const RequestList: React.FC = () => {
     showToast('Requisição criada com sucesso!', 'success');
     setIsModalOpen(false);
     
+    // Reset Form
     setNewTitle('');
     setNewDesc('');
     setNewProductUrl('');
-    setAttachedImage(null);
+    setAttachedImages([]);
   };
 
   return (
@@ -617,43 +644,53 @@ export const RequestList: React.FC = () => {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Anexo (Imagem)
+              Anexos (Máx: 5)
             </label>
             
-            {!attachedImage ? (
-              <label className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-700 hover:bg-gray-100 transition-colors ${isCompressing ? 'border-primary-500 opacity-70 cursor-wait' : 'border-gray-300 dark:border-gray-600'}`}>
-                <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                  {isCompressing ? (
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mb-2"></div>
-                  ) : (
-                    <ImageIcon className="w-8 h-8 mb-2 text-gray-500 dark:text-gray-400" />
-                  )}
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {isCompressing ? 'Otimizando imagem...' : 'Clique para enviar foto (Auto-compressão)'}
-                  </p>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
+              {attachedImages.map((img, index) => (
+                <div key={index} className="relative aspect-square bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 group">
+                   <img src={img} alt={`Anexo ${index + 1}`} className="w-full h-full object-cover" />
+                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <button
+                        type="button"
+                        onClick={() => removeImage(index)}
+                        className="p-1.5 bg-red-600 text-white rounded-full hover:bg-red-700 shadow-sm"
+                        title="Remover imagem"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                   </div>
                 </div>
-                <input 
-                  type="file" 
-                  className="hidden" 
-                  accept="image/*"
-                  onChange={handleFileChange}
-                  disabled={isCompressing}
-                />
-              </label>
-            ) : (
-              <div className="relative w-full h-48 bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 group">
-                <img src={attachedImage} alt="Preview" className="w-full h-full object-contain" />
-                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <button
-                      type="button"
-                      onClick={() => setAttachedImage(null)}
-                      className="p-2 bg-red-600 text-white rounded-full hover:bg-red-700 shadow-lg transform hover:scale-110 transition-transform"
-                    >
-                      <X className="h-5 w-5" />
-                    </button>
-                </div>
-              </div>
-            )}
+              ))}
+              
+              {attachedImages.length < 5 && (
+                <label className={`flex flex-col items-center justify-center aspect-square border-2 border-dashed rounded-lg cursor-pointer bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-700 hover:bg-gray-100 transition-colors ${isCompressing ? 'border-primary-500 opacity-70 cursor-wait' : 'border-gray-300 dark:border-gray-600'}`}>
+                  <div className="flex flex-col items-center justify-center p-2 text-center">
+                    {isCompressing ? (
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-600"></div>
+                    ) : (
+                      <>
+                        <ImageIcon className="w-6 h-6 mb-1 text-gray-500 dark:text-gray-400" />
+                        <span className="text-[10px] text-gray-500 dark:text-gray-400">Add Foto</span>
+                      </>
+                    )}
+                  </div>
+                  <input 
+                    type="file" 
+                    className="hidden" 
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    disabled={isCompressing}
+                    multiple
+                  />
+                </label>
+              )}
+            </div>
+            
+            <p className="text-xs text-gray-400 text-right">
+              {attachedImages.length} de 5 imagens
+            </p>
           </div>
 
           <div className="flex justify-end pt-4">
