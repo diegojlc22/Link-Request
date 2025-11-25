@@ -9,9 +9,9 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { StatusBadge, PriorityBadge } from '../components/ui/Badge';
 import { 
-  Plus, Search, Filter, Link as LinkIcon, Image as ImageIcon, X, 
-  User as UserIcon, Calendar, ChevronLeft, ChevronRight, Trash2,
-  LayoutGrid, List as ListIcon, Download, FileSpreadsheet
+  Plus, Search, Link as LinkIcon, Image as ImageIcon, X, 
+  ChevronLeft, ChevronRight, Trash2,
+  LayoutGrid, List as ListIcon, FileSpreadsheet, Calendar
 } from 'lucide-react';
 import { Modal } from '../components/ui/Modal';
 
@@ -26,6 +26,11 @@ export const RequestList: React.FC = () => {
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [assigneeFilter, setAssigneeFilter] = useState<string>('ALL');
+  
+  // Date Filter State
+  const [dateType, setDateType] = useState<'created' | 'updated'>('created');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   
   // View Mode State
   const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
@@ -76,6 +81,19 @@ export const RequestList: React.FC = () => {
 
     const term = debouncedSearchTerm.toLowerCase().trim();
 
+    // Date boundaries preparation
+    let startTimestamp: number | null = null;
+    let endTimestamp: number | null = null;
+
+    if (startDate) {
+      // Create date at 00:00:00 local time
+      startTimestamp = new Date(startDate + 'T00:00:00').getTime();
+    }
+    if (endDate) {
+      // Create date at 23:59:59 local time
+      endTimestamp = new Date(endDate + 'T23:59:59.999').getTime();
+    }
+
     return requests.filter(req => {
       // 1. ACCESS CONTROL
       // Check permission based on Role and ID matching
@@ -114,9 +132,18 @@ export const RequestList: React.FC = () => {
         }
       }
 
+      // 3. DATE FILTER
+      if (startTimestamp || endTimestamp) {
+        const dateStr = dateType === 'created' ? req.createdAt : req.updatedAt;
+        const reqTime = new Date(dateStr).getTime();
+
+        if (startTimestamp && reqTime < startTimestamp) return false;
+        if (endTimestamp && reqTime > endTimestamp) return false;
+      }
+
       return true;
     });
-  }, [requests, currentUser, debouncedSearchTerm, statusFilter, assigneeFilter]);
+  }, [requests, currentUser, debouncedSearchTerm, statusFilter, assigneeFilter, startDate, endDate, dateType]);
 
   // Pagination Logic
   const totalPages = Math.max(1, Math.ceil(filteredRequests.length / itemsPerPage));
@@ -126,11 +153,11 @@ export const RequestList: React.FC = () => {
 
   // --- PAGINATION SAFETY ---
   
-  // 1. Reset to page 1 when filters change (Search, Status, Assignee)
+  // 1. Reset to page 1 when filters change (Search, Status, Assignee, Date)
   useEffect(() => {
     setCurrentPage(1);
     setSelectedIds(new Set());
-  }, [debouncedSearchTerm, statusFilter, assigneeFilter]);
+  }, [debouncedSearchTerm, statusFilter, assigneeFilter, startDate, endDate, dateType]);
 
   // 2. Safety check: If filtered list shrinks (e.g. deletion/updates) and currentPage is now invalid, fix it.
   useEffect(() => {
@@ -380,9 +407,9 @@ export const RequestList: React.FC = () => {
         </div>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm flex flex-col lg:flex-row gap-4 justify-between items-center">
+      <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm flex flex-col xl:flex-row gap-4 justify-between items-start xl:items-center">
         {/* Search */}
-        <div className="relative w-full lg:w-96">
+        <div className="relative w-full xl:w-72">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
               type="text"
@@ -393,34 +420,67 @@ export const RequestList: React.FC = () => {
             />
         </div>
 
-        {/* Filters and View Toggles */}
-        <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto justify-end">
-            <div className="flex items-center gap-2">
-              <select
-                value={assigneeFilter}
-                onChange={(e) => setAssigneeFilter(e.target.value)}
-                className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary-500"
-              >
-                <option value="ALL">Resp: Todos</option>
-                <option value="UNASSIGNED">Não Atribuído</option>
-                {users.map(user => (
-                  <option key={user.id} value={user.id}>{user.name}</option>
-                ))}
-              </select>
+        {/* Filters Wrapper */}
+        <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto justify-start xl:justify-end">
+            
+            {/* Date Filters */}
+            <div className="flex items-center gap-2 p-1 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700">
+               <Calendar className="h-4 w-4 text-gray-400 ml-2" />
+               <select
+                  value={dateType}
+                  onChange={(e) => setDateType(e.target.value as 'created' | 'updated')}
+                  className="bg-transparent text-sm border-none focus:ring-0 text-gray-600 dark:text-gray-300 py-1"
+               >
+                 <option value="created">Criado</option>
+                 <option value="updated">Atualizado</option>
+               </select>
+               <input 
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-xs focus:ring-1 focus:ring-primary-500"
+                  title="Data Inicial"
+               />
+               <span className="text-gray-400">-</span>
+               <input 
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-xs focus:ring-1 focus:ring-primary-500"
+                  title="Data Final"
+               />
+               {(startDate || endDate) && (
+                 <button onClick={() => { setStartDate(''); setEndDate(''); }} className="p-1 hover:text-red-500 text-gray-400">
+                    <X className="h-3 w-3" />
+                 </button>
+               )}
             </div>
 
-            <div className="flex items-center gap-2">
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary-500"
-              >
-                <option value="ALL">Status: Todos</option>
-                {Object.values(RequestStatus).map(s => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
-            </div>
+            <div className="h-6 w-px bg-gray-300 dark:bg-gray-600 mx-1 hidden xl:block"></div>
+
+            {/* Standard Filters */}
+            <select
+              value={assigneeFilter}
+              onChange={(e) => setAssigneeFilter(e.target.value)}
+              className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary-500"
+            >
+              <option value="ALL">Resp: Todos</option>
+              <option value="UNASSIGNED">Não Atribuído</option>
+              {users.map(user => (
+                <option key={user.id} value={user.id}>{user.name}</option>
+              ))}
+            </select>
+
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary-500"
+            >
+              <option value="ALL">Status: Todos</option>
+              {Object.values(RequestStatus).map(s => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
             
             <div className="h-6 w-px bg-gray-300 dark:bg-gray-600 mx-1 hidden md:block"></div>
 
