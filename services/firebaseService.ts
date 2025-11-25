@@ -1,12 +1,15 @@
 
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import * as rtdb from 'firebase/database';
-import * as storage from 'firebase/storage';
 import { FirebaseConfig } from '../types';
 
 let app: FirebaseApp | undefined;
 let db: rtdb.Database | undefined;
-let st: storage.FirebaseStorage | undefined;
+
+// --- CONFIGURAÇÃO DO IMGUR (GRATUITO) ---
+// Para produção, crie sua chave em: https://api.imgur.com/oauth2/addclient
+// Selecione "Anonymous usage without user authorization"
+const IMGUR_CLIENT_ID = "2c544c760829876"; // Client ID público de demonstração
 
 // --- CONFIGURAÇÃO FIXA ---
 // DEIXE COMO NULL PARA MODO "PRODUTO/VENDA"
@@ -58,7 +61,6 @@ export const initFirebase = (manualConfig?: FirebaseConfig): boolean => {
     
     if (app) {
       db = rtdb.getDatabase(app);
-      st = storage.getStorage(app);
     }
     
     return true;
@@ -86,8 +88,6 @@ export const fbGetAll = async <T>(path: string): Promise<T[]> => {
   if (!db) return [];
   try {
     const dbRef = rtdb.ref(db, path);
-    // Para GetAll inicial, usamos query limitado também se for requests, 
-    // mas aqui mantemos genérico. O ideal é evitar fbGetAll em coleções grandes.
     const snapshot = await rtdb.get(dbRef);
     if (snapshot.exists()) {
       return normalizeData<T>(snapshot.val());
@@ -99,7 +99,6 @@ export const fbGetAll = async <T>(path: string): Promise<T[]> => {
   }
 };
 
-// Listener genérico (baixa tudo - usar com cuidado)
 export const fbSubscribe = <T>(path: string, callback: (data: T[]) => void): () => void => {
   if (!db) return () => {};
   try {
@@ -115,18 +114,12 @@ export const fbSubscribe = <T>(path: string, callback: (data: T[]) => void): () 
   }
 };
 
-// NOVO: Listener Otimizado (baixa apenas os últimos N itens)
 export const fbSubscribeRecent = <T>(path: string, limit: number, callback: (data: T[]) => void): () => void => {
   if (!db) return () => {};
   try {
-    // Ordena pela chave (que contém o timestamp na estrutura 'r'+Date.now()) e pega os últimos
     const dbQuery = rtdb.query(rtdb.ref(db, path), rtdb.orderByKey(), rtdb.limitToLast(limit));
-    
     return rtdb.onValue(dbQuery, (snapshot) => {
-      // O resultado de query vem como objeto, normalizamos
       const data = normalizeData<T>(snapshot.val());
-      // Firebase retorna ordenado por chave ascendente (mais antigo -> mais novo)
-      // O DataContext já faz o sort reverso (mais novo -> mais antigo), então enviamos raw
       callback(data);
     }, (error) => {
       console.error(`FIREBASE QUERY ERROR on path '${path}':`, error.message);
@@ -174,22 +167,37 @@ export const fbDelete = async (path: string, id: string) => {
   }
 };
 
-// --- STORAGE FUNCTIONS ---
+// --- ALTERNATIVE STORAGE: IMGUR API ---
 
-export const fbUploadImage = async (base64String: string, path: string): Promise<string> => {
-  if (!st) throw new Error("Storage not initialized");
+export const fbUploadImage = async (base64String: string, path?: string): Promise<string> => {
+  // Nota: O parâmetro 'path' é ignorado no Imgur, pois ele gera seu próprio ID.
   
-  // Remove header data:image/jpeg;base64, if present
+  // 1. Limpar o header do base64 (data:image/jpeg;base64,...)
   const base64Data = base64String.replace(/^data:image\/\w+;base64,/, "");
-  
-  const storageRef = storage.ref(st, path);
-  
+
+  const formData = new FormData();
+  formData.append("image", base64Data);
+  formData.append("type", "base64");
+
   try {
-    await storage.uploadString(storageRef, base64Data, 'base64');
-    const url = await storage.getDownloadURL(storageRef);
-    return url;
+    const response = await fetch("https://api.imgur.com/3/image", {
+      method: "POST",
+      headers: {
+        Authorization: `Client-ID ${IMGUR_CLIENT_ID}`,
+      },
+      body: formData,
+    });
+
+    const data = await response.json();
+
+    if (!data.success) {
+      throw new Error(data.data.error || "Falha no upload para o Imgur");
+    }
+
+    // Retorna o link direto da imagem
+    return data.data.link;
   } catch (error) {
-    console.error("Error uploading image:", error);
+    console.error("Error uploading image to Imgur:", error);
     throw error;
   }
 };

@@ -410,31 +410,27 @@ export const RequestList: React.FC = () => {
     }
 
     try {
-        // Upload images to Firebase Storage first
+        // Upload images to External Host (Imgur)
         const uploadPromises = attachedImages.map(async (imgBase64, index) => {
-            const fileName = `req_${Date.now()}_${index}.jpg`;
-            const path = `requests/${currentUser.companyId}/${fileName}`;
+            // Imgur doesn't care about path, but we keep the arg structure
+            const fileName = `req_${Date.now()}_${index}`;
             try {
-                const url = await fbUploadImage(imgBase64, path);
+                const url = await fbUploadImage(imgBase64, fileName);
                 return {
                     id: `att${Date.now()}-${index}`,
                     name: `Imagem ${index + 1}`,
-                    url: url, // Now it's a Storage URL, not Base64!
+                    url: url,
                     type: 'image'
                 };
             } catch (err) {
                 console.error("Upload failed", err);
-                // Fallback: keep base64 if upload fails (though not ideal)
-                return {
-                     id: `att${Date.now()}-${index}`,
-                     name: `Imagem ${index + 1} (Offline)`,
-                     url: imgBase64,
-                     type: 'image'
-                };
+                // Fallback: don't break the flow, just warn
+                showToast(`Falha ao enviar imagem ${index+1}`, 'warning');
+                return null;
             }
         });
 
-        const uploadedAttachments = await Promise.all(uploadPromises);
+        const uploadedAttachments = (await Promise.all(uploadPromises)).filter(Boolean) as any[];
 
         addRequest({
             companyId: finalCompanyId,
