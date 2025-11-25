@@ -1,6 +1,8 @@
 
 # Link-Request SaaS - Plataforma de Gestão de Solicitações
 
+![Banner Tecnologia](https://forbes.com.br/wp-content/uploads/2024/01/Tech_tecnologias2024_divulgacao.jpg)
+
 Bem-vindo ao **Link-Request**, uma plataforma moderna de Helpdesk e gestão de solicitações internas (SaaS), desenvolvida com tecnologias de ponta (React 19, TypeScript, Firebase) para garantir eficiência, performance e organização no atendimento corporativo.
 
 ## 🚀 Visão Geral do Sistema
