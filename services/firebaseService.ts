@@ -17,14 +17,27 @@ const FIXED_CONFIG: FirebaseConfig | null = {
   appId: "" // Cole seu appId aqui
 };
 
-// Tenta carregar as configs do ambiente (Vite) ou usa a fixa
+// Tenta carregar as configs do ambiente (Vite), Fixas ou LocalStorage
 const getEnvConfig = (): FirebaseConfig | null => {
-  // Prioridade 1: Configuração Fixa no Código (Recomendado para Deploy simples)
+  // Prioridade 1: Configuração Fixa no Código (Recomendado para Deploy Global)
   if (FIXED_CONFIG && FIXED_CONFIG.apiKey !== "") {
     return FIXED_CONFIG;
   }
 
-  // Prioridade 2: Variáveis de Ambiente (.env)
+  // Prioridade 2: Configuração Salva via UI (LocalStorage) - Solução de emergência/local
+  try {
+    const localConfig = localStorage.getItem('firebase_config_override');
+    if (localConfig) {
+      const parsed = JSON.parse(localConfig);
+      if (parsed.apiKey && parsed.projectId) {
+        return parsed;
+      }
+    }
+  } catch (e) {
+    console.warn("Erro ao ler config do localStorage", e);
+  }
+
+  // Prioridade 3: Variáveis de Ambiente (.env)
   const env = (import.meta as any).env;
   if (env && env.VITE_FIREBASE_API_KEY) {
     return {
@@ -51,7 +64,7 @@ export const initFirebase = (manualConfig?: FirebaseConfig): boolean => {
     }
 
     if (!config) {
-      console.warn("Firebase Init Skipped: Missing configuration. Please fill FIXED_CONFIG in firebaseService.ts");
+      console.warn("Firebase Init Skipped: Missing configuration.");
       return false;
     }
 
