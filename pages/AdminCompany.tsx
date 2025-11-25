@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { Building, Save, Cloud, Loader2, CheckCircle2, AlertTriangle, XCircle, HelpCircle, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react';
+import { Building, Save, Cloud, Loader2, CheckCircle2, AlertTriangle, XCircle, HelpCircle, ExternalLink, ChevronDown, ChevronUp, Image as ImageIcon } from 'lucide-react';
 
 export const AdminCompany: React.FC = () => {
   const { companies, updateCompany } = useData();
@@ -94,7 +94,13 @@ export const AdminCompany: React.FC = () => {
             
             // Helpful error messages based on common mistakes
             let msg = 'Erro na conexão.';
-            if (data.error?.message?.includes('preset')) msg = 'O nome do Preset está incorreto ou não é "Unsigned".';
+            
+            // Tratamento específico para erro 400 (Bad Request) que geralmente é o preset assinado
+            if (response.status === 400) {
+               msg = 'ERRO 400: O Cloudinary recusou. Verifique se o "Signing Mode" do Preset está como "Unsigned".';
+            }
+            
+            if (data.error?.message?.includes('preset')) msg = 'Erro no Preset: Verifique o nome ou se ele está como "Unsigned".';
             if (data.error?.message?.includes('cloud_name')) msg = 'O Cloud Name não foi encontrado.';
             
             showToast(msg, 'error');
@@ -177,32 +183,39 @@ export const AdminCompany: React.FC = () => {
 
         {showTutorial && (
             <div className="bg-blue-50/50 dark:bg-blue-900/10 p-6 border-b border-blue-100 dark:border-blue-800 animate-fade-in text-sm text-gray-700 dark:text-gray-300 space-y-4">
-                <h4 className="font-semibold text-blue-800 dark:text-blue-300 flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4" /> Passo a Passo Rápido (Cloudinary)
-                </h4>
-                <ol className="list-decimal list-inside space-y-3 ml-2">
-                    <li>
-                        Crie uma conta grátis no <a href="https://cloudinary.com/users/register/free" target="_blank" className="text-blue-600 hover:underline font-medium inline-flex items-center">Cloudinary <ExternalLink className="h-3 w-3 ml-1"/></a>.
-                    </li>
-                    <li>
-                        No <strong>Dashboard</strong>, copie o valor do <strong>"Cloud Name"</strong> e cole no campo abaixo.
-                    </li>
-                    <li>
-                        Vá em <strong>Settings (Engrenagem)</strong> &rarr; <strong>Upload</strong>.
-                    </li>
-                    <li>
-                        Role até "Upload presets" e clique em <strong>"Add upload preset"</strong>.
-                    </li>
-                    <li>
-                        Em <strong>"Signing Mode"</strong>, mude para <strong className="text-red-600 dark:text-red-400">"Unsigned"</strong> (Isso é crucial!).
-                    </li>
-                    <li>
-                        Copie o nome gerado (ex: <code>ml_default</code>) e cole no campo <strong>Upload Preset</strong> abaixo.
-                    </li>
-                    <li>
-                        Clique em Salvar no Cloudinary e Salvar aqui no sistema.
-                    </li>
-                </ol>
+                <div>
+                    <h4 className="font-semibold text-blue-800 dark:text-blue-300 flex items-center gap-2 mb-2">
+                        <CheckCircle2 className="h-4 w-4" /> Passo 1: Configurar (Corrigir Erro 400)
+                    </h4>
+                    <ol className="list-decimal list-inside space-y-2 ml-2">
+                        <li>
+                            Acesse <a href="https://cloudinary.com/console/settings/upload" target="_blank" className="text-blue-600 hover:underline font-medium inline-flex items-center">Configurações de Upload <ExternalLink className="h-3 w-3 ml-1"/></a>.
+                        </li>
+                        <li>
+                            Role até <strong>"Upload presets"</strong> e clique em "Add upload preset".
+                        </li>
+                        <li>
+                            <span className="bg-yellow-100 text-yellow-800 px-1 rounded font-bold">IMPORTANTE:</span> Mude o <strong>"Signing Mode"</strong> para <strong className="text-red-600 dark:text-red-400">"Unsigned"</strong>. Se deixar como Signed, dará Erro 400.
+                        </li>
+                        <li>
+                            Copie o nome do preset criado (ex: <code>ml_default</code>) e cole no campo abaixo.
+                        </li>
+                    </ol>
+                </div>
+                
+                <div className="pt-2 border-t border-blue-200 dark:border-blue-700 mt-2">
+                    <h4 className="font-semibold text-blue-800 dark:text-blue-300 flex items-center gap-2 mb-2">
+                        <ImageIcon className="h-4 w-4" /> Passo 2: Como saber se funcionou?
+                    </h4>
+                    <ul className="list-disc list-inside space-y-2 ml-2">
+                        <li>
+                            Clique no botão <strong>"Testar Conexão"</strong> abaixo. Se ficar <span className="text-green-600 font-bold">Verde</span>, o sistema conseguiu enviar.
+                        </li>
+                        <li>
+                            Para ver a imagem enviada, vá no Cloudinary e clique em <strong>"Media Library"</strong> no menu esquerdo. Você verá um quadrado pequeno (pixel transparente) criado agora.
+                        </li>
+                    </ul>
+                </div>
             </div>
         )}
 
@@ -241,8 +254,8 @@ export const AdminCompany: React.FC = () => {
                   <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg flex items-center gap-3 text-sm text-green-700 dark:text-green-300 animate-fade-in">
                     <CheckCircle2 className="h-5 w-5 flex-shrink-0" />
                     <div>
-                        <p className="font-semibold">Conectado com Sucesso!</p>
-                        <p className="text-xs opacity-90">Suas imagens agora serão salvas na nuvem, deixando o sistema mais rápido.</p>
+                        <p className="font-bold">Conectado com Sucesso! 🚀</p>
+                        <p className="text-xs opacity-90 mt-1">O teste funcionou. Pode verificar na aba <strong>Media Library</strong> do Cloudinary.</p>
                     </div>
                   </div>
                 )}
@@ -251,8 +264,13 @@ export const AdminCompany: React.FC = () => {
                   <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-center gap-3 text-sm text-red-700 dark:text-red-300 animate-shake">
                     <XCircle className="h-5 w-5 flex-shrink-0" />
                     <div>
-                        <p className="font-semibold">Falha na Conexão</p>
-                        <p className="text-xs opacity-90">Verifique se o Cloud Name está correto e se o Preset está marcado como <strong>Unsigned</strong>.</p>
+                        <p className="font-bold">Falha na Conexão (Erro 400 ou similar)</p>
+                        <p className="text-xs opacity-90 mt-1">
+                            Provavelmente o <strong>Preset não é Unsigned</strong>. 
+                            <button type="button" onClick={() => setShowTutorial(true)} className="underline ml-1 font-bold hover:text-red-900">
+                                Ver como corrigir
+                            </button>
+                        </p>
                     </div>
                   </div>
                 )}
@@ -270,7 +288,7 @@ export const AdminCompany: React.FC = () => {
                         ) : (
                             <CheckCircle2 className="h-4 w-4 mr-2" />
                         )}
-                        {isTesting ? 'Verificando...' : 'Testar Credenciais'}
+                        {isTesting ? 'Verificando...' : 'Testar Conexão'}
                     </Button>
                     <Button type="submit" className="w-full sm:w-auto">
                         <Save className="h-4 w-4 mr-2" /> Salvar Configuração
