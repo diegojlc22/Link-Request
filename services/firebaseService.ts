@@ -6,20 +6,14 @@ import { FirebaseConfig } from '../types';
 let app: FirebaseApp | undefined;
 let db: Database | undefined;
 
-// --- CONFIGURAÇÃO FIXA (PREENCHA AQUI PARA FUNCIONAR EM QUALQUER DISPOSITIVO) ---
-const FIXED_CONFIG: FirebaseConfig | null = {
-  apiKey: "AIzaSyBDHw4KVz1xEqyx_rpl-427brY77kPa9wo",
-  authDomain: "link-request-43543.firebaseapp.com",
-  databaseURL: "https://link-request-43543-default-rtdb.firebaseio.com",
-  projectId: "link-request-43543",
-  storageBucket: "link-request-43543.firebasestorage.app",
-  messagingSenderId: "695289301024",
-  appId: "1:695289301024:web:252286047e003c436d5445"
-};
+// --- CONFIGURAÇÃO FIXA ---
+// DEIXE COMO NULL PARA MODO "PRODUTO/VENDA"
+// O cliente será forçado a configurar na primeira execução.
+const FIXED_CONFIG: FirebaseConfig | null = null;
 
 // Tenta carregar as configs do ambiente (Vite), Fixas ou LocalStorage
 const getEnvConfig = (): FirebaseConfig | null => {
-  // Prioridade 1: Configuração Fixa no Código (Recomendado para Deploy Global)
+  // Prioridade 1: Configuração Fixa no Código (Apenas para uso interno/dev)
   if (FIXED_CONFIG && FIXED_CONFIG.apiKey !== "") {
     return FIXED_CONFIG;
   }
