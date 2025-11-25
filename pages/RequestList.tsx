@@ -67,38 +67,39 @@ export const RequestList: React.FC = () => {
   const filteredRequests = useMemo(() => {
     if (!currentUser || !requests) return [];
 
-    // Normalize comparison values to Strings to avoid type mismatch issues
+    // Optimization: Normalize user values once, outside the loop
     const currentUserId = String(currentUser.id);
-    const currentUserRole = String(currentUser.role);
-    const currentUserCompany = String(currentUser.companyId || '');
-    const currentUserUnit = String(currentUser.unitId || '');
+    const userCompanyId = String(currentUser.companyId || '');
+    const userUnitId = String(currentUser.unitId || '');
+    const isUserAdmin = currentUser.role === UserRole.ADMIN;
+    const isUserLeader = currentUser.role === UserRole.LEADER;
+
+    const term = debouncedSearchTerm.toLowerCase().trim();
 
     return requests.filter(req => {
       // 1. ACCESS CONTROL
-      let hasAccess = false;
-      
+      // Check permission based on Role and ID matching
       const reqCreator = String(req.creatorId || '');
       const reqCompany = String(req.companyId || '');
       const reqUnit = String(req.unitId || '');
 
+      let hasAccess = false;
+
       if (reqCreator === currentUserId) {
         hasAccess = true;
-      }
-      else if ((currentUserRole === 'ADMIN' || currentUserRole === UserRole.ADMIN) && reqCompany === currentUserCompany) {
+      } else if (isUserAdmin && reqCompany === userCompanyId) {
         hasAccess = true;
-      }
-      else if ((currentUserRole === 'LEADER' || currentUserRole === UserRole.LEADER) && reqUnit === currentUserUnit) {
+      } else if (isUserLeader && reqUnit === userUnitId) {
         hasAccess = true;
       }
       
       if (!hasAccess) return false;
 
       // 2. VIEW FILTERS
-      const term = debouncedSearchTerm.toLowerCase();
       if (term) {
-        const matchesTitle = req.title?.toLowerCase().includes(term);
-        const matchesId = req.id?.toLowerCase().includes(term);
-        if (!matchesTitle && !matchesId) return false;
+        const title = (req.title || '').toLowerCase();
+        const id = (req.id || '').toLowerCase();
+        if (!title.includes(term) && !id.includes(term)) return false;
       }
 
       if (statusFilter !== 'ALL' && req.status !== statusFilter) {
@@ -117,17 +118,26 @@ export const RequestList: React.FC = () => {
     });
   }, [requests, currentUser, debouncedSearchTerm, statusFilter, assigneeFilter]);
 
-  // Reset to page 1 when filters change
+  // Pagination Logic
+  const totalPages = Math.max(1, Math.ceil(filteredRequests.length / itemsPerPage));
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = filteredRequests.slice(indexOfFirstItem, indexOfLastItem);
+
+  // --- PAGINATION SAFETY ---
+  
+  // 1. Reset to page 1 when filters change (Search, Status, Assignee)
   useEffect(() => {
     setCurrentPage(1);
     setSelectedIds(new Set());
   }, [debouncedSearchTerm, statusFilter, assigneeFilter]);
 
-  // Pagination Logic (Only for List View)
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = filteredRequests.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredRequests.length / itemsPerPage);
+  // 2. Safety check: If filtered list shrinks (e.g. deletion/updates) and currentPage is now invalid, fix it.
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [filteredRequests.length, totalPages, currentPage]);
 
   const toggleSelection = (id: string) => {
     const newSelected = new Set(selectedIds);
