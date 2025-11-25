@@ -9,7 +9,7 @@ interface SetupData {
   adminName: string;
   adminEmail: string;
   adminPassword: string;
-  firebaseConfig?: FirebaseConfig;
+  firebaseConfig?: FirebaseConfig; // Mantido para compatibilidade, mas ignorado se FIXED_CONFIG estiver setado
 }
 
 interface DataContextType {
@@ -36,7 +36,7 @@ interface DataContextType {
   addUnit: (unit: Omit<Unit, 'id'>) => void;
   addUser: (user: Omit<User, 'id'>) => void;
   updateUserPassword: (userId: string, newPassword: string) => void;
-  updateUser: (userId: string, data: Partial<User>) => void; // Added
+  updateUser: (userId: string, data: Partial<User>) => void;
   updateCompany: (id: string, data: Partial<Company>) => void;
   deleteUnit: (id: string) => void;
   deleteUser: (id: string) => void;
@@ -47,29 +47,12 @@ interface DataContextType {
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
-// --- MOCK DATA (INITIAL STATE) ---
-const MOCK_COMPANIES: Company[] = [
-  { id: 'c1', name: 'Link-Request', domain: 'techcorp.saas.com', logoUrl: '' },
-];
-
-const MOCK_UNITS: Unit[] = [
-  { id: 'u1', companyId: 'c1', name: 'Matriz - São Paulo', location: 'Av. Paulista, 1000' },
-];
-
-const MOCK_USERS: User[] = [
-  { id: 'user1', companyId: 'c1', name: 'Admin', email: 'admin@admin', password: 'admin', role: UserRole.ADMIN, avatarUrl: 'https://ui-avatars.com/api/?name=Admin' },
-];
-
-const MOCK_REQUESTS: RequestTicket[] = [];
-const MOCK_COMMENTS: Comment[] = [];
-
-// Helper to load from localStorage
+// Helper to load from localStorage (Apenas para fallback visual inicial)
 const loadState = <T,>(key: string, fallback: T): T => {
   try {
     const saved = localStorage.getItem(key);
     return saved ? JSON.parse(saved) : fallback;
   } catch (e) {
-    console.error(`Error loading ${key} from localStorage`, e);
     return fallback;
   }
 };
@@ -86,15 +69,15 @@ const sanitizeInput = (str: string): string => {
 };
 
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // System State
-  const [isSetupDone, setIsSetupDone] = useState<boolean>(() => loadState('link_req_is_setup_done', false));
+  // System State - Assume feito se houver usuários no banco, ou carrega do cache local momentaneamente
+  const [isSetupDone, setIsSetupDone] = useState<boolean>(true); // Default to true to avoid flash, validated later
 
   // Local Data State
-  const [companies, setCompanies] = useState<Company[]>(() => loadState('link_req_companies', MOCK_COMPANIES));
-  const [units, setUnits] = useState<Unit[]>(() => loadState('link_req_units', MOCK_UNITS));
-  const [users, setUsers] = useState<User[]>(() => loadState('link_req_users', MOCK_USERS));
-  const [requests, setRequests] = useState<RequestTicket[]>(() => loadState('link_req_requests', MOCK_REQUESTS));
-  const [comments, setComments] = useState<Comment[]>(() => loadState('link_req_comments', MOCK_COMMENTS));
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [units, setUnits] = useState<Unit[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [requests, setRequests] = useState<RequestTicket[]>([]);
+  const [comments, setComments] = useState<Comment[]>([]);
   
   // Firebase State
   const [isDbConnected, setIsDbConnected] = useState(false);
@@ -109,14 +92,15 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let unsubComments: () => void = () => {};
 
     const initDb = async () => {
-      const storedConfig = loadState<FirebaseConfig | null>('link_req_firebase_config', null);
-      const success = initFirebase(storedConfig || undefined);
+      // Tenta iniciar com configuração fixa ou env vars
+      const success = initFirebase();
       
       if (success) {
         setIsDbConnected(true);
         console.log("System initialized in Online Mode.");
 
         try {
+          // Busca dados iniciais
           const [
             initialCompanies,
             initialUnits,
@@ -131,30 +115,44 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             fbGetAll<Comment>('comments')
           ]);
 
-          if (initialCompanies.length > 0) setCompanies(initialCompanies);
-          if (initialUnits.length > 0) setUnits(initialUnits);
-          if (initialUsers.length > 0) setUsers(initialUsers);
-          // Only overwrite if data exists to avoid wiping local work on connection glitch
-          if (initialRequests.length > 0) setRequests(initialRequests);
-          if (initialComments.length > 0) setComments(initialComments);
+          // Lógica Fundamental: Se não tem usuários no banco, o sistema não foi configurado.
+          if (initialUsers.length === 0) {
+            setIsSetupDone(false);
+          } else {
+            setIsSetupDone(true);
+            setCompanies(initialCompanies);
+            setUnits(initialUnits);
+            setUsers(initialUsers);
+            setRequests(initialRequests);
+            setComments(initialComments);
+          }
 
         } catch (err) {
           console.error("Error fetching initial data:", err);
+          // Em caso de erro de rede, assume setup done pra não travar na tela de setup sem poder fazer nada
+          setIsSetupDone(true); 
         } finally {
           setIsLoading(false);
         }
 
-        // Subscriptions - These will eventually reconcile state if DB updates
-        unsubCompanies = fbSubscribe<Company>('companies', (data) => { if(data?.length) setCompanies(data); });
-        unsubUnits = fbSubscribe<Unit>('units', (data) => { if(data?.length) setUnits(data); });
-        unsubUsers = fbSubscribe<User>('users', (data) => { if(data?.length) setUsers(data); });
+        // Subscriptions
+        unsubCompanies = fbSubscribe<Company>('companies', (data) => { if(data) setCompanies(data); });
+        unsubUnits = fbSubscribe<Unit>('units', (data) => { if(data) setUnits(data); });
+        unsubUsers = fbSubscribe<User>('users', (data) => { 
+            if(data) {
+                setUsers(data);
+                // Se recebermos usuários via stream, confirma que o setup está feito
+                if(data.length > 0) setIsSetupDone(true);
+            }
+        });
         unsubRequests = fbSubscribe<RequestTicket>('requests', (data) => { if(Array.isArray(data)) setRequests(data); });
         unsubComments = fbSubscribe<Comment>('comments', (data) => { if(Array.isArray(data)) setComments(data); });
 
       } else {
-        console.log("System initialized in Offline Mode.");
+        console.warn("Firebase not configured properly.");
         setIsDbConnected(false);
         setIsLoading(false);
+        setIsSetupDone(false); // Força setup se não conectar
       }
     };
 
@@ -174,14 +172,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [companies]);
 
-  // Persist to LocalStorage (Backup)
-  useEffect(() => { localStorage.setItem('link_req_companies', JSON.stringify(companies)); }, [companies]);
-  useEffect(() => { localStorage.setItem('link_req_units', JSON.stringify(units)); }, [units]);
-  useEffect(() => { localStorage.setItem('link_req_users', JSON.stringify(users)); }, [users]);
-  useEffect(() => { localStorage.setItem('link_req_requests', JSON.stringify(requests)); }, [requests]);
-  useEffect(() => { localStorage.setItem('link_req_comments', JSON.stringify(comments)); }, [comments]);
-  useEffect(() => { localStorage.setItem('link_req_is_setup_done', JSON.stringify(isSetupDone)); }, [isSetupDone]);
-  
   // Sort requests
   const sortedRequests = useMemo(() => {
     if (!Array.isArray(requests)) return [];
@@ -204,11 +194,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return [...comments].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
   }, [comments]);
 
-  // --- ACTIONS WITH OPTIMISTIC UPDATES ---
-  // A estratégia aqui é: Atualizar o estado LOCAL primeiro (garante que aparece na tela),
-  // e DEPOIS tentar mandar para o Firebase. Se o Firebase funcionar, ele sobrescreve depois.
+  // --- ACTIONS ---
 
   const setupSystem = useCallback((data: SetupData) => {
+    // Nesta nova versão, setupSystem apenas cria os dados iniciais no banco
+    // A conexão já deve ter sido estabelecida via initFirebase()
+    
     const newCompany: Company = { id: 'c1', name: sanitizeInput(data.companyName), domain: 'system.local', logoUrl: '' };
     const newUnit: Unit = { id: 'u1', companyId: 'c1', name: 'Matriz', location: 'Sede Principal' };
     const newAdmin: User = {
@@ -217,16 +208,23 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(sanitizeInput(data.adminName))}&background=random`
     };
 
-    if (data.firebaseConfig) {
-      localStorage.setItem('link_req_firebase_config', JSON.stringify(data.firebaseConfig));
-      setTimeout(() => window.location.reload(), 100);
+    // Salva direto no Firebase
+    if (isDbConnected) {
+        fbSet('companies', newCompany.id, newCompany);
+        fbSet('units', newUnit.id, newUnit);
+        fbSet('users', newAdmin.id, newAdmin);
+    } else {
+        console.error("Cannot run setup: Database not connected");
+        alert("Erro: Configure o arquivo firebaseService.ts com suas credenciais primeiro.");
+        return;
     }
 
+    // Atualiza estado local para feedback imediato
     setCompanies([newCompany]);
     setUnits([newUnit]);
     setUsers([newAdmin]);
     setIsSetupDone(true);
-  }, []);
+  }, [isDbConnected]);
 
   const addRequest = useCallback((req: Omit<RequestTicket, 'id' | 'createdAt' | 'updatedAt' | 'viewedByAssignee'>) => {
     try {
@@ -242,10 +240,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         viewedByAssignee: false,
       };
       
-      // 1. Optimistic Update (Update UI immediately)
       setRequests(prev => [newRequest, ...prev]);
 
-      // 2. Sync to DB
       if (isDbConnected) {
         fbSet('requests', newRequest.id, newRequest).catch(e => console.error("Firebase Add Request Failed", e));
       }
@@ -256,11 +252,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const updateRequestStatus = useCallback((id: string, status: RequestStatus) => {
     const updatedDate = formatISO(new Date());
-    
-    // 1. Optimistic Update
     setRequests(prev => prev.map(r => r.id === id ? { ...r, status, updatedAt: updatedDate } : r));
-
-    // 2. Sync to DB
     if (isDbConnected) {
       fbUpdate('requests', id, { status, updatedAt: updatedDate });
     }
@@ -276,10 +268,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     const finalUpdate = { ...sanitizedData, updatedAt: updatedDate };
 
-    // 1. Optimistic Update
     setRequests(prev => prev.map(r => r.id === id ? { ...r, ...finalUpdate } : r));
 
-    // 2. Sync to DB
     if (isDbConnected) {
       fbUpdate('requests', id, finalUpdate);
     }
@@ -288,12 +278,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const bulkUpdateRequestStatus = useCallback((ids: string[], status: RequestStatus) => {
     const updatedDate = formatISO(new Date());
     
-    // 1. Optimistic Update
     setRequests(prev => prev.map(r => 
       ids.includes(r.id) ? { ...r, status, updatedAt: updatedDate } : r
     ));
 
-    // 2. Sync to DB
     if (isDbConnected) {
       const updates: Record<string, any> = {};
       ids.forEach(id => {
@@ -314,11 +302,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
     const updatedDate = formatISO(new Date());
 
-    // 1. Optimistic Update
     setComments(prev => [...prev, newComment]);
     setRequests(prev => prev.map(r => r.id === ticketId ? { ...r, updatedAt: updatedDate } : r));
 
-    // 2. Sync to DB
     if (isDbConnected) {
       fbSet('comments', newComment.id, newComment);
       fbUpdate('requests', ticketId, { updatedAt: updatedDate });
@@ -367,8 +353,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const sanitizedData = { ...data };
     if (sanitizedData.name) sanitizedData.name = sanitizeInput(sanitizedData.name);
     if (sanitizedData.email) sanitizedData.email = sanitizeInput(sanitizedData.email);
-
-    // If name changed, update avatar as well if not provided
     if (sanitizedData.name && !sanitizedData.avatarUrl) {
        sanitizedData.avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(sanitizedData.name)}&background=random`;
     }

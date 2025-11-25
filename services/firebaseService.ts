@@ -6,11 +6,26 @@ import { FirebaseConfig } from '../types';
 let app: FirebaseApp | undefined;
 let db: Database | undefined;
 
-// Tenta carregar as configs do ambiente (Vite)
+// --- CONFIGURAÇÃO FIXA (PREENCHA AQUI PARA FUNCIONAR EM QUALQUER DISPOSITIVO) ---
+const FIXED_CONFIG: FirebaseConfig | null = {
+  apiKey: "", // Cole sua apiKey aqui
+  authDomain: "", // Cole seu authDomain aqui
+  databaseURL: "", // Cole sua databaseURL aqui
+  projectId: "", // Cole seu projectId aqui
+  storageBucket: "", // Cole seu storageBucket aqui
+  messagingSenderId: "", // Cole seu messagingSenderId aqui
+  appId: "" // Cole seu appId aqui
+};
+
+// Tenta carregar as configs do ambiente (Vite) ou usa a fixa
 const getEnvConfig = (): FirebaseConfig | null => {
+  // Prioridade 1: Configuração Fixa no Código (Recomendado para Deploy simples)
+  if (FIXED_CONFIG && FIXED_CONFIG.apiKey !== "") {
+    return FIXED_CONFIG;
+  }
+
+  // Prioridade 2: Variáveis de Ambiente (.env)
   const env = (import.meta as any).env;
-  
-  // Se existir .env, usa ele
   if (env && env.VITE_FIREBASE_API_KEY) {
     return {
       apiKey: env.VITE_FIREBASE_API_KEY,
@@ -36,7 +51,7 @@ export const initFirebase = (manualConfig?: FirebaseConfig): boolean => {
     }
 
     if (!config) {
-      console.warn("Firebase Init Skipped: Missing configuration.");
+      console.warn("Firebase Init Skipped: Missing configuration. Please fill FIXED_CONFIG in firebaseService.ts");
       return false;
     }
 
