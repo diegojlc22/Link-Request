@@ -1,10 +1,12 @@
 
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import * as rtdb from 'firebase/database';
+import * as storage from 'firebase/storage';
 import { FirebaseConfig } from '../types';
 
 let app: FirebaseApp | undefined;
 let db: rtdb.Database | undefined;
+let st: storage.FirebaseStorage | undefined;
 
 // --- CONFIGURAÇÃO FIXA ---
 // DEIXE COMO NULL PARA MODO "PRODUTO/VENDA"
@@ -56,6 +58,7 @@ export const initFirebase = (manualConfig?: FirebaseConfig): boolean => {
     
     if (app) {
       db = rtdb.getDatabase(app);
+      st = storage.getStorage(app);
     }
     
     return true;
@@ -168,5 +171,25 @@ export const fbDelete = async (path: string, id: string) => {
     await rtdb.remove(rtdb.ref(db, `${path}/${id}`));
   } catch (error) {
     console.error(`Error deleting doc in ${path}:`, error);
+  }
+};
+
+// --- STORAGE FUNCTIONS ---
+
+export const fbUploadImage = async (base64String: string, path: string): Promise<string> => {
+  if (!st) throw new Error("Storage not initialized");
+  
+  // Remove header data:image/jpeg;base64, if present
+  const base64Data = base64String.replace(/^data:image\/\w+;base64,/, "");
+  
+  const storageRef = storage.ref(st, path);
+  
+  try {
+    await storage.uploadString(storageRef, base64Data, 'base64');
+    const url = await storage.getDownloadURL(storageRef);
+    return url;
+  } catch (error) {
+    console.error("Error uploading image:", error);
+    throw error;
   }
 };

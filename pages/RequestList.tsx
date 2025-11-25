@@ -11,9 +11,10 @@ import { StatusBadge, PriorityBadge } from '../components/ui/Badge';
 import { 
   Plus, Search, Link as LinkIcon, Image as ImageIcon, X, 
   ChevronLeft, ChevronRight, Trash2,
-  LayoutGrid, List as ListIcon, FileSpreadsheet, Calendar, AlertTriangle
+  LayoutGrid, List as ListIcon, FileSpreadsheet, Calendar, AlertTriangle, Loader2
 } from 'lucide-react';
 import { Modal } from '../components/ui/Modal';
+import { fbUploadImage } from '../services/firebaseService';
 
 export const RequestList: React.FC = () => {
   const { requests, units, addRequest, users, bulkUpdateRequestStatus, updateRequestStatus, deleteRequest } = useData();
@@ -59,6 +60,7 @@ export const RequestList: React.FC = () => {
   // Attachment State (Multiple Images)
   const [attachedImages, setAttachedImages] = useState<string[]>([]);
   const [isCompressing, setIsCompressing] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Determine if user has permission to manage status
   const canManageStatus = isAdmin || isLeader;
@@ -390,16 +392,12 @@ export const RequestList: React.FC = () => {
     setAttachedImages(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handleCreate = (e: React.FormEvent) => {
+  const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser) return;
+    if (isSubmitting) return;
 
-    const attachments = attachedImages.map((imgUrl, index) => ({
-      id: `att${Date.now()}-${index}`,
-      name: `Imagem ${index + 1}`,
-      url: imgUrl,
-      type: 'image'
-    }));
+    setIsSubmitting(true);
 
     const finalUnitId = newUnitId || (units.length > 0 ? units[0].id : '');
     const selectedUnit = units.find(u => u.id === finalUnitId);
@@ -407,30 +405,64 @@ export const RequestList: React.FC = () => {
 
     if (!finalUnitId) {
         showToast("Erro: É necessário selecionar uma unidade.", "error");
+        setIsSubmitting(false);
         return;
     }
 
-    addRequest({
-      companyId: finalCompanyId,
-      unitId: finalUnitId,
-      creatorId: currentUser.id,
-      assigneeId: newAssigneeId || undefined,
-      title: newTitle,
-      description: newDesc,
-      productUrl: newProductUrl,
-      status: RequestStatus.SENT,
-      priority: newPriority,
-      attachments: attachments
-    });
-    
-    showToast('Requisição criada com sucesso!', 'success');
-    setIsModalOpen(false);
-    
-    setNewTitle('');
-    setNewDesc('');
-    setNewProductUrl('');
-    setNewAssigneeId('');
-    setAttachedImages([]);
+    try {
+        // Upload images to Firebase Storage first
+        const uploadPromises = attachedImages.map(async (imgBase64, index) => {
+            const fileName = `req_${Date.now()}_${index}.jpg`;
+            const path = `requests/${currentUser.companyId}/${fileName}`;
+            try {
+                const url = await fbUploadImage(imgBase64, path);
+                return {
+                    id: `att${Date.now()}-${index}`,
+                    name: `Imagem ${index + 1}`,
+                    url: url, // Now it's a Storage URL, not Base64!
+                    type: 'image'
+                };
+            } catch (err) {
+                console.error("Upload failed", err);
+                // Fallback: keep base64 if upload fails (though not ideal)
+                return {
+                     id: `att${Date.now()}-${index}`,
+                     name: `Imagem ${index + 1} (Offline)`,
+                     url: imgBase64,
+                     type: 'image'
+                };
+            }
+        });
+
+        const uploadedAttachments = await Promise.all(uploadPromises);
+
+        addRequest({
+            companyId: finalCompanyId,
+            unitId: finalUnitId,
+            creatorId: currentUser.id,
+            assigneeId: newAssigneeId || undefined,
+            title: newTitle,
+            description: newDesc,
+            productUrl: newProductUrl,
+            status: RequestStatus.SENT,
+            priority: newPriority,
+            attachments: uploadedAttachments
+        });
+        
+        showToast('Requisição criada com sucesso!', 'success');
+        setIsModalOpen(false);
+        
+        setNewTitle('');
+        setNewDesc('');
+        setNewProductUrl('');
+        setNewAssigneeId('');
+        setAttachedImages([]);
+    } catch (error) {
+        console.error("Error creating request:", error);
+        showToast('Erro ao criar requisição. Tente novamente.', 'error');
+    } finally {
+        setIsSubmitting(false);
+    }
   };
 
   return (
@@ -1002,7 +1034,7 @@ export const RequestList: React.FC = () => {
                     className="hidden" 
                     accept="image/*"
                     onChange={handleFileChange}
-                    disabled={isCompressing}
+                    disabled={isCompressing || isSubmitting}
                     multiple
                   />
                 </label>
@@ -1015,9 +1047,14 @@ export const RequestList: React.FC = () => {
           </div>
 
           <div className="flex justify-end pt-4">
-            <Button type="button" variant="ghost" onClick={() => setIsModalOpen(false)} className="mr-2">Cancelar</Button>
-            <Button type="submit" disabled={isCompressing}>
-              {isCompressing ? 'Processando...' : 'Criar Ticket'}
+            <Button type="button" variant="ghost" onClick={() => setIsModalOpen(false)} className="mr-2" disabled={isSubmitting}>Cancelar</Button>
+            <Button type="submit" disabled={isCompressing || isSubmitting}>
+              {isSubmitting ? (
+                <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Enviando...
+                </>
+              ) : 'Criar Ticket'}
             </Button>
           </div>
         </form>
