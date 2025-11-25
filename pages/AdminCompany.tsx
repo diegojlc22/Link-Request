@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { Building, Save, Cloud } from 'lucide-react';
+import { Building, Save, Cloud, Loader2, CheckCircle2, AlertTriangle, XCircle } from 'lucide-react';
 
 export const AdminCompany: React.FC = () => {
   const { companies, updateCompany } = useData();
@@ -22,6 +22,8 @@ export const AdminCompany: React.FC = () => {
     cloudName: '',
     uploadPreset: ''
   });
+  const [isTesting, setIsTesting] = useState(false);
+  const [testResult, setTestResult] = useState<'idle' | 'success' | 'error'>('idle');
 
   useEffect(() => {
     if (company) {
@@ -52,9 +54,50 @@ export const AdminCompany: React.FC = () => {
     if (storageConfig.cloudName && storageConfig.uploadPreset) {
       localStorage.setItem('link_req_storage_config', JSON.stringify(storageConfig));
       showToast('Configuração de armazenamento salva!', 'success');
+      setTestResult('idle'); // Reset test result on save
     } else {
       localStorage.removeItem('link_req_storage_config');
       showToast('Configuração de armazenamento removida (Modo Local).', 'info');
+      setTestResult('idle');
+    }
+  };
+
+  const handleTestStorage = async () => {
+    if (!storageConfig.cloudName || !storageConfig.uploadPreset) {
+        showToast('Preencha os campos Cloud Name e Upload Preset antes de testar.', 'warning');
+        return;
+    }
+
+    setIsTesting(true);
+    setTestResult('idle');
+    
+    try {
+        const formData = new FormData();
+        // Tiny 1x1 transparent GIF base64
+        formData.append("file", "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7");
+        formData.append("upload_preset", storageConfig.uploadPreset);
+
+        const response = await fetch(
+            `https://api.cloudinary.com/v1_1/${storageConfig.cloudName}/image/upload`, 
+            { method: "POST", body: formData }
+        );
+        
+        const data = await response.json();
+        
+        if (response.ok && data.secure_url) {
+            setTestResult('success');
+            showToast('Conexão com Cloudinary realizada com sucesso! ✅', 'success');
+        } else {
+            console.error("Cloudinary Error:", data);
+            setTestResult('error');
+            showToast(`Erro na conexão: ${data.error?.message || 'Verifique as credenciais'}`, 'error');
+        }
+    } catch (error) {
+         console.error(error);
+         setTestResult('error');
+         showToast('Erro de rede ao conectar com Cloudinary.', 'error');
+    } finally {
+        setIsTesting(false);
     }
   };
 
@@ -139,14 +182,45 @@ export const AdminCompany: React.FC = () => {
                         />
                     </div>
                 </div>
+
+                {/* Feedback de Teste */}
+                {testResult === 'success' && (
+                  <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg flex items-center gap-2 text-sm text-green-700 dark:text-green-300 animate-fade-in">
+                    <CheckCircle2 className="h-5 w-5 flex-shrink-0" />
+                    <span><strong>Sucesso!</strong> Credenciais validadas. O armazenamento em nuvem está ativo.</span>
+                  </div>
+                )}
+                {testResult === 'error' && (
+                  <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-center gap-2 text-sm text-red-700 dark:text-red-300 animate-shake">
+                    <XCircle className="h-5 w-5 flex-shrink-0" />
+                    <span><strong>Erro na conexão.</strong> Verifique se o Cloud Name e Preset estão corretos.</span>
+                  </div>
+                )}
                 
-                <div className="flex items-center justify-between pt-2">
+                <div className="flex flex-col sm:flex-row items-center justify-between pt-2 gap-4">
                     <a href="https://cloudinary.com/documentation/upload_presets" target="_blank" rel="noreferrer" className="text-xs text-primary-600 hover:underline">
                         Como obter essas credenciais?
                     </a>
-                    <Button type="submit" variant="secondary">
-                        <Save className="h-4 w-4 mr-2" /> Salvar Configuração
-                    </Button>
+                    
+                    <div className="flex gap-2 w-full sm:w-auto">
+                        <Button 
+                            type="button" 
+                            variant="secondary" 
+                            onClick={handleTestStorage} 
+                            disabled={isTesting || !storageConfig.cloudName}
+                            className="flex-1 sm:flex-none"
+                        >
+                            {isTesting ? (
+                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            ) : (
+                                <CheckCircle2 className="h-4 w-4 mr-2 text-green-600" />
+                            )}
+                            {isTesting ? 'Testando...' : 'Testar Conexão'}
+                        </Button>
+                        <Button type="submit" className="flex-1 sm:flex-none">
+                            <Save className="h-4 w-4 mr-2" /> Salvar
+                        </Button>
+                    </div>
                 </div>
              </form>
         </CardContent>
