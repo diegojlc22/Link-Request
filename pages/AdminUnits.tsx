@@ -12,9 +12,17 @@ export const AdminUnits: React.FC = () => {
 
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
-    addUnit({ companyId: 'c1', name: newName, location: newLoc });
-    setNewName('');
-    setNewLoc('');
+    if (newName.trim()) {
+        addUnit({ companyId: 'c1', name: newName, location: newLoc });
+        setNewName('');
+        setNewLoc('');
+    }
+  };
+
+  const handleDelete = (id: string, name: string) => {
+    if (window.confirm(`Tem certeza que deseja excluir a unidade "${name}"? Esta ação não pode ser desfeita.`)) {
+        deleteUnit(id);
+    }
   };
 
   return (
@@ -37,11 +45,16 @@ export const AdminUnits: React.FC = () => {
                       <p className="text-sm text-gray-500">{unit.location || 'Sem endereço'}</p>
                     </div>
                   </div>
-                  <Button variant="ghost" size="sm" onClick={() => deleteUnit(unit.id)} className="text-red-500 hover:text-red-700">
+                  <Button variant="ghost" size="sm" onClick={() => handleDelete(unit.id, unit.name)} className="text-red-500 hover:text-red-700">
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
               ))}
+              {units.length === 0 && (
+                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                    Nenhuma unidade encontrada.
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
