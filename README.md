@@ -3,127 +3,101 @@
 
 ![Banner Tecnologia](https://forbes.com.br/wp-content/uploads/2024/01/Tech_tecnologias2024_divulgacao.jpg)
 
-Bem-vindo ao **Link-Request**, uma plataforma moderna de Helpdesk e gestão de solicitações internas (SaaS), desenvolvida com tecnologias de ponta (React 19, TypeScript, Firebase) para garantir eficiência, performance e organização no atendimento corporativo.
+<div align="center">
 
-## 🚀 Visão Geral do Sistema
+**[📖 Sobre o Projeto](#-sobre-o-projeto)** • **[☁️ Onde Hospedar (Compatibilidade)](#-guia-de-hospedagem-e-deploy)** • **[⚙️ Instalação Local](#-instalação-e-execução-local)**
 
-O Link-Request foi projetado para gerenciar solicitações entre diferentes unidades e departamentos de uma empresa. O sistema opera com um **banco de dados híbrido**, funcionando imediatamente em modo local (demonstração) ou sincronizado em tempo real com o Firebase.
-
-### ✨ Principais Funcionalidades
-
-*   **⚡ Performance Extrema:** Otimizações avançadas com *Lazy Loading*, *Memoization* e *Debounce* na busca para garantir fluidez mesmo com muitos dados.
-*   **📸 Compressão Inteligente de Imagens:** Upload de anexos com redimensionamento e compressão automática no navegador. Imagens de 5MB são convertidas para ~50kb instantaneamente, poupando dados e armazenamento.
-*   **🛠️ Instalação "No-Code":** Configuração do banco de dados feita diretamente pela interface do usuário, sem necessidade de editar arquivos de código.
-*   **Gestão Multi-Unidade:** Controle centralizado de múltiplas filiais ou departamentos.
-*   **Dashboard Analítico:** Gráficos interativos (Recharts) para monitorar volume, status e KPIs.
-*   **Segurança:** Proteção contra XSS (Sanitização de inputs) e Rate Limiting no login.
+</div>
 
 ---
 
-## 👥 Perfis de Acesso (RBAC)
+## 📖 Sobre o Projeto
 
-O sistema possui controle de acesso baseado em funções (Role-Based Access Control):
+Bem-vindo ao **Link-Request**, uma plataforma moderna de Helpdesk e gestão de solicitações internas (SaaS), desenvolvida com tecnologias de ponta (**React 19, TypeScript, Firebase**) para garantir eficiência, performance e organização no atendimento corporativo.
 
-### 1. 👤 Usuário Comum (USER)
-*   **Perfil:** Colaborador / Solicitante.
-*   **Acesso:** Visualiza apenas as requisições que **ele mesmo criou**.
-*   **Permissões:** Abrir chamados, anexar fotos, comentar em seus tickets.
+O sistema opera com um **banco de dados híbrido**, funcionando imediatamente em modo local (demonstração) ou sincronizado em tempo real com o Firebase, ideal para gerenciar múltiplas unidades e departamentos.
 
-### 2. 🛡️ Líder de Unidade (LEADER)
-*   **Perfil:** Gerente de Filial / Supervisor.
-*   **Acesso:** Visualiza todas as requisições da **sua Unidade**.
-*   **Permissões:** Além de criar, pode **Alterar Status** (Resolver, Cancelar, Em andamento) das requisições da sua filial.
+### ✨ Funcionalidades Principais
 
-### 3. 👑 Administrador (ADMIN)
-*   **Perfil:** Gestão Global / TI / Suporte Nível 2.
-*   **Acesso:** Visão total de **todas as unidades** e empresas.
-*   **Permissões:**
-    *   Gerenciar tickets de qualquer lugar.
-    *   **Menu de Gerenciamento:** Criar/Excluir Unidades e Usuários.
-    *   Alterar configurações globais da empresa (Nome, Logo).
-    *   Resetar senhas de usuários.
+*   **⚡ Performance Extrema:** Otimizações avançadas com *Lazy Loading* e *Memoization*.
+*   **📸 Compressão de Imagens:** Upload de até 5 fotos com compressão automática (5MB -> 50kb).
+*   **📊 Dashboard & Kanban:** Visualização de dados em gráficos e quadro de tarefas *drag-and-drop*.
+*   **👥 Perfis de Acesso (RBAC):**
+    *   **USER:** Cria e acompanha seus tickets.
+    *   **LEADER:** Gerencia tickets da sua unidade.
+    *   **ADMIN:** Controle total, gestão de usuários e configurações globais.
 
 ---
 
-## 🛠️ Tecnologias Utilizadas
+## ☁️ Guia de Hospedagem e Deploy
 
-*   **Core:** React 19, TypeScript, Vite.
-*   **Estilização:** Tailwind CSS (com Dark Mode automático).
-*   **Dados:** Firebase Realtime Database (RTDB) + LocalStorage (Cache/Offline).
-*   **Gráficos:** Recharts.
-*   **Ícones:** Lucide React.
-*   **Performance:** Code-splitting manual, React.lazy, React.useMemo.
+Este projeto é uma **SPA (Single Page Application)** construída com Vite. Abaixo está a lista oficial de provedores testados e **100% compatíveis** com a arquitetura do projeto e integração contínua (CI/CD) com GitHub.
+
+### 🏆 Top 5 Provedores Recomendados
+
+| Ranking | Provedor | Compatibilidade | Integração GitHub | Custo (Tier Grátis) | Dificuldade |
+| :--- | :--- | :---: | :---: | :--- | :---: |
+| 🥇 **1º** | **Vercel** | **100%** | ✅ Automática | Grátis Ilimitado (Hobby) | ⭐ (Muito Fácil) |
+| 🥈 **2º** | **Netlify** | **100%** | ✅ Automática | Grátis Generoso | ⭐ (Muito Fácil) |
+| 🥉 **3º** | **Firebase Hosting** | **100%** | ✅ Via GitHub Actions | Grátis (Spark) | ⭐⭐ (Médio) |
+| **4º** | **Cloudflare Pages** | **100%** | ✅ Automática | Grátis Ilimitado | ⭐⭐ (Médio) |
+| **5º** | **Render** | **98%*** | ✅ Automática | Grátis (Limitado) | ⭐⭐⭐ (Requer Config) |
+
+> ***Render Nota:** Requer configuração manual de regra de reescrita (Rewrite) para SPAs direcionando todas as rotas para `index.html`.
+
+### ⚠️ Configuração Importante para Deploy
+
+Como o projeto usa **React Router**, ao hospedar, você deve garantir que o servidor redirecione todas as requisições para o `index.html` (Regra de SPA).
+
+*   **Vercel / Cloudflare:** Configuração automática (Zero Config).
+*   **Netlify:** O projeto já inclui (ou você deve criar) um arquivo `_redirects` na pasta `public` com o conteúdo: `/* /index.html 200`.
+*   **Firebase:** Configurar `rewrites` no `firebase.json`.
 
 ---
 
-## 🚀 Guia de Instalação e Execução
+## ⚙️ Instalação e Execução Local
 
-### 1. Instalar Dependências
+Siga este guia se você é um desenvolvedor e deseja rodar o projeto na sua máquina.
+
+### 1. Pré-requisitos
+*   Node.js (Versão 18 ou superior)
+*   NPM ou Yarn
+
+### 2. Instalação
 ```bash
+# Clone o repositório
+git clone https://github.com/seu-usuario/link-request.git
+
+# Entre na pasta
+cd link-request
+
+# Instale as dependências
 npm install
-# ou
-yarn install
 ```
 
-### 2. Rodar o Projeto
+### 3. Rodando o Projeto
 ```bash
 npm run dev
-# ou
-yarn dev
 ```
+O projeto abrirá em `http://localhost:5173`.
 
-### 3. Configuração Inicial (Assistente de Instalação)
-Ao abrir o sistema pela primeira vez, você verá a tela de **Instalação do Sistema**. Siga os passos:
-
-1.  **Dados da Empresa:** Defina o nome da sua organização.
-2.  **Conta Admin:** Crie o usuário mestre (Seu email e senha).
-3.  **Banco de Dados (Fácil):**
-    *   O sistema pedirá o JSON de configuração do Firebase.
-    *   Basta colar o objeto de configuração (obtido no Console do Firebase) na caixa de texto.
-    *   O sistema salvará e conectará automaticamente.
-
-> **Nota:** Não é obrigatório criar arquivos `.env` manualmente, embora o sistema ainda suporte `VITE_FIREBASE_...` para ambientes de CI/CD.
+### 4. Configuração Inicial (Setup Wizard)
+Ao abrir o sistema pela primeira vez, você verá a tela de **Instalação do Sistema**.
+1.  Defina o nome da empresa e crie o Admin.
+2.  **Banco de Dados:** O sistema pedirá o JSON de configuração do Firebase.
+    *   Vá ao [Console do Firebase](https://console.firebase.google.com/).
+    *   Crie um projeto Web e copie o objeto `const firebaseConfig = { ... }`.
+    *   Cole esse código na tela de instalação do Link-Request.
 
 ---
 
-## ⚙️ Como obter a Configuração do Firebase
+## 🛠️ Tecnologias
 
-Para que o sistema sincronize em tempo real entre múltiplos dispositivos:
+<div style="display: flex; gap: 10px;">
+  <img src="https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" />
+  <img src="https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white" />
+  <img src="https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white" />
+  <img src="https://img.shields.io/badge/Firebase-039BE5?style=for-the-badge&logo=Firebase&logoColor=white" />
+  <img src="https://img.shields.io/badge/Vite-B73BFE?style=for-the-badge&logo=vite&logoColor=FFD62E" />
+</div>
 
-1.  Acesse [console.firebase.google.com](https://console.firebase.google.com/).
-2.  Crie um projeto e adicione um app **Web**.
-3.  Copie o código de configuração (`const firebaseConfig = { ... }`).
-4.  Crie um **Realtime Database** e configure as regras de segurança para teste:
-    ```json
-    {
-      "rules": {
-        ".read": true,
-        ".write": true
-      }
-    }
-    ```
-5.  Cole o JSON copiado na **Tela de Instalação** do Link-Request.
-
----
-
-## 📂 Estrutura de Pastas
-
-*   `/components`: Elementos de UI (Botões, Cards, Modal, Layout).
-*   `/contexts`: Lógica global (Autenticação, Dados, Toast).
-*   `/pages`: Telas da aplicação (Dashboard, Listas, Admin).
-*   `/services`: Comunicação com Firebase e lógica de compressão.
-*   `/types`: Tipagem TypeScript para garantir segurança de código.
-
----
-
-## 🔐 Credenciais de Demonstração (Modo Local)
-
-Se você pular a configuração do Firebase ou rodar em modo offline, o sistema pode ser reiniciado via LocalStorage.
-
-| Perfil | Email | Senha Padrão |
-| :--- | :--- | :--- |
-| **Admin** | `admin@admin` | `admin` |
-
----
-
-Desenvolvido com foco em **UX**, **Performance** e **Escalabilidade**.
