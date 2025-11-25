@@ -30,7 +30,7 @@ interface DataContextType {
   // Actions
   addRequest: (req: Omit<RequestTicket, 'id' | 'createdAt' | 'updatedAt' | 'viewedByAssignee'>) => void;
   updateRequestStatus: (id: string, status: RequestStatus) => void;
-  updateRequest: (id: string, data: Partial<RequestTicket>) => void; // Nova função
+  updateRequest: (id: string, data: Partial<RequestTicket>) => void;
   bulkUpdateRequestStatus: (ids: string[], status: RequestStatus) => void;
   addComment: (ticketId: string, userId: string, content: string) => void;
   addUnit: (unit: Omit<Unit, 'id'>) => void;
@@ -74,7 +74,6 @@ const loadState = <T,>(key: string, fallback: T): T => {
 };
 
 // --- SECURITY UTILS ---
-// Remove tags HTML e scripts maliciosos básicos para prevenir XSS
 const sanitizeInput = (str: string): string => {
   if (!str) return '';
   return str
@@ -87,7 +86,6 @@ const sanitizeInput = (str: string): string => {
 
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // System State
-  // FIX: Alterado fallback para false para forçar Setup na primeira execução
   const [isSetupDone, setIsSetupDone] = useState<boolean>(() => loadState('link_req_is_setup_done', false));
 
   // Local Data State
@@ -110,10 +108,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let unsubComments: () => void = () => {};
 
     const initDb = async () => {
-      // 1. Tenta carregar config salva no LocalStorage (User Setup)
       const storedConfig = loadState<FirebaseConfig | null>('link_req_firebase_config', null);
-      
-      // 2. Inicializa (Prioriza config manual se existir, senão usa .env)
       const success = initFirebase(storedConfig || undefined);
       
       if (success) {
@@ -121,7 +116,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.log("System initialized in Online Mode.");
 
         try {
-          // 3. Initial Fetch (Parallel) - Optimized Loading
           const [
             initialCompanies,
             initialUnits,
@@ -136,39 +130,25 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             fbGetAll<Comment>('comments')
           ]);
 
-          // Set Initial State
           if (initialCompanies.length > 0) setCompanies(initialCompanies);
           if (initialUnits.length > 0) setUnits(initialUnits);
           if (initialUsers.length > 0) setUsers(initialUsers);
-          setRequests(initialRequests);
-          setComments(initialComments);
+          // Only overwrite if data exists to avoid wiping local work on connection glitch
+          if (initialRequests.length > 0) setRequests(initialRequests);
+          if (initialComments.length > 0) setComments(initialComments);
 
         } catch (err) {
           console.error("Error fetching initial data:", err);
         } finally {
-          setIsLoading(false); // Stop loading spinner after initial fetch
+          setIsLoading(false);
         }
 
-        // 4. Subscribe to Real-time Updates (Keep data in sync)
-        unsubCompanies = fbSubscribe<Company>('companies', (data) => {
-          if (Array.isArray(data) && data.length > 0) setCompanies(data);
-        });
-
-        unsubUnits = fbSubscribe<Unit>('units', (data) => {
-           if (Array.isArray(data) && data.length > 0) setUnits(data);
-        });
-
-        unsubUsers = fbSubscribe<User>('users', (data) => {
-           if (Array.isArray(data) && data.length > 0) setUsers(data);
-        });
-
-        unsubRequests = fbSubscribe<RequestTicket>('requests', (data) => {
-           if (Array.isArray(data)) setRequests(data);
-        });
-
-        unsubComments = fbSubscribe<Comment>('comments', (data) => {
-           if (Array.isArray(data)) setComments(data);
-        });
+        // Subscriptions - These will eventually reconcile state if DB updates
+        unsubCompanies = fbSubscribe<Company>('companies', (data) => { if(data?.length) setCompanies(data); });
+        unsubUnits = fbSubscribe<Unit>('units', (data) => { if(data?.length) setUnits(data); });
+        unsubUsers = fbSubscribe<User>('users', (data) => { if(data?.length) setUsers(data); });
+        unsubRequests = fbSubscribe<RequestTicket>('requests', (data) => { if(Array.isArray(data)) setRequests(data); });
+        unsubComments = fbSubscribe<Comment>('comments', (data) => { if(Array.isArray(data)) setComments(data); });
 
       } else {
         console.log("System initialized in Offline Mode.");
@@ -181,11 +161,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return () => {
       if (isDbConnected) {
-        unsubCompanies();
-        unsubUnits();
-        unsubUsers();
-        unsubRequests();
-        unsubComments();
+        unsubCompanies(); unsubUnits(); unsubUsers(); unsubRequests(); unsubComments();
       }
     };
   }, []);
@@ -205,68 +181,43 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => { localStorage.setItem('link_req_comments', JSON.stringify(comments)); }, [comments]);
   useEffect(() => { localStorage.setItem('link_req_is_setup_done', JSON.stringify(isSetupDone)); }, [isSetupDone]);
   
-  // --- OPTIMIZATION: MEMOIZED LISTS ---
-  // Sort requests by update time (newest first) once, so consumers don't have to sort on every render
+  // Sort requests
   const sortedRequests = useMemo(() => {
     if (!Array.isArray(requests)) return [];
-    
     return [...requests].sort((a, b) => {
-        // Safe sort handling missing dates or NaNs
         const getTime = (dateStr?: string) => {
              if(!dateStr) return 0;
              try {
                const t = new Date(dateStr).getTime();
                return isNaN(t) ? 0 : t;
-             } catch (e) {
-               return 0;
-             }
+             } catch (e) { return 0; }
         };
-        
-        // Use createdAt as fallback if updatedAt is missing/invalid
         const timeA = getTime(a.updatedAt) || getTime(a.createdAt);
         const timeB = getTime(b.updatedAt) || getTime(b.createdAt);
-        
         return timeB - timeA;
     });
   }, [requests]);
 
-  // Sort comments by creation time (oldest first)
   const sortedComments = useMemo(() => {
     if (!Array.isArray(comments)) return [];
     return [...comments].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
   }, [comments]);
 
-  // --- SYSTEM ACTIONS (Memoized) ---
+  // --- ACTIONS WITH OPTIMISTIC UPDATES ---
+  // A estratégia aqui é: Atualizar o estado LOCAL primeiro (garante que aparece na tela),
+  // e DEPOIS tentar mandar para o Firebase. Se o Firebase funcionar, ele sobrescreve depois.
 
   const setupSystem = useCallback((data: SetupData) => {
-    const newCompany: Company = {
-      id: 'c1',
-      name: sanitizeInput(data.companyName),
-      domain: 'system.local',
-      logoUrl: ''
-    };
-    
-    const newUnit: Unit = {
-      id: 'u1',
-      companyId: 'c1',
-      name: 'Matriz',
-      location: 'Sede Principal'
-    };
-
+    const newCompany: Company = { id: 'c1', name: sanitizeInput(data.companyName), domain: 'system.local', logoUrl: '' };
+    const newUnit: Unit = { id: 'u1', companyId: 'c1', name: 'Matriz', location: 'Sede Principal' };
     const newAdmin: User = {
-      id: 'admin1',
-      companyId: 'c1',
-      name: sanitizeInput(data.adminName),
-      email: sanitizeInput(data.adminEmail),
-      password: data.adminPassword, // Password not sanitized to allow special chars, handled by Auth
-      role: UserRole.ADMIN,
+      id: 'admin1', companyId: 'c1', name: sanitizeInput(data.adminName), email: sanitizeInput(data.adminEmail),
+      password: data.adminPassword, role: UserRole.ADMIN,
       avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(sanitizeInput(data.adminName))}&background=random`
     };
 
-    // Salva configuração do Firebase se fornecida
     if (data.firebaseConfig) {
       localStorage.setItem('link_req_firebase_config', JSON.stringify(data.firebaseConfig));
-      // Tenta reconectar imediatamente
       setTimeout(() => window.location.reload(), 100);
     }
 
@@ -275,8 +226,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUsers([newAdmin]);
     setIsSetupDone(true);
   }, []);
-
-  // --- CRUD ACTIONS (Memoized) ---
 
   const addRequest = useCallback((req: Omit<RequestTicket, 'id' | 'createdAt' | 'updatedAt' | 'viewedByAssignee'>) => {
     try {
@@ -292,10 +241,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         viewedByAssignee: false,
       };
       
+      // 1. Optimistic Update (Update UI immediately)
+      setRequests(prev => [newRequest, ...prev]);
+
+      // 2. Sync to DB
       if (isDbConnected) {
-        fbSet('requests', newRequest.id, newRequest);
-      } else {
-        setRequests(prev => [newRequest, ...prev]);
+        fbSet('requests', newRequest.id, newRequest).catch(e => console.error("Firebase Add Request Failed", e));
       }
     } catch (e) {
       console.error("Failed to add request:", e);
@@ -304,10 +255,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const updateRequestStatus = useCallback((id: string, status: RequestStatus) => {
     const updatedDate = formatISO(new Date());
+    
+    // 1. Optimistic Update
+    setRequests(prev => prev.map(r => r.id === id ? { ...r, status, updatedAt: updatedDate } : r));
+
+    // 2. Sync to DB
     if (isDbConnected) {
       fbUpdate('requests', id, { status, updatedAt: updatedDate });
-    } else {
-      setRequests(prev => prev.map(r => r.id === id ? { ...r, status, updatedAt: updatedDate } : r));
     }
   }, [isDbConnected]);
 
@@ -315,23 +269,30 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const updatedDate = formatISO(new Date());
     const sanitizedData = { ...data };
     
-    // Sanitize text fields if present
     if (sanitizedData.title) sanitizedData.title = sanitizeInput(sanitizedData.title);
     if (sanitizedData.description) sanitizedData.description = sanitizeInput(sanitizedData.description);
     if (sanitizedData.productUrl) sanitizedData.productUrl = sanitizeInput(sanitizedData.productUrl);
     
     const finalUpdate = { ...sanitizedData, updatedAt: updatedDate };
 
+    // 1. Optimistic Update
+    setRequests(prev => prev.map(r => r.id === id ? { ...r, ...finalUpdate } : r));
+
+    // 2. Sync to DB
     if (isDbConnected) {
       fbUpdate('requests', id, finalUpdate);
-    } else {
-      setRequests(prev => prev.map(r => r.id === id ? { ...r, ...finalUpdate } : r));
     }
   }, [isDbConnected]);
 
   const bulkUpdateRequestStatus = useCallback((ids: string[], status: RequestStatus) => {
     const updatedDate = formatISO(new Date());
     
+    // 1. Optimistic Update
+    setRequests(prev => prev.map(r => 
+      ids.includes(r.id) ? { ...r, status, updatedAt: updatedDate } : r
+    ));
+
+    // 2. Sync to DB
     if (isDbConnected) {
       const updates: Record<string, any> = {};
       ids.forEach(id => {
@@ -339,10 +300,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updates[`requests/${id}/updatedAt`] = updatedDate;
       });
       fbUpdateMulti(updates);
-    } else {
-      setRequests(prev => prev.map(r => 
-        ids.includes(r.id) ? { ...r, status, updatedAt: updatedDate } : r
-      ));
     }
   }, [isDbConnected]);
 
@@ -356,12 +313,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
     const updatedDate = formatISO(new Date());
 
+    // 1. Optimistic Update
+    setComments(prev => [...prev, newComment]);
+    setRequests(prev => prev.map(r => r.id === ticketId ? { ...r, updatedAt: updatedDate } : r));
+
+    // 2. Sync to DB
     if (isDbConnected) {
       fbSet('comments', newComment.id, newComment);
       fbUpdate('requests', ticketId, { updatedAt: updatedDate });
-    } else {
-      setComments(prev => [...prev, newComment]);
-      setRequests(prev => prev.map(r => r.id === ticketId ? { ...r, updatedAt: updatedDate } : r));
     }
   }, [isDbConnected]);
 
@@ -372,10 +331,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       location: sanitizeInput(unit.location),
       id: `u${Date.now()}` 
     };
+    
+    setUnits(prev => [...prev, newUnit]);
+
     if (isDbConnected) {
       fbSet('units', newUnit.id, newUnit);
-    } else {
-      setUnits(prev => [...prev, newUnit]);
     }
   }, [isDbConnected]);
 
@@ -386,18 +346,19 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       email: sanitizeInput(user.email),
       id: `user${Date.now()}` 
     };
+    
+    setUsers(prev => [...prev, newUser]);
+    
     if (isDbConnected) {
       fbSet('users', newUser.id, newUser);
-    } else {
-      setUsers(prev => [...prev, newUser]);
     }
   }, [isDbConnected]);
 
   const updateUserPassword = useCallback((userId: string, newPassword: string) => {
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, password: newPassword } : u));
+    
     if (isDbConnected) {
       fbUpdate('users', userId, { password: newPassword });
-    } else {
-      setUsers(prev => prev.map(u => u.id === userId ? { ...u, password: newPassword } : u));
     }
   }, [isDbConnected]);
 
@@ -405,73 +366,35 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const sanitizedData = { ...data };
     if (sanitizedData.name) sanitizedData.name = sanitizeInput(sanitizedData.name);
     
+    setCompanies(prev => prev.map(c => c.id === id ? { ...c, ...sanitizedData } : c));
+    
     if (isDbConnected) {
       fbUpdate('companies', id, sanitizedData);
-    } else {
-      setCompanies(prev => prev.map(c => c.id === id ? { ...c, ...sanitizedData } : c));
     }
   }, [isDbConnected]);
 
   const deleteUnit = useCallback((id: string) => {
-    if (isDbConnected) {
-      fbDelete('units', id);
-    } else {
-      setUnits(prev => prev.filter(u => u.id !== id));
-    }
+    setUnits(prev => prev.filter(u => u.id !== id));
+    if (isDbConnected) fbDelete('units', id);
   }, [isDbConnected]);
 
   const deleteUser = useCallback((id: string) => {
-    if (isDbConnected) {
-      fbDelete('users', id);
-    } else {
-      setUsers(prev => prev.filter(u => u.id !== id));
-    }
+    setUsers(prev => prev.filter(u => u.id !== id));
+    if (isDbConnected) fbDelete('users', id);
   }, [isDbConnected]);
 
-  // --- GETTERS (Memoized) ---
-  
-  const getRequestsByUnit = useCallback((unitId: string) => {
-    return sortedRequests.filter(r => r.unitId === unitId);
-  }, [sortedRequests]);
+  // --- GETTERS ---
+  const getRequestsByUnit = useCallback((unitId: string) => sortedRequests.filter(r => r.unitId === unitId), [sortedRequests]);
+  const getRequestsByCompany = useCallback((companyId: string) => sortedRequests.filter(r => r.companyId === companyId), [sortedRequests]);
+  const getCommentsByRequest = useCallback((requestId: string) => sortedComments.filter(c => c.requestId === requestId), [sortedComments]);
 
-  const getRequestsByCompany = useCallback((companyId: string) => {
-    return sortedRequests.filter(r => r.companyId === companyId);
-  }, [sortedRequests]);
-  
-  const getCommentsByRequest = useCallback((requestId: string) => {
-    // Uses already sorted list
-    return sortedComments.filter(c => c.requestId === requestId);
-  }, [sortedComments]);
-
-  // Construct Value with stable references
   const value = useMemo(() => ({
-    companies, 
-    units, 
-    users, 
-    requests: sortedRequests, // Expose sorted requests by default
-    comments: sortedComments, // Expose sorted comments by default
-    
-    isDbConnected, 
-    isLoading,
-    
-    addRequest, 
-    updateRequestStatus,
-    updateRequest, // Exported new function
-    bulkUpdateRequestStatus, 
-    addComment,
-    addUnit, 
-    addUser, 
-    updateUserPassword, 
-    updateCompany, 
-    deleteUnit, 
-    deleteUser,
-    
-    getRequestsByUnit, 
-    getRequestsByCompany, 
-    getCommentsByRequest,
-    
-    isSetupDone, 
-    setupSystem
+    companies, units, users, requests: sortedRequests, comments: sortedComments,
+    isDbConnected, isLoading,
+    addRequest, updateRequestStatus, updateRequest, bulkUpdateRequestStatus, addComment,
+    addUnit, addUser, updateUserPassword, updateCompany, deleteUnit, deleteUser,
+    getRequestsByUnit, getRequestsByCompany, getCommentsByRequest,
+    isSetupDone, setupSystem
   }), [
     companies, units, users, sortedRequests, sortedComments,
     isDbConnected, isLoading, isSetupDone,

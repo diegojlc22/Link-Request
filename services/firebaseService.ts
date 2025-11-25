@@ -29,12 +29,9 @@ export const initFirebase = (manualConfig?: FirebaseConfig): boolean => {
   try {
     let config: FirebaseConfig | null = null;
 
-    // 1. Configuração Manual (passada pelo Setup/LocalStorage) tem prioridade
     if (manualConfig && manualConfig.apiKey && manualConfig.databaseURL) {
       config = manualConfig;
-    } 
-    // 2. Configuração de Ambiente (.env)
-    else {
+    } else {
       config = getEnvConfig();
     }
 
@@ -43,7 +40,6 @@ export const initFirebase = (manualConfig?: FirebaseConfig): boolean => {
       return false;
     }
 
-    // Inicialização segura (evita duplicidade)
     if (getApps().length === 0) {
       app = initializeApp(config);
       console.log("Firebase App Initialized.");
@@ -51,7 +47,6 @@ export const initFirebase = (manualConfig?: FirebaseConfig): boolean => {
       app = getApp();
     }
     
-    // Obtém instância do banco
     if (app) {
       db = getDatabase(app);
       console.log("Firebase Connected");
@@ -73,6 +68,10 @@ export const fbGetAll = async <T>(path: string): Promise<T[]> => {
     const snapshot = await get(dbRef);
     if (snapshot.exists()) {
       const val = snapshot.val();
+      // Handle potential array or object structure
+      if (Array.isArray(val)) {
+        return val.map((item, index) => ({ ...item, id: String(index) }));
+      }
       return Object.keys(val).map(key => ({
         ...val[key],
         id: key
@@ -91,13 +90,21 @@ export const fbSubscribe = <T>(path: string, callback: (data: T[]) => void): () 
   }
   try {
     const dbRef = ref(db, path);
-    // onValue retorna a função de unsubscribe
     const unsubscribe = onValue(dbRef, (snapshot) => {
       const val = snapshot.val();
-      const data = val ? Object.keys(val).map(key => ({
-        ...val[key],
-        id: key
-      })) : [];
+      let data: any[] = [];
+      
+      if (val) {
+        if (Array.isArray(val)) {
+           data = val.map((item, index) => item ? { ...item, id: String(index) } : null).filter(Boolean);
+        } else {
+           data = Object.keys(val).map(key => ({
+             ...val[key],
+             id: key
+           }));
+        }
+      }
+      
       callback(data as T[]);
     }, (error) => {
       console.error(`FIREBASE SYNC ERROR on path '${path}':`, error.message);
@@ -117,6 +124,7 @@ export const fbSet = async (path: string, id: string, data: any) => {
     await set(dbRef, data);
   } catch (error) {
     console.error(`Error setting doc in ${path}:`, error);
+    throw error; // Re-throw to allow caller to handle
   }
 };
 
