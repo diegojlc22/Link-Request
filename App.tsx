@@ -1,6 +1,6 @@
 
 import React, { Suspense } from 'react';
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { DataProvider, useData } from './contexts/DataContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
@@ -70,7 +70,7 @@ const AppContent: React.FC = () => {
 
 const App: React.FC = () => {
   return (
-    <HashRouter>
+    <BrowserRouter>
       <ToastProvider>
         <DataProvider>
           <AuthProvider>
@@ -78,7 +78,7 @@ const App: React.FC = () => {
           </AuthProvider>
         </DataProvider>
       </ToastProvider>
-    </HashRouter>
+    </BrowserRouter>
   );
 };
 
