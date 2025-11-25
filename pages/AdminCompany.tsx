@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { Building, Save, Cloud, Loader2, CheckCircle2, AlertTriangle, XCircle, HelpCircle, ExternalLink, ChevronDown, ChevronUp, Image as ImageIcon } from 'lucide-react';
+import { Building, Save, Cloud, Loader2, CheckCircle2, XCircle, HelpCircle, ExternalLink, Image as ImageIcon } from 'lucide-react';
 
 export const AdminCompany: React.FC = () => {
   const { companies, updateCompany } = useData();

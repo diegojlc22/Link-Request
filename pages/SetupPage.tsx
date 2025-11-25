@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useData } from '../contexts/DataContext';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
-import { ShieldCheck, Building2, User, Rocket, Settings, FileCode, Database } from 'lucide-react';
+import { ShieldCheck, Building2, User, Rocket, FileCode, Database } from 'lucide-react';
 import { FirebaseConfig } from '../types';
 
 export const SetupPage: React.FC = () => {
