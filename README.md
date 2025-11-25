@@ -83,6 +83,7 @@ Este projeto é uma SPA (Single Page Application). Abaixo, os melhores lugares p
 | :--- | :--- | :---: | :---: | :--- |
 | **Vercel** 🥇 | Grátis | ⭐ | ✅ Automática | **Recomendado.** Detecta Vite automaticamente. Zero config. |
 | **Netlify** 🥈 | Grátis | ⭐ | ✅ Automática | Adicione o arquivo `_redirects` na pasta public. |
+| **Cloudflare Pages** ⚡ | Grátis | ⭐ | ✅ Automática | **Ultra Rápido.** CDN Global e suporte nativo a Vite. |
 | **Firebase Hosting** 🥉 | Grátis | ⭐⭐ | ✅ Actions | Ótimo para manter Front e Banco no mesmo lugar. |
 
 ### 🔧 Instalação Local (Desenvolvedores)
