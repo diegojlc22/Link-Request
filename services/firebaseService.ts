@@ -1,37 +1,28 @@
 
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { getDatabase, ref, get, set, update, remove, onValue, Database } from 'firebase/database';
+import * as rtdb from 'firebase/database';
 import { FirebaseConfig } from '../types';
 
 let app: FirebaseApp | undefined;
-let db: Database | undefined;
+let db: rtdb.Database | undefined;
 
 // --- CONFIGURAÇÃO FIXA ---
 // DEIXE COMO NULL PARA MODO "PRODUTO/VENDA"
-// O cliente será forçado a configurar na primeira execução.
 const FIXED_CONFIG: FirebaseConfig | null = null;
 
-// Tenta carregar as configs do ambiente (Vite), Fixas ou LocalStorage
 const getEnvConfig = (): FirebaseConfig | null => {
-  // Prioridade 1: Configuração Fixa no Código (Apenas para uso interno/dev)
-  if (FIXED_CONFIG && FIXED_CONFIG.apiKey !== "") {
-    return FIXED_CONFIG;
-  }
+  if (FIXED_CONFIG && FIXED_CONFIG.apiKey !== "") return FIXED_CONFIG;
 
-  // Prioridade 2: Configuração Salva via UI (LocalStorage) - Solução de emergência/local
   try {
     const localConfig = localStorage.getItem('firebase_config_override');
     if (localConfig) {
       const parsed = JSON.parse(localConfig);
-      if (parsed.apiKey && parsed.projectId) {
-        return parsed;
-      }
+      if (parsed.apiKey && parsed.projectId) return parsed;
     }
   } catch (e) {
     console.warn("Erro ao ler config do localStorage", e);
   }
 
-  // Prioridade 3: Variáveis de Ambiente (.env)
   const env = (import.meta as any).env;
   if (env && env.VITE_FIREBASE_API_KEY) {
     return {
@@ -49,13 +40,7 @@ const getEnvConfig = (): FirebaseConfig | null => {
 
 export const initFirebase = (manualConfig?: FirebaseConfig): boolean => {
   try {
-    let config: FirebaseConfig | null = null;
-
-    if (manualConfig && manualConfig.apiKey && manualConfig.databaseURL) {
-      config = manualConfig;
-    } else {
-      config = getEnvConfig();
-    }
+    let config: FirebaseConfig | null = manualConfig && manualConfig.apiKey ? manualConfig : getEnvConfig();
 
     if (!config) {
       console.warn("Firebase Init Skipped: Missing configuration.");
@@ -70,8 +55,7 @@ export const initFirebase = (manualConfig?: FirebaseConfig): boolean => {
     }
     
     if (app) {
-      db = getDatabase(app);
-      console.log("Firebase Connected");
+      db = rtdb.getDatabase(app);
     }
     
     return true;
@@ -83,21 +67,27 @@ export const initFirebase = (manualConfig?: FirebaseConfig): boolean => {
 
 export const isFirebaseInitialized = () => !!db;
 
+// Helper para normalizar dados do Firebase (Array ou Object para Array)
+const normalizeData = <T>(val: any): T[] => {
+  if (!val) return [];
+  if (Array.isArray(val)) {
+    return val.map((item, index) => item ? { ...item, id: String(index) } : null).filter(Boolean) as T[];
+  }
+  return Object.keys(val).map(key => ({
+    ...val[key],
+    id: key
+  })) as T[];
+};
+
 export const fbGetAll = async <T>(path: string): Promise<T[]> => {
   if (!db) return [];
   try {
-    const dbRef = ref(db, path);
-    const snapshot = await get(dbRef);
+    const dbRef = rtdb.ref(db, path);
+    // Para GetAll inicial, usamos query limitado também se for requests, 
+    // mas aqui mantemos genérico. O ideal é evitar fbGetAll em coleções grandes.
+    const snapshot = await rtdb.get(dbRef);
     if (snapshot.exists()) {
-      const val = snapshot.val();
-      // Handle potential array or object structure
-      if (Array.isArray(val)) {
-        return val.map((item, index) => ({ ...item, id: String(index) }));
-      }
-      return Object.keys(val).map(key => ({
-        ...val[key],
-        id: key
-      })) as T[];
+      return normalizeData<T>(snapshot.val());
     }
     return [];
   } catch (error) {
@@ -106,35 +96,40 @@ export const fbGetAll = async <T>(path: string): Promise<T[]> => {
   }
 };
 
+// Listener genérico (baixa tudo - usar com cuidado)
 export const fbSubscribe = <T>(path: string, callback: (data: T[]) => void): () => void => {
-  if (!db) {
-    return () => {};
-  }
+  if (!db) return () => {};
   try {
-    const dbRef = ref(db, path);
-    const unsubscribe = onValue(dbRef, (snapshot) => {
-      const val = snapshot.val();
-      let data: any[] = [];
-      
-      if (val) {
-        if (Array.isArray(val)) {
-           data = val.map((item, index) => item ? { ...item, id: String(index) } : null).filter(Boolean);
-        } else {
-           data = Object.keys(val).map(key => ({
-             ...val[key],
-             id: key
-           }));
-        }
-      }
-      
-      callback(data as T[]);
+    const dbRef = rtdb.ref(db, path);
+    return rtdb.onValue(dbRef, (snapshot) => {
+      callback(normalizeData<T>(snapshot.val()));
     }, (error) => {
       console.error(`FIREBASE SYNC ERROR on path '${path}':`, error.message);
     });
-
-    return unsubscribe;
   } catch (error) {
     console.error(`Error setting up listener for ${path}:`, error);
+    return () => {};
+  }
+};
+
+// NOVO: Listener Otimizado (baixa apenas os últimos N itens)
+export const fbSubscribeRecent = <T>(path: string, limit: number, callback: (data: T[]) => void): () => void => {
+  if (!db) return () => {};
+  try {
+    // Ordena pela chave (que contém o timestamp na estrutura 'r'+Date.now()) e pega os últimos
+    const dbQuery = rtdb.query(rtdb.ref(db, path), rtdb.orderByKey(), rtdb.limitToLast(limit));
+    
+    return rtdb.onValue(dbQuery, (snapshot) => {
+      // O resultado de query vem como objeto, normalizamos
+      const data = normalizeData<T>(snapshot.val());
+      // Firebase retorna ordenado por chave ascendente (mais antigo -> mais novo)
+      // O DataContext já faz o sort reverso (mais novo -> mais antigo), então enviamos raw
+      callback(data);
+    }, (error) => {
+      console.error(`FIREBASE QUERY ERROR on path '${path}':`, error.message);
+    });
+  } catch (error) {
+    console.error(`Error setting up recent listener for ${path}:`, error);
     return () => {};
   }
 };
@@ -142,19 +137,17 @@ export const fbSubscribe = <T>(path: string, callback: (data: T[]) => void): () 
 export const fbSet = async (path: string, id: string, data: any) => {
   if (!db) return;
   try {
-    const dbRef = ref(db, `${path}/${id}`);
-    await set(dbRef, data);
+    await rtdb.set(rtdb.ref(db, `${path}/${id}`), data);
   } catch (error) {
     console.error(`Error setting doc in ${path}:`, error);
-    throw error; // Re-throw to allow caller to handle
+    throw error;
   }
 };
 
 export const fbUpdate = async (path: string, id: string, data: any) => {
   if (!db) return;
   try {
-    const dbRef = ref(db, `${path}/${id}`);
-    await update(dbRef, data);
+    await rtdb.update(rtdb.ref(db, `${path}/${id}`), data);
   } catch (error) {
     console.error(`Error updating doc in ${path}:`, error);
   }
@@ -163,8 +156,7 @@ export const fbUpdate = async (path: string, id: string, data: any) => {
 export const fbUpdateMulti = async (updates: Record<string, any>) => {
   if (!db) return;
   try {
-    const dbRef = ref(db);
-    await update(dbRef, updates);
+    await rtdb.update(rtdb.ref(db), updates);
   } catch (error) {
     console.error(`Error executing multi-path update:`, error);
   }
@@ -173,8 +165,7 @@ export const fbUpdateMulti = async (updates: Record<string, any>) => {
 export const fbDelete = async (path: string, id: string) => {
   if (!db) return;
   try {
-    const dbRef = ref(db, `${path}/${id}`);
-    await remove(dbRef);
+    await rtdb.remove(rtdb.ref(db, `${path}/${id}`));
   } catch (error) {
     console.error(`Error deleting doc in ${path}:`, error);
   }
