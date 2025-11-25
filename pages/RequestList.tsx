@@ -157,14 +157,11 @@ export const RequestList: React.FC = () => {
   const currentItems = filteredRequests.slice(indexOfFirstItem, indexOfLastItem);
 
   // --- PAGINATION SAFETY ---
-  
-  // 1. Reset to page 1 when filters change (Search, Status, Assignee, Date)
   useEffect(() => {
     setCurrentPage(1);
     setSelectedIds(new Set());
   }, [debouncedSearchTerm, statusFilter, assigneeFilter, startDate, endDate, dateType]);
 
-  // 2. Safety check: If filtered list shrinks (e.g. deletion/updates) and currentPage is now invalid, fix it.
   useEffect(() => {
     if (currentPage > totalPages) {
       setCurrentPage(totalPages);
@@ -226,8 +223,6 @@ export const RequestList: React.FC = () => {
       const unitName = units.find(u => u.id === req.unitId)?.name || 'N/A';
       const creatorName = users.find(u => u.id === req.creatorId)?.name || 'N/A';
       const assigneeName = users.find(u => u.id === req.assigneeId)?.name || 'Não atribuído';
-      
-      // Escape quotes and commas for CSV
       const safeTitle = `"${req.title.replace(/"/g, '""')}"`;
       
       return [
@@ -258,7 +253,6 @@ export const RequestList: React.FC = () => {
   const getPaginationItems = () => {
     const delta = 1;
     const range: (number | string)[] = [];
-    
     for (let i = 1; i <= totalPages; i++) {
       if (
         i === 1 || 
@@ -273,8 +267,6 @@ export const RequestList: React.FC = () => {
         range.push('...');
       }
     }
-    
-    // Simple filter to remove consecutive dots if logic produces them (rare but safe)
     return range.filter((val, idx, arr) => val !== '...' || (val === '...' && arr[idx-1] !== '...'));
   };
 
@@ -282,18 +274,16 @@ export const RequestList: React.FC = () => {
   const handleDragStart = (e: React.DragEvent, id: string) => {
     setDraggedRequestId(id);
     e.dataTransfer.effectAllowed = 'move';
-    // Transparent drag image or default
   };
 
   const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault(); // Necessary to allow dropping
+    e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
   };
 
   const handleDrop = (e: React.DragEvent, newStatus: RequestStatus) => {
     e.preventDefault();
     if (draggedRequestId && canManageStatus) {
-       // Optimistic update done in DataContext
        updateRequestStatus(draggedRequestId, newStatus);
        showToast(`Card movido para ${newStatus}`, 'success');
     } else if (draggedRequestId && !canManageStatus) {
@@ -410,11 +400,11 @@ export const RequestList: React.FC = () => {
     }
 
     try {
-        // Upload images to External Host (Imgur)
+        // Upload images using unified Service (Cloudinary or Base64 fallback)
         const uploadPromises = attachedImages.map(async (imgBase64, index) => {
-            // Imgur doesn't care about path, but we keep the arg structure
             const fileName = `req_${Date.now()}_${index}`;
             try {
+                // The service handles fallback automatically
                 const url = await fbUploadImage(imgBase64, fileName);
                 return {
                     id: `att${Date.now()}-${index}`,
@@ -424,8 +414,7 @@ export const RequestList: React.FC = () => {
                 };
             } catch (err) {
                 console.error("Upload failed", err);
-                // Fallback: don't break the flow, just warn
-                showToast(`Falha ao enviar imagem ${index+1}`, 'warning');
+                showToast(`Falha ao processar imagem ${index+1}`, 'warning');
                 return null;
             }
         });

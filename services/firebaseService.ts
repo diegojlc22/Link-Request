@@ -6,13 +6,7 @@ import { FirebaseConfig } from '../types';
 let app: FirebaseApp | undefined;
 let db: rtdb.Database | undefined;
 
-// --- CONFIGURAÇÃO DO IMGUR (GRATUITO) ---
-// Para produção, crie sua chave em: https://api.imgur.com/oauth2/addclient
-// Selecione "Anonymous usage without user authorization"
-const IMGUR_CLIENT_ID = "2c544c760829876"; // Client ID público de demonstração
-
-// --- CONFIGURAÇÃO FIXA ---
-// DEIXE COMO NULL PARA MODO "PRODUTO/VENDA"
+// --- CONFIGURAÇÃO ---
 const FIXED_CONFIG: FirebaseConfig | null = null;
 
 const getEnvConfig = (): FirebaseConfig | null => {
@@ -41,6 +35,16 @@ const getEnvConfig = (): FirebaseConfig | null => {
     };
   }
   return null;
+};
+
+// Ler configuração de Storage (Cloudinary)
+const getStorageConfig = () => {
+  try {
+    const local = localStorage.getItem('link_req_storage_config');
+    return local ? JSON.parse(local) : null;
+  } catch (e) {
+    return null;
+  }
 };
 
 export const initFirebase = (manualConfig?: FirebaseConfig): boolean => {
@@ -72,7 +76,7 @@ export const initFirebase = (manualConfig?: FirebaseConfig): boolean => {
 
 export const isFirebaseInitialized = () => !!db;
 
-// Helper para normalizar dados do Firebase (Array ou Object para Array)
+// Helper para normalizar dados do Firebase
 const normalizeData = <T>(val: any): T[] => {
   if (!val) return [];
   if (Array.isArray(val)) {
@@ -167,37 +171,46 @@ export const fbDelete = async (path: string, id: string) => {
   }
 };
 
-// --- ALTERNATIVE STORAGE: IMGUR API ---
+// --- UPLOAD HÍBRIDO INTELIGENTE ---
+// Tenta Cloudinary > Se falhar ou não tiver config, usa Base64 (Banco Local)
 
-export const fbUploadImage = async (base64String: string, path?: string): Promise<string> => {
-  // Nota: O parâmetro 'path' é ignorado no Imgur, pois ele gera seu próprio ID.
-  
-  // 1. Limpar o header do base64 (data:image/jpeg;base64,...)
-  const base64Data = base64String.replace(/^data:image\/\w+;base64,/, "");
+export const fbUploadImage = async (base64String: string, fileName: string): Promise<string> => {
+  const storageConfig = getStorageConfig();
 
-  const formData = new FormData();
-  formData.append("image", base64Data);
-  formData.append("type", "base64");
+  // 1. TENTATIVA CLOUDINARY (Se configurado)
+  if (storageConfig && storageConfig.cloudName && storageConfig.uploadPreset) {
+    try {
+      const formData = new FormData();
+      formData.append("file", base64String);
+      formData.append("upload_preset", storageConfig.uploadPreset);
+      // Opcional: folder
+      // formData.append("folder", "link_requests");
 
-  try {
-    const response = await fetch("https://api.imgur.com/3/image", {
-      method: "POST",
-      headers: {
-        Authorization: `Client-ID ${IMGUR_CLIENT_ID}`,
-      },
-      body: formData,
-    });
+      const response = await fetch(
+        `https://api.cloudinary.com/v1_1/${storageConfig.cloudName}/image/upload`, 
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
 
-    const data = await response.json();
+      const data = await response.json();
 
-    if (!data.success) {
-      throw new Error(data.data.error || "Falha no upload para o Imgur");
+      if (data.secure_url) {
+        console.log("Upload Cloudinary Sucesso");
+        return data.secure_url;
+      } else {
+        console.error("Erro Cloudinary:", data);
+        // Não lança erro, deixa cair no fallback
+      }
+    } catch (error) {
+      console.error("Falha na conexão com Cloudinary. Usando fallback local.", error);
     }
-
-    // Retorna o link direto da imagem
-    return data.data.link;
-  } catch (error) {
-    console.error("Error uploading image to Imgur:", error);
-    throw error;
   }
+
+  // 2. FALLBACK: BANCO DE DADOS LOCAL (BASE64)
+  // Se não tem nuvem ou a nuvem falhou, salva a string da imagem direto no banco.
+  // Isso garante que o usuário nunca fique travado, mas aumenta o peso do banco.
+  console.warn("Usando armazenamento local (Base64) para imagem.");
+  return base64String;
 };
