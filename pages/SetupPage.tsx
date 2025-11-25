@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useData } from '../contexts/DataContext';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
-import { ShieldCheck, Building2, User, Rocket, Settings, FileCode, Database, Cloud } from 'lucide-react';
+import { ShieldCheck, Building2, User, Rocket, Settings, FileCode, Database } from 'lucide-react';
 import { FirebaseConfig } from '../types';
 
 export const SetupPage: React.FC = () => {
@@ -26,12 +26,6 @@ export const SetupPage: React.FC = () => {
     databaseURL: ''
   });
 
-  // Storage Config State (Cloudinary)
-  const [storageConfig, setStorageConfig] = useState({
-    cloudName: '',
-    uploadPreset: ''
-  });
-  
   const handleFinish = (e: React.FormEvent) => {
     e.preventDefault();
     setupSystem({
@@ -48,13 +42,6 @@ export const SetupPage: React.FC = () => {
     // 1. Salva Config do Firebase
     localStorage.setItem('firebase_config_override', JSON.stringify(manualConfig));
     
-    // 2. Salva Config de Storage (Se preenchido)
-    if (storageConfig.cloudName && storageConfig.uploadPreset) {
-      localStorage.setItem('link_req_storage_config', JSON.stringify(storageConfig));
-    } else {
-      localStorage.removeItem('link_req_storage_config');
-    }
-
     // Recarrega
     window.location.reload();
   };
@@ -119,7 +106,7 @@ export const SetupPage: React.FC = () => {
 
                         <form onSubmit={handleSaveConfig} className="space-y-6">
                             {/* Firebase Config Fields */}
-                            <div className="space-y-3 border-b border-gray-100 dark:border-gray-700 pb-6">
+                            <div className="space-y-3 pb-2">
                                 <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                                     <Database className="h-4 w-4" /> Credenciais do Firebase
                                 </h3>
@@ -152,34 +139,6 @@ export const SetupPage: React.FC = () => {
                                 </div>
                             </div>
 
-                            {/* Cloudinary Config Fields */}
-                            <div className="space-y-3">
-                                <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                                    <Cloud className="h-4 w-4 text-blue-500" /> Armazenamento de Imagens (Opcional)
-                                </h3>
-                                <p className="text-xs text-gray-500 dark:text-gray-400">
-                                    Recomendado: Use <strong>Cloudinary</strong> para uploads rápidos e gratuitos. 
-                                    Se deixar em branco, as imagens serão salvas no banco de dados (mais lento).
-                                </p>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <input 
-                                        placeholder="Cloud Name (ex: demo)" 
-                                        className="w-full p-2 text-sm border rounded bg-white dark:bg-gray-800 dark:border-gray-700"
-                                        value={storageConfig.cloudName}
-                                        onChange={e => setStorageConfig({...storageConfig, cloudName: e.target.value})}
-                                    />
-                                    <input 
-                                        placeholder="Upload Preset (Unsigned)" 
-                                        className="w-full p-2 text-sm border rounded bg-white dark:bg-gray-800 dark:border-gray-700"
-                                        value={storageConfig.uploadPreset}
-                                        onChange={e => setStorageConfig({...storageConfig, uploadPreset: e.target.value})}
-                                    />
-                                </div>
-                                <p className="text-[10px] text-gray-400">
-                                   No Cloudinary: Settings &gt; Upload &gt; Add Upload Preset &gt; Signing Mode: Unsigned.
-                                </p>
-                            </div>
-
                             <div className="pt-2">
                                 <Button type="submit" className="w-full text-base py-2.5 shadow-lg shadow-primary-500/20">
                                     <Rocket className="h-4 w-4 mr-2" /> Salvar e Iniciar
@@ -193,7 +152,7 @@ export const SetupPage: React.FC = () => {
     );
   }
 
-  // MODO WIZARD (BANCO CONECTADO, MAS SEM DADOS) - Mantido igual
+  // MODO WIZARD (BANCO CONECTADO, MAS SEM DADOS)
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-lg">
