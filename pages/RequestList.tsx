@@ -235,6 +235,30 @@ export const RequestList: React.FC = () => {
     showToast('Relatório CSV gerado com sucesso!', 'success');
   };
 
+  // --- PAGINATION HELPERS ---
+  const getPaginationItems = () => {
+    const delta = 1;
+    const range: (number | string)[] = [];
+    
+    for (let i = 1; i <= totalPages; i++) {
+      if (
+        i === 1 || 
+        i === totalPages || 
+        (i >= currentPage - delta && i <= currentPage + delta)
+      ) {
+        range.push(i);
+      } else if (
+        (i === currentPage - delta - 1 && i > 1) ||
+        (i === currentPage + delta + 1 && i < totalPages)
+      ) {
+        range.push('...');
+      }
+    }
+    
+    // Simple filter to remove consecutive dots if logic produces them (rare but safe)
+    return range.filter((val, idx, arr) => val !== '...' || (val === '...' && arr[idx-1] !== '...'));
+  };
+
   // --- KANBAN LOGIC ---
   const handleDragStart = (e: React.DragEvent, id: string) => {
     setDraggedRequestId(id);
@@ -618,6 +642,9 @@ export const RequestList: React.FC = () => {
                 >
                   Anterior
                 </Button>
+                <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                  {currentPage} / {totalPages}
+                </div>
                 <Button 
                   onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} 
                   disabled={currentPage === totalPages}
@@ -630,27 +657,60 @@ export const RequestList: React.FC = () => {
               <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
                 <div>
                   <p className="text-sm text-gray-700 dark:text-gray-400">
-                    Mostrando <span className="font-medium text-gray-900 dark:text-white">{indexOfFirstItem + 1}</span> até <span className="font-medium text-gray-900 dark:text-white">{Math.min(indexOfLastItem, filteredRequests.length)}</span> de <span className="font-medium text-gray-900 dark:text-white">{filteredRequests.length}</span>
+                    Mostrando <span className="font-medium text-gray-900 dark:text-white">{indexOfFirstItem + 1}</span> até <span className="font-medium text-gray-900 dark:text-white">{Math.min(indexOfLastItem, filteredRequests.length)}</span> de <span className="font-medium text-gray-900 dark:text-white">{filteredRequests.length}</span> resultados
                   </p>
                 </div>
                 <div>
                   <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                    {/* Previous Button */}
                     <button
                       onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
                       disabled={currentPage === 1}
-                      className="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+                      className="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed focus:z-20 focus:outline-offset-0"
                     >
+                      <span className="sr-only">Anterior</span>
                       <ChevronLeft className="h-4 w-4" />
                     </button>
-                    {/* Simplified Pagination for brevity in code output */}
-                    <span className="relative inline-flex items-center px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-300 ring-1 ring-inset ring-gray-300 dark:ring-gray-600">
-                      Página {currentPage} de {totalPages}
-                    </span>
+                    
+                    {/* Page Numbers */}
+                    {getPaginationItems().map((page, index) => {
+                      if (page === '...') {
+                        return (
+                          <span
+                            key={`dots-${index}`}
+                            className="relative inline-flex items-center px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-400 ring-1 ring-inset ring-gray-300 dark:ring-gray-600 focus:outline-offset-0"
+                          >
+                            ...
+                          </span>
+                        );
+                      }
+                      
+                      const isCurrent = page === currentPage;
+                      return (
+                        <button
+                          key={page}
+                          onClick={() => setCurrentPage(page as number)}
+                          aria-current={isCurrent ? 'page' : undefined}
+                          className={`
+                            relative inline-flex items-center px-4 py-2 text-sm font-semibold focus:z-20 focus:outline-offset-0
+                            ${isCurrent 
+                              ? 'z-10 bg-primary-600 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600' 
+                              : 'text-gray-900 dark:text-gray-300 ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                            }
+                          `}
+                        >
+                          {page}
+                        </button>
+                      );
+                    })}
+
+                    {/* Next Button */}
                     <button
                       onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
                       disabled={currentPage === totalPages}
-                      className="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+                      className="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed focus:z-20 focus:outline-offset-0"
                     >
+                      <span className="sr-only">Próximo</span>
                       <ChevronRight className="h-4 w-4" />
                     </button>
                   </nav>
