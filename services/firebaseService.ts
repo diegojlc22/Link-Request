@@ -7,10 +7,24 @@ let app: FirebaseApp | undefined;
 let db: rtdb.Database | undefined;
 
 // --- CONFIGURAÇÃO ---
-const FIXED_CONFIG: FirebaseConfig | null = null;
+// PREENCHA AQUI PARA CONFIGURAR UMA VEZ SÓ (MODO FIXO)
+// Ao preencher estes dados, o sistema funcionará em qualquer dispositivo sem pedir configuração.
+const FIXED_CONFIG: FirebaseConfig | null = {
+  apiKey: "",             // Cole sua API Key aqui
+  authDomain: "",         // Cole seu Auth Domain
+  databaseURL: "",        // Cole sua Database URL
+  projectId: "",          // Cole seu Project ID
+  storageBucket: "",      // Cole seu Storage Bucket
+  messagingSenderId: "",  // Cole seu Messaging Sender ID
+  appId: ""               // Cole seu App ID
+};
 
 const getEnvConfig = (): FirebaseConfig | null => {
-  if (FIXED_CONFIG && FIXED_CONFIG.apiKey !== "") return FIXED_CONFIG;
+  // Se o usuário preencheu o FIXED_CONFIG no código, usa ele com prioridade máxima
+  if (FIXED_CONFIG && FIXED_CONFIG.apiKey !== "") {
+    console.log("Using FIXED_CONFIG from code.");
+    return FIXED_CONFIG;
+  }
 
   try {
     const localConfig = localStorage.getItem('firebase_config_override');

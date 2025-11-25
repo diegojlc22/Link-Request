@@ -1,9 +1,9 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useData } from '../contexts/DataContext';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
-import { ShieldCheck, Building2, User, Rocket, FileCode, Database } from 'lucide-react';
+import { ShieldCheck, Building2, User, Rocket, FileCode, Database, Lock, Globe } from 'lucide-react';
 import { FirebaseConfig } from '../types';
 
 export const SetupPage: React.FC = () => {
@@ -25,6 +25,20 @@ export const SetupPage: React.FC = () => {
     appId: '',
     databaseURL: ''
   });
+
+  // Check if we are running in local mode (checking localStorage)
+  const [isFixedMode, setIsFixedMode] = useState(false);
+
+  useEffect(() => {
+    // Basic check to see if local storage override exists
+    const local = localStorage.getItem('firebase_config_override');
+    // If NO local storage but we are connected (or logic suggests it), it might be fixed mode.
+    // However, here we just want to know if user has overrides.
+    if (!local) {
+        // We can't definitively know if FIXED_CONFIG is used from here without exposing it from service, 
+        // but we can infer: if manual config is empty but isDbConnected is true, likely fixed mode.
+    }
+  }, []);
 
   const handleFinish = (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,9 +104,23 @@ export const SetupPage: React.FC = () => {
                  
                  <Card className="text-left shadow-xl border-t-4 border-t-primary-600">
                     <CardHeader>
-                        <CardTitle className="text-lg">Configuração do Ambiente</CardTitle>
+                        <div className="flex justify-between items-center">
+                            <CardTitle className="text-lg">Configuração do Ambiente</CardTitle>
+                            <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-500 px-2 py-1 rounded-full flex items-center gap-1">
+                                <Globe className="h-3 w-3" /> Modo Local (Navegador)
+                            </span>
+                        </div>
                     </CardHeader>
                     <CardContent className="max-h-[70vh] overflow-y-auto custom-scrollbar">
+                        <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-lg text-sm text-blue-800 dark:text-blue-300">
+                           <p className="flex items-start gap-2">
+                             <Lock className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                             <span>
+                                <strong>Dica Pro:</strong> Para não precisar configurar toda vez, edite o arquivo <code>services/firebaseService.ts</code> e preencha o <code>FIXED_CONFIG</code>.
+                             </span>
+                           </p>
+                        </div>
+
                         <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
                                <FileCode className="h-4 w-4 text-primary-600" /> Colar Firebase Config

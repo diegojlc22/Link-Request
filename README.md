@@ -12,7 +12,11 @@
     <img src="https://img.shields.io/badge/🏠_SOBRE_O_PROJETO-2563eb?style=for-the-badge&logoColor=white" alt="Sobre" />
   </a>
   &nbsp;&nbsp;&nbsp;
-  <a href="#-instalação-e-deploy">
+  <a href="#-configuracao-fixa">
+    <img src="https://img.shields.io/badge/⚙️_CONFIGURAÇÃO_FIXA-f59e0b?style=for-the-badge&logoColor=white" alt="Configuração" />
+  </a>
+  &nbsp;&nbsp;&nbsp;
+  <a href="#-instalacao-e-deploy">
     <img src="https://img.shields.io/badge/🚀_INSTALAÇÃO_E_DEPLOY-10b981?style=for-the-badge&logoColor=white" alt="Instalação" />
   </a>
 </p>
@@ -69,7 +73,57 @@ O projeto utiliza as versões mais recentes e estáveis do ecossistema React:
 
 ---
 
-<div id="-instalação-e-deploy"></div>
+<div id="-configuracao-fixa"></div>
+
+## ⚙️ Configuração Fixa (Deploy Automático)
+
+Para não precisar configurar o banco de dados toda vez que acessar de um novo dispositivo, você tem duas opções. Escolha a que melhor se adapta ao seu caso:
+
+### Opção A: Inserir no Código (Mais fácil)
+*Ideal se o seu repositório for privado.*
+
+1. Abra o arquivo `services/firebaseService.ts`.
+2. Logo no início, encontre a constante `FIXED_CONFIG`.
+3. Preencha os campos com os dados do seu Firebase:
+
+```typescript
+const FIXED_CONFIG: FirebaseConfig | null = {
+  apiKey: "AIzaSyD...",
+  authDomain: "seu-projeto.firebaseapp.com",
+  databaseURL: "https://seu-projeto-default-rtdb.firebaseio.com",
+  projectId: "seu-projeto",
+  storageBucket: "seu-projeto.appspot.com",
+  messagingSenderId: "123456...",
+  appId: "1:123456..."
+};
+```
+4. Faça o Commit e Push. O site já subirá configurado.
+
+### Opção B: Variáveis de Ambiente (Mais Seguro)
+*Ideal para Vercel, Netlify e repositórios públicos.*
+
+No painel da sua hospedagem, procure por **"Environment Variables"** e adicione as seguintes chaves (use o prefixo `VITE_`):
+
+* `VITE_FIREBASE_API_KEY`
+* `VITE_FIREBASE_AUTH_DOMAIN`
+* `VITE_FIREBASE_DATABASE_URL`
+* `VITE_FIREBASE_PROJECT_ID`
+* `VITE_FIREBASE_STORAGE_BUCKET`
+* `VITE_FIREBASE_MESSAGING_SENDER_ID`
+* `VITE_FIREBASE_APP_ID`
+
+#### Onde configurar em cada plataforma:
+
+| Plataforma | Caminho no Painel |
+| :--- | :--- |
+| **Vercel** | Settings -> Environment Variables |
+| **Netlify** | Site configuration -> Environment variables |
+| **Cloudflare** | Settings -> Environment variables |
+| **Firebase** | Requer `Github Secrets` se usar Actions |
+
+---
+
+<div id="-instalacao-e-deploy"></div>
 
 ## 🚀 Instalação e Deploy
 
@@ -111,9 +165,9 @@ npm run dev
 ```
 
 **3. Configuração Inicial**
-Ao abrir `http://localhost:5173` pela primeira vez, você verá o **Setup Wizard**.
+Ao abrir `http://localhost:5173` pela primeira vez, você verá o **Setup Wizard** (se não tiver feito a Configuração Fixa).
 1. Crie o nome da empresa e o usuário Admin.
-2. Cole as credenciais do seu projeto Firebase quando solicitado (não requer criação de arquivo `.env` manual).
+2. Cole as credenciais do seu projeto Firebase quando solicitado.
 
 ---
 
