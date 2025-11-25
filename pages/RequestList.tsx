@@ -38,6 +38,7 @@ export const RequestList: React.FC = () => {
   const [newProductUrl, setNewProductUrl] = useState('');
   const [newPriority, setNewPriority] = useState<'Low'|'Medium'|'High'>('Medium');
   const [newUnitId, setNewUnitId] = useState(currentUser?.unitId || '');
+  const [newAssigneeId, setNewAssigneeId] = useState('');
   
   // Attachment State (Multiple Images)
   const [attachedImages, setAttachedImages] = useState<string[]>([]);
@@ -279,7 +280,7 @@ export const RequestList: React.FC = () => {
       companyId: finalCompanyId,
       unitId: finalUnitId,
       creatorId: currentUser.id,
-      assigneeId: undefined, // Always undefined on creation
+      assigneeId: newAssigneeId || undefined,
       title: newTitle,
       description: newDesc,
       productUrl: newProductUrl,
@@ -295,6 +296,7 @@ export const RequestList: React.FC = () => {
     setNewTitle('');
     setNewDesc('');
     setNewProductUrl('');
+    setNewAssigneeId('');
     setAttachedImages([]);
   };
 
@@ -592,23 +594,21 @@ export const RequestList: React.FC = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-2">
-                 <Calendar className="h-3 w-3" /> Data de Criação
-              </label>
-              <input 
-                type="text" 
-                disabled 
-                value={new Date().toLocaleString('pt-BR')} 
-                className="w-full px-3 py-2 border rounded-lg bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed" 
-              />
-            </div>
-
-            <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Prioridade</label>
               <select value={newPriority} onChange={e => setNewPriority(e.target.value as any)} className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 dark:border-gray-600">
                 <option value="Low">Baixa</option>
                 <option value="Medium">Média</option>
                 <option value="High">Alta</option>
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Responsável (Opcional)</label>
+              <select value={newAssigneeId} onChange={e => setNewAssigneeId(e.target.value)} className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 dark:border-gray-600">
+                <option value="">Aguardar atribuição</option>
+                {users.map(u => (
+                  <option key={u.id} value={u.id}>{u.name}</option>
+                ))}
               </select>
             </div>
           </div>
