@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
@@ -10,16 +10,26 @@ import { StatusBadge, PriorityBadge } from '../components/ui/Badge';
 import { 
   Plus, Search, Link as LinkIcon, Image as ImageIcon, X, 
   ChevronLeft, ChevronRight, Trash2,
-  LayoutGrid, List as ListIcon, FileSpreadsheet, Calendar, AlertTriangle, Loader2
+  LayoutGrid, List as ListIcon, FileSpreadsheet, Calendar, AlertTriangle, Loader2,
+  ListFilter, FilterX, Clock, ArrowUpDown, ArrowUp, ArrowDown
 } from 'lucide-react';
 import { Modal } from '../components/ui/Modal';
 import { fbUploadImage } from '../services/firebaseService';
 
+// Priority Mapping for Sorting
+const priorityWeight: Record<string, number> = {
+  'Critical': 4,
+  'High': 3,
+  'Medium': 2,
+  'Low': 1
+};
+
 export const RequestList: React.FC = () => {
-  const { requests, units, addRequest, users, bulkUpdateRequestStatus, updateRequestStatus, deleteRequest } = useData();
+  const { requests, units, addRequest, users, bulkUpdateRequestStatus, updateRequestStatus, deleteRequest, updateRequest } = useData();
   const { currentUser, isAdmin, isLeader } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Search and Filter State
   const [searchTerm, setSearchTerm] = useState('');
@@ -32,6 +42,12 @@ export const RequestList: React.FC = () => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   
+  // Sorting State
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({
+    key: 'updatedAt', // default sort
+    direction: 'desc'
+  });
+
   // View Mode State
   const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
   const [draggedRequestId, setDraggedRequestId] = useState<string | null>(null);
@@ -46,7 +62,7 @@ export const RequestList: React.FC = () => {
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 20;
+  const [itemsPerPage, setItemsPerPage] = useState(20);
 
   // Form state
   const [newTitle, setNewTitle] = useState('');
@@ -64,6 +80,20 @@ export const RequestList: React.FC = () => {
   // Determine if user has permission to manage status
   const canManageStatus = isAdmin || isLeader;
 
+  // --- HANDLE NAVIGATION FROM DASHBOARD ---
+  useEffect(() => {
+    if (location.state && location.state.filterStatus) {
+        setStatusFilter(location.state.filterStatus);
+        // Reset other filters to ensure user sees what they clicked
+        setSearchTerm('');
+        setDebouncedSearchTerm('');
+        setAssigneeFilter('ALL');
+        setStartDate('');
+        setEndDate('');
+        setCurrentPage(1);
+    }
+  }, [location.state]);
+
   // --- PERFORMANCE: DEBOUNCE EFFECT ---
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -71,6 +101,17 @@ export const RequestList: React.FC = () => {
     }, 300);
     return () => clearTimeout(timer);
   }, [searchTerm]);
+
+  // Check if any filter is active
+  const hasActiveFilters = useMemo(() => {
+    return (
+      debouncedSearchTerm !== '' ||
+      statusFilter !== 'ALL' ||
+      assigneeFilter !== 'ALL' ||
+      startDate !== '' ||
+      endDate !== ''
+    );
+  }, [debouncedSearchTerm, statusFilter, assigneeFilter, startDate, endDate]);
 
   // --- FILTERING LOGIC ---
   const filteredRequests = useMemo(() => {
@@ -152,23 +193,91 @@ export const RequestList: React.FC = () => {
     });
   }, [requests, currentUser, debouncedSearchTerm, statusFilter, assigneeFilter, startDate, endDate, dateType]);
 
+  // --- SORTING LOGIC ---
+  const sortedRequests = useMemo(() => {
+    const data = [...filteredRequests];
+    if (!sortConfig.key) return data;
+
+    return data.sort((a: any, b: any) => {
+        let aValue = a[sortConfig.key];
+        let bValue = b[sortConfig.key];
+
+        // Special handlers for "Virtual" sort keys (properties that aren't directly on the object)
+        if (sortConfig.key === 'unitName') {
+            aValue = units.find(u => u.id === a.unitId)?.name || '';
+            bValue = units.find(u => u.id === b.unitId)?.name || '';
+        } else if (sortConfig.key === 'assigneeName') {
+            aValue = users.find(u => u.id === a.assigneeId)?.name || '';
+            bValue = users.find(u => u.id === b.assigneeId)?.name || '';
+        } else if (sortConfig.key === 'priority') {
+            // Priority Weight Sort
+            const wA = priorityWeight[a.priority] || 0;
+            const wB = priorityWeight[b.priority] || 0;
+            return sortConfig.direction === 'asc' ? wA - wB : wB - wA;
+        }
+
+        // Generic String/Date Sort
+        if (typeof aValue === 'string') aValue = aValue.toLowerCase();
+        if (typeof bValue === 'string') bValue = bValue.toLowerCase();
+
+        if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+    });
+  }, [filteredRequests, sortConfig, units, users]);
+
+
   // Pagination Logic
-  const totalPages = Math.max(1, Math.ceil(filteredRequests.length / itemsPerPage));
+  const totalPages = Math.max(1, Math.ceil(sortedRequests.length / itemsPerPage));
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = filteredRequests.slice(indexOfFirstItem, indexOfLastItem);
+  const currentItems = sortedRequests.slice(indexOfFirstItem, indexOfLastItem);
 
   // --- PAGINATION SAFETY ---
   useEffect(() => {
-    setCurrentPage(1);
-    setSelectedIds(new Set());
-  }, [debouncedSearchTerm, statusFilter, assigneeFilter, startDate, endDate, dateType]);
+    // Only reset page if NOT triggered by navigation state change (handled separately)
+    if (!location.state) {
+      setCurrentPage(1);
+      setSelectedIds(new Set());
+    }
+  }, [debouncedSearchTerm, statusFilter, assigneeFilter, startDate, endDate, dateType, itemsPerPage]);
 
   useEffect(() => {
     if (currentPage > totalPages) {
       setCurrentPage(totalPages);
     }
-  }, [filteredRequests.length, totalPages, currentPage]);
+  }, [sortedRequests.length, totalPages, currentPage]);
+
+  // Sorting Handler
+  const handleSort = (key: string) => {
+    setSortConfig(current => ({
+        key,
+        direction: current.key === key && current.direction === 'desc' ? 'asc' : 'desc'
+    }));
+  };
+
+  // Helper for Table Headers
+  const SortableHeader: React.FC<{ label: string; sortKey: string; className?: string }> = ({ label, sortKey, className = "" }) => {
+    const isActive = sortConfig.key === sortKey;
+    return (
+        <th 
+            className={`px-3 md:px-6 py-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors select-none group ${className}`}
+            onClick={() => handleSort(sortKey)}
+        >
+            <div className="flex items-center gap-1">
+                {label}
+                <span className="text-gray-400">
+                    {isActive ? (
+                        sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3 text-primary-500" /> : <ArrowDown className="h-3 w-3 text-primary-500" />
+                    ) : (
+                        <ArrowUpDown className="h-3 w-3 opacity-0 group-hover:opacity-50" />
+                    )}
+                </span>
+            </div>
+        </th>
+    );
+  };
+
 
   const toggleSelection = (id: string) => {
     const newSelected = new Set(selectedIds);
@@ -204,6 +313,13 @@ export const RequestList: React.FC = () => {
     setRequestToDelete(id);
   };
 
+  const handleAssignUser = (e: React.ChangeEvent<HTMLSelectElement>, requestId: string) => {
+    e.stopPropagation();
+    const userId = e.target.value;
+    updateRequest(requestId, { assigneeId: userId || undefined });
+    showToast('Responsável atualizado com sucesso.', 'success');
+  };
+
   const confirmDelete = () => {
     if (requestToDelete) {
         deleteRequest(requestToDelete);
@@ -212,9 +328,44 @@ export const RequestList: React.FC = () => {
     }
   };
 
+  // --- DATE FILTER UTILS ---
+  const applyDatePreset = (preset: string) => {
+    const today = new Date();
+    let start = new Date();
+    let end = new Date();
+
+    if (preset === 'today') {
+      // Start and end are today
+    } else if (preset === '7days') {
+      start.setDate(today.getDate() - 7);
+    } else if (preset === '30days') {
+      start.setDate(today.getDate() - 30);
+    } else if (preset === 'thisMonth') {
+      start = new Date(today.getFullYear(), today.getMonth(), 1);
+    } else if (preset === 'lastMonth') {
+      start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+      end = new Date(today.getFullYear(), today.getMonth(), 0);
+    } else {
+      return; // Custom or unknown
+    }
+
+    setStartDate(start.toISOString().split('T')[0]);
+    setEndDate(end.toISOString().split('T')[0]);
+  };
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setDebouncedSearchTerm('');
+    setStatusFilter('ALL');
+    setAssigneeFilter('ALL');
+    setStartDate('');
+    setEndDate('');
+    showToast('Filtros limpos.', 'info');
+  };
+
   // --- CSV EXPORT LOGIC (SECURITY FIXED) ---
   const exportToCSV = () => {
-    if (filteredRequests.length === 0) {
+    if (sortedRequests.length === 0) {
       showToast('Não há dados para exportar.', 'info');
       return;
     }
@@ -232,7 +383,7 @@ export const RequestList: React.FC = () => {
 
     const headers = ['ID', 'Título', 'Status', 'Prioridade', 'Data Criação', 'Unidade', 'Solicitante', 'Responsável'];
     
-    const rows = filteredRequests.map(req => {
+    const rows = sortedRequests.map(req => {
       const unitName = units.find(u => u.id === req.unitId)?.name || 'N/A';
       const creatorName = users.find(u => u.id === req.creatorId)?.name || 'N/A';
       const assigneeName = users.find(u => u.id === req.assigneeId)?.name || 'Não atribuído';
@@ -492,46 +643,57 @@ export const RequestList: React.FC = () => {
         {/* Filters Wrapper */}
         <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto justify-start xl:justify-end">
             
-            {/* Date Filters */}
-            <div className="flex items-center gap-2 p-1 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-               <Calendar className="h-4 w-4 text-gray-400 ml-2" />
-               <select
-                  value={dateType}
-                  onChange={(e) => setDateType(e.target.value as 'created' | 'updated')}
-                  className="bg-transparent text-sm border-none focus:ring-0 text-gray-600 dark:text-gray-300 py-1"
-               >
-                 <option value="created">Criado</option>
-                 <option value="updated">Atualizado</option>
-               </select>
-               <input 
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-xs focus:ring-1 focus:ring-primary-500"
-                  title="Data Inicial"
-               />
-               <span className="text-gray-400">-</span>
-               <input 
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-xs focus:ring-1 focus:ring-primary-500"
-                  title="Data Final"
-               />
-               {(startDate || endDate) && (
-                 <button onClick={() => { setStartDate(''); setEndDate(''); }} className="p-1 hover:text-red-500 text-gray-400">
-                    <X className="h-3 w-3" />
-                 </button>
-               )}
-            </div>
+            {/* Improved Date Filters */}
+            <div className="flex items-center gap-1 p-1 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+               <div className="flex items-center pl-2 pr-1 border-r border-gray-200 dark:border-gray-700">
+                   <Clock className="h-4 w-4 text-gray-400 mr-1" />
+                   <select
+                      onChange={(e) => {
+                          if (e.target.value) applyDatePreset(e.target.value);
+                      }}
+                      className="bg-transparent text-sm border-none focus:ring-0 text-gray-600 dark:text-gray-300 py-1 pr-6 cursor-pointer"
+                      defaultValue=""
+                   >
+                     <option value="" disabled>Período...</option>
+                     <option value="today">Hoje</option>
+                     <option value="7days">Últimos 7 dias</option>
+                     <option value="30days">Últimos 30 dias</option>
+                     <option value="thisMonth">Este Mês</option>
+                     <option value="lastMonth">Mês Passado</option>
+                   </select>
+               </div>
+               
+               <div className="flex items-center gap-1 px-1">
+                 <select
+                    value={dateType}
+                    onChange={(e) => setDateType(e.target.value as 'created' | 'updated')}
+                    className="bg-transparent text-xs border-none focus:ring-0 text-gray-500 dark:text-gray-400 py-1 pr-4 hidden sm:block"
+                 >
+                   <option value="created">Criado em</option>
+                   <option value="updated">Atualiz.</option>
+                 </select>
 
-            <div className="h-6 w-px bg-gray-300 dark:bg-gray-600 mx-1 hidden xl:block"></div>
+                 <input 
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-xs focus:ring-1 focus:ring-primary-500 w-[110px]"
+                 />
+                 <span className="text-gray-400 text-xs">até</span>
+                 <input 
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-xs focus:ring-1 focus:ring-primary-500 w-[110px]"
+                 />
+               </div>
+            </div>
 
             {/* Standard Filters */}
             <select
               value={assigneeFilter}
               onChange={(e) => setAssigneeFilter(e.target.value)}
-              className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary-500"
+              className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary-500 max-w-[150px]"
             >
               <option value="ALL">Resp: Todos</option>
               <option value="UNASSIGNED">Não Atribuído</option>
@@ -550,8 +712,40 @@ export const RequestList: React.FC = () => {
                 <option key={s} value={s}>{s}</option>
               ))}
             </select>
+
+            {/* Clear Filters Button (Conditional) */}
+            {hasActiveFilters && (
+                <button
+                    onClick={clearFilters}
+                    className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800 transition-colors"
+                    title="Limpar todos os filtros"
+                >
+                    <FilterX className="h-4 w-4" />
+                </button>
+            )}
             
-            <div className="h-6 w-px bg-gray-300 dark:bg-gray-600 mx-1 hidden md:block"></div>
+            <div className="h-6 w-px bg-gray-300 dark:bg-gray-600 mx-1 hidden lg:block"></div>
+
+            {/* Pagination Size Selector */}
+            <div className="flex items-center gap-2 hidden lg:flex">
+              <div className="relative">
+                <ListFilter className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => {
+                    setItemsPerPage(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="pl-8 pr-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary-500 appearance-none"
+                  title="Itens por página"
+                >
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </div>
+            </div>
 
             {/* View Toggles */}
             <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
@@ -602,12 +796,12 @@ export const RequestList: React.FC = () => {
                       <label htmlFor="checkbox-all" className="sr-only">checkbox</label>
                     </div>
                   </th>
-                  <th className="px-3 md:px-6 py-3">ID / Título</th>
-                  <th className="px-3 md:px-6 py-3 hidden md:table-cell">Unidade</th>
-                  <th className="px-3 md:px-6 py-3 hidden lg:table-cell">Responsável</th>
-                  <th className="px-3 md:px-6 py-3">Status</th>
-                  <th className="px-3 md:px-6 py-3 hidden md:table-cell">Prioridade</th>
-                  <th className="px-3 md:px-6 py-3 hidden xl:table-cell">Atualizado</th>
+                  <SortableHeader label="ID / Título" sortKey="title" />
+                  <SortableHeader label="Unidade" sortKey="unitName" className="hidden md:table-cell" />
+                  <SortableHeader label="Responsável" sortKey="assigneeName" className="hidden lg:table-cell" />
+                  <SortableHeader label="Status" sortKey="status" />
+                  <SortableHeader label="Prioridade" sortKey="priority" className="hidden md:table-cell" />
+                  <SortableHeader label="Atualizado" sortKey="updatedAt" className="hidden xl:table-cell" />
                   <th className="px-3 md:px-6 py-3">Ação</th>
                 </tr>
               </thead>
@@ -654,8 +848,21 @@ export const RequestList: React.FC = () => {
                           </div>
                         </td>
                         <td className="px-3 md:px-6 py-4 hidden md:table-cell">{unitName}</td>
-                        <td className="px-3 md:px-6 py-4 hidden lg:table-cell text-gray-900 dark:text-gray-300">
-                           {assigneeName}
+                        <td className="px-3 md:px-6 py-4 hidden lg:table-cell text-gray-900 dark:text-gray-300" onClick={(e) => e.stopPropagation()}>
+                           {canManageStatus ? (
+                              <select
+                                value={req.assigneeId || ''}
+                                onChange={(e) => handleAssignUser(e, req.id)}
+                                className="bg-transparent text-sm border-gray-300 dark:border-gray-600 rounded-md focus:ring-primary-500 focus:border-primary-500 py-1 pl-1 pr-6 max-w-[150px] truncate"
+                              >
+                                <option value="">Não atribuído</option>
+                                {users.map(u => (
+                                  <option key={u.id} value={u.id}>{u.name}</option>
+                                ))}
+                              </select>
+                           ) : (
+                              assigneeName
+                           )}
                         </td>
                         <td className="px-3 md:px-6 py-4">
                           <StatusBadge status={req.status} />
@@ -716,7 +923,7 @@ export const RequestList: React.FC = () => {
               <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
                 <div>
                   <p className="text-sm text-gray-700 dark:text-gray-400">
-                    Mostrando <span className="font-medium text-gray-900 dark:text-white">{indexOfFirstItem + 1}</span> até <span className="font-medium text-gray-900 dark:text-white">{Math.min(indexOfLastItem, filteredRequests.length)}</span> de <span className="font-medium text-gray-900 dark:text-white">{filteredRequests.length}</span> resultados
+                    Mostrando <span className="font-medium text-gray-900 dark:text-white">{indexOfFirstItem + 1}</span> até <span className="font-medium text-gray-900 dark:text-white">{Math.min(indexOfLastItem, sortedRequests.length)}</span> de <span className="font-medium text-gray-900 dark:text-white">{sortedRequests.length}</span> resultados
                   </p>
                 </div>
                 <div>
@@ -827,11 +1034,24 @@ export const RequestList: React.FC = () => {
                             {req.title}
                          </h4>
                          <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-50 dark:border-gray-700/50">
-                            <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+                            <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400" onClick={(e) => e.stopPropagation()}>
                                <div className="w-5 h-5 rounded-full bg-gray-200 overflow-hidden">
                                   <img src={users.find(u => u.id === req.assigneeId)?.avatarUrl || 'https://ui-avatars.com/api/?name=?'} alt="" />
                                </div>
-                               <span className="max-w-[80px] truncate">{users.find(u => u.id === req.assigneeId)?.name || 'Sem resp.'}</span>
+                               {canManageStatus ? (
+                                  <select
+                                    value={req.assigneeId || ''}
+                                    onChange={(e) => handleAssignUser(e, req.id)}
+                                    className="bg-transparent border-none p-0 text-xs focus:ring-0 max-w-[100px] truncate text-gray-600 dark:text-gray-400 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                                  >
+                                    <option value="">Sem resp.</option>
+                                    {users.map(u => (
+                                      <option key={u.id} value={u.id}>{u.name}</option>
+                                    ))}
+                                  </select>
+                               ) : (
+                                  <span className="max-w-[80px] truncate">{users.find(u => u.id === req.assigneeId)?.name || 'Sem resp.'}</span>
+                               )}
                             </div>
                             <span className="text-[10px] text-gray-400">
                                {new Date(req.updatedAt).toLocaleDateString(undefined, {month:'short', day:'numeric'})}

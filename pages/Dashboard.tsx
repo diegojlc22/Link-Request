@@ -1,5 +1,5 @@
-
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
 import { RequestStatus } from '../types';
@@ -10,6 +10,7 @@ import { Clock, CheckCircle2, AlertCircle, Send } from 'lucide-react';
 export const Dashboard: React.FC = () => {
   const { requests, units } = useData();
   const { currentUser } = useAuth();
+  const navigate = useNavigate();
 
   // Filter requests based on permission
   const myRequests = requests.filter(r => {
@@ -37,8 +38,15 @@ export const Dashboard: React.FC = () => {
     count: requests.filter(r => r.unitId === u.id).length
   }));
 
-  const StatCard = ({ title, value, icon: Icon, color }: any) => (
-    <Card>
+  const handleCardClick = (filterStatus: string) => {
+    navigate('/requests', { state: { filterStatus } });
+  };
+
+  const StatCard = ({ title, value, icon: Icon, color, onClickFilter }: any) => (
+    <Card 
+        className="cursor-pointer transition-all duration-200 hover:shadow-md hover:scale-[1.02] active:scale-[0.98]"
+        onClick={() => handleCardClick(onClickFilter)}
+    >
       <CardContent className="flex items-center p-6">
         <div className={`p-4 rounded-xl ${color} bg-opacity-10 dark:bg-opacity-20`}>
           <Icon className={`h-6 w-6 ${color.replace('bg-', 'text-')}`} />
@@ -56,10 +64,34 @@ export const Dashboard: React.FC = () => {
       <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-        <StatCard title="Total Requisições" value={stats.total} icon={Send} color="bg-blue-500" />
-        <StatCard title="Pendentes" value={stats.pending} icon={AlertCircle} color="bg-orange-500" />
-        <StatCard title="Em Andamento" value={stats.inProgress} icon={Clock} color="bg-purple-500" />
-        <StatCard title="Resolvidos" value={stats.resolved} icon={CheckCircle2} color="bg-emerald-500" />
+        <StatCard 
+            title="Total Requisições" 
+            value={stats.total} 
+            icon={Send} 
+            color="bg-blue-500" 
+            onClickFilter="ALL"
+        />
+        <StatCard 
+            title="Pendentes" 
+            value={stats.pending} 
+            icon={AlertCircle} 
+            color="bg-orange-500" 
+            onClickFilter={RequestStatus.SENT}
+        />
+        <StatCard 
+            title="Em Andamento" 
+            value={stats.inProgress} 
+            icon={Clock} 
+            color="bg-purple-500" 
+            onClickFilter={RequestStatus.IN_PROGRESS}
+        />
+        <StatCard 
+            title="Resolvidos" 
+            value={stats.resolved} 
+            icon={CheckCircle2} 
+            color="bg-emerald-500" 
+            onClickFilter={RequestStatus.RESOLVED}
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
