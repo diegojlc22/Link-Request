@@ -11,10 +11,18 @@ import {
   Plus, Search, Link as LinkIcon, Image as ImageIcon, X, 
   ChevronLeft, ChevronRight, Trash2,
   LayoutGrid, List as ListIcon, FileSpreadsheet, Calendar, AlertTriangle, Loader2,
-  ListFilter, FilterX, Clock
+  ListFilter, FilterX, Clock, ArrowUpDown, ArrowUp, ArrowDown
 } from 'lucide-react';
 import { Modal } from '../components/ui/Modal';
 import { fbUploadImage } from '../services/firebaseService';
+
+// Priority Mapping for Sorting
+const priorityWeight: Record<string, number> = {
+  'Critical': 4,
+  'High': 3,
+  'Medium': 2,
+  'Low': 1
+};
 
 export const RequestList: React.FC = () => {
   const { requests, units, addRequest, users, bulkUpdateRequestStatus, updateRequestStatus, deleteRequest, updateRequest } = useData();
@@ -33,6 +41,12 @@ export const RequestList: React.FC = () => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   
+  // Sorting State
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({
+    key: 'updatedAt', // default sort
+    direction: 'desc'
+  });
+
   // View Mode State
   const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
   const [draggedRequestId, setDraggedRequestId] = useState<string | null>(null);
@@ -164,11 +178,45 @@ export const RequestList: React.FC = () => {
     });
   }, [requests, currentUser, debouncedSearchTerm, statusFilter, assigneeFilter, startDate, endDate, dateType]);
 
+  // --- SORTING LOGIC ---
+  const sortedRequests = useMemo(() => {
+    const data = [...filteredRequests];
+    if (!sortConfig.key) return data;
+
+    return data.sort((a: any, b: any) => {
+        let aValue = a[sortConfig.key];
+        let bValue = b[sortConfig.key];
+
+        // Special handlers for "Virtual" sort keys (properties that aren't directly on the object)
+        if (sortConfig.key === 'unitName') {
+            aValue = units.find(u => u.id === a.unitId)?.name || '';
+            bValue = units.find(u => u.id === b.unitId)?.name || '';
+        } else if (sortConfig.key === 'assigneeName') {
+            aValue = users.find(u => u.id === a.assigneeId)?.name || '';
+            bValue = users.find(u => u.id === b.assigneeId)?.name || '';
+        } else if (sortConfig.key === 'priority') {
+            // Priority Weight Sort
+            const wA = priorityWeight[a.priority] || 0;
+            const wB = priorityWeight[b.priority] || 0;
+            return sortConfig.direction === 'asc' ? wA - wB : wB - wA;
+        }
+
+        // Generic String/Date Sort
+        if (typeof aValue === 'string') aValue = aValue.toLowerCase();
+        if (typeof bValue === 'string') bValue = bValue.toLowerCase();
+
+        if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+    });
+  }, [filteredRequests, sortConfig, units, users]);
+
+
   // Pagination Logic
-  const totalPages = Math.max(1, Math.ceil(filteredRequests.length / itemsPerPage));
+  const totalPages = Math.max(1, Math.ceil(sortedRequests.length / itemsPerPage));
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = filteredRequests.slice(indexOfFirstItem, indexOfLastItem);
+  const currentItems = sortedRequests.slice(indexOfFirstItem, indexOfLastItem);
 
   // --- PAGINATION SAFETY ---
   useEffect(() => {
@@ -180,7 +228,38 @@ export const RequestList: React.FC = () => {
     if (currentPage > totalPages) {
       setCurrentPage(totalPages);
     }
-  }, [filteredRequests.length, totalPages, currentPage]);
+  }, [sortedRequests.length, totalPages, currentPage]);
+
+  // Sorting Handler
+  const handleSort = (key: string) => {
+    setSortConfig(current => ({
+        key,
+        direction: current.key === key && current.direction === 'desc' ? 'asc' : 'desc'
+    }));
+  };
+
+  // Helper for Table Headers
+  const SortableHeader: React.FC<{ label: string; sortKey: string; className?: string }> = ({ label, sortKey, className = "" }) => {
+    const isActive = sortConfig.key === sortKey;
+    return (
+        <th 
+            className={`px-3 md:px-6 py-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors select-none group ${className}`}
+            onClick={() => handleSort(sortKey)}
+        >
+            <div className="flex items-center gap-1">
+                {label}
+                <span className="text-gray-400">
+                    {isActive ? (
+                        sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3 text-primary-500" /> : <ArrowDown className="h-3 w-3 text-primary-500" />
+                    ) : (
+                        <ArrowUpDown className="h-3 w-3 opacity-0 group-hover:opacity-50" />
+                    )}
+                </span>
+            </div>
+        </th>
+    );
+  };
+
 
   const toggleSelection = (id: string) => {
     const newSelected = new Set(selectedIds);
@@ -268,7 +347,7 @@ export const RequestList: React.FC = () => {
 
   // --- CSV EXPORT LOGIC (SECURITY FIXED) ---
   const exportToCSV = () => {
-    if (filteredRequests.length === 0) {
+    if (sortedRequests.length === 0) {
       showToast('Não há dados para exportar.', 'info');
       return;
     }
@@ -286,7 +365,7 @@ export const RequestList: React.FC = () => {
 
     const headers = ['ID', 'Título', 'Status', 'Prioridade', 'Data Criação', 'Unidade', 'Solicitante', 'Responsável'];
     
-    const rows = filteredRequests.map(req => {
+    const rows = sortedRequests.map(req => {
       const unitName = units.find(u => u.id === req.unitId)?.name || 'N/A';
       const creatorName = users.find(u => u.id === req.creatorId)?.name || 'N/A';
       const assigneeName = users.find(u => u.id === req.assigneeId)?.name || 'Não atribuído';
@@ -699,12 +778,12 @@ export const RequestList: React.FC = () => {
                       <label htmlFor="checkbox-all" className="sr-only">checkbox</label>
                     </div>
                   </th>
-                  <th className="px-3 md:px-6 py-3">ID / Título</th>
-                  <th className="px-3 md:px-6 py-3 hidden md:table-cell">Unidade</th>
-                  <th className="px-3 md:px-6 py-3 hidden lg:table-cell">Responsável</th>
-                  <th className="px-3 md:px-6 py-3">Status</th>
-                  <th className="px-3 md:px-6 py-3 hidden md:table-cell">Prioridade</th>
-                  <th className="px-3 md:px-6 py-3 hidden xl:table-cell">Atualizado</th>
+                  <SortableHeader label="ID / Título" sortKey="title" />
+                  <SortableHeader label="Unidade" sortKey="unitName" className="hidden md:table-cell" />
+                  <SortableHeader label="Responsável" sortKey="assigneeName" className="hidden lg:table-cell" />
+                  <SortableHeader label="Status" sortKey="status" />
+                  <SortableHeader label="Prioridade" sortKey="priority" className="hidden md:table-cell" />
+                  <SortableHeader label="Atualizado" sortKey="updatedAt" className="hidden xl:table-cell" />
                   <th className="px-3 md:px-6 py-3">Ação</th>
                 </tr>
               </thead>
@@ -826,7 +905,7 @@ export const RequestList: React.FC = () => {
               <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
                 <div>
                   <p className="text-sm text-gray-700 dark:text-gray-400">
-                    Mostrando <span className="font-medium text-gray-900 dark:text-white">{indexOfFirstItem + 1}</span> até <span className="font-medium text-gray-900 dark:text-white">{Math.min(indexOfLastItem, filteredRequests.length)}</span> de <span className="font-medium text-gray-900 dark:text-white">{filteredRequests.length}</span> resultados
+                    Mostrando <span className="font-medium text-gray-900 dark:text-white">{indexOfFirstItem + 1}</span> até <span className="font-medium text-gray-900 dark:text-white">{Math.min(indexOfLastItem, sortedRequests.length)}</span> de <span className="font-medium text-gray-900 dark:text-white">{sortedRequests.length}</span> resultados
                   </p>
                 </div>
                 <div>
