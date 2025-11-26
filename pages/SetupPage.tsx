@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { useData } from '../contexts/DataContext';
+import { useToast } from '../contexts/ToastContext';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { ShieldCheck, Building2, User, Rocket, Settings, AlertTriangle, Cloud } from 'lucide-react';
 
 export const SetupPage: React.FC = () => {
-  const { setupSystem, isDbConnected } = useData();
+  const { setupSystem, isDbConnected, enableDemoMode } = useData();
+  const { showToast } = useToast();
   const [step, setStep] = useState(1);
   
   // Data for setup
@@ -13,6 +15,9 @@ export const SetupPage: React.FC = () => {
   const [adminName, setAdminName] = useState('');
   const [adminEmail, setAdminEmail] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
+
+  // Demo Mode Trigger
+  const [clickCount, setClickCount] = useState(0);
 
   const handleFinish = (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,12 +29,26 @@ export const SetupPage: React.FC = () => {
     });
   };
 
+  const handleIconClick = () => {
+    const newCount = clickCount + 1;
+    setClickCount(newCount);
+    
+    if (newCount >= 5) {
+        enableDemoMode();
+        showToast('Modo Demo Ativado! Login: admin@demo.com / 123', 'success');
+    }
+  };
+
   // MODO: FALTA CONFIGURAÇÃO (Variáveis de Ambiente não encontradas)
   if (!isDbConnected) {
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center justify-center p-4">
             <div className="w-full max-w-2xl text-center animate-fade-in">
-                 <div className="inline-flex items-center justify-center h-20 w-20 rounded-full bg-amber-100 text-amber-600 mb-6 shadow-lg shadow-amber-500/20">
+                 <div 
+                    onClick={handleIconClick}
+                    className="inline-flex items-center justify-center h-20 w-20 rounded-full bg-amber-100 text-amber-600 mb-6 shadow-lg shadow-amber-500/20 cursor-pointer hover:scale-105 active:scale-95 transition-transform select-none"
+                    title="Clique 5 vezes para modo Demo"
+                 >
                     <Settings className="h-10 w-10" />
                  </div>
                  <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-3">Configuração Pendente</h1>

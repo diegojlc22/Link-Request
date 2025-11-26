@@ -19,6 +19,7 @@ interface DataContextType {
   comments: Comment[];
   isSetupDone: boolean;
   setupSystem: (data: SetupData) => void;
+  enableDemoMode: () => void;
   isDbConnected: boolean;
   isLoading: boolean;
   addRequest: (req: Omit<RequestTicket, 'id' | 'createdAt' | 'updatedAt' | 'viewedByAssignee'>) => void;
@@ -199,6 +200,25 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setCompanies([newCompany]); setUnits([newUnit]); setUsers([newAdmin]); setIsSetupDone(true);
   }, [isDbConnected]);
 
+  const enableDemoMode = useCallback(() => {
+    const demoCompany: Company = { id: 'c-demo', name: 'Empresa Demo', domain: 'demo.com', logoUrl: '' };
+    const demoUnit: Unit = { id: 'u-demo', companyId: 'c-demo', name: 'Matriz Demo', location: 'Demo City, DC' };
+    const demoAdmin: User = {
+        id: 'admin-demo', companyId: 'c-demo', name: 'Admin Demo', email: 'admin@demo.com',
+        password: '123', role: UserRole.ADMIN,
+        avatarUrl: `https://ui-avatars.com/api/?name=Admin+Demo&background=random`
+    };
+    
+    setCompanies([demoCompany]);
+    setUnits([demoUnit]);
+    setUsers([demoAdmin]);
+    setRequests([]); // Start empty for demo
+    
+    setIsDbConnected(true); // Mock connection
+    setIsSetupDone(true); // Mock setup done
+    setIsLoading(false);
+  }, []);
+
   const addRequest = useCallback((req: Omit<RequestTicket, 'id' | 'createdAt' | 'updatedAt' | 'viewedByAssignee'>) => {
     const newRequest: RequestTicket = {
       ...req,
@@ -324,13 +344,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isDbConnected, isLoading, isSetupDone,
     addRequest, updateRequestStatus, updateRequest, bulkUpdateRequestStatus, deleteRequest, addComment,
     addUnit, addUser, updateUserPassword, updateUser, updateCompany, deleteUnit, deleteUser,
-    getRequestsByUnit, getRequestsByCompany, getCommentsByRequest, setupSystem
+    getRequestsByUnit, getRequestsByCompany, getCommentsByRequest, setupSystem, enableDemoMode
   }), [
     companies, units, users, sortedRequests, sortedComments,
     isDbConnected, isLoading, isSetupDone,
     addRequest, updateRequestStatus, updateRequest, bulkUpdateRequestStatus, deleteRequest, addComment,
     addUnit, addUser, updateUserPassword, updateUser, updateCompany, deleteUnit, deleteUser,
-    getRequestsByUnit, getRequestsByCompany, getCommentsByRequest, setupSystem
+    getRequestsByUnit, getRequestsByCompany, getCommentsByRequest, setupSystem, enableDemoMode
   ]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
