@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useMemo, useCall
 import { Company, Unit, User, RequestTicket, Comment, UserRole, RequestStatus, FirebaseConfig } from '../types';
 import { formatISO } from 'date-fns';
 import { initFirebase, fbSet, fbUpdate, fbDelete, fbSubscribe, fbSubscribeRecent, fbUpdateMulti, isFirebaseInitialized } from '../services/firebaseService';
+import { useToast } from './ToastContext';
 
 interface SetupData {
   companyName: string;
@@ -18,18 +19,18 @@ interface DataContextType {
   requests: RequestTicket[];
   comments: Comment[];
   isSetupDone: boolean;
-  setupSystem: (data: SetupData) => void;
+  setupSystem: (data: SetupData) => Promise<void>;
   enableDemoMode: () => void;
   isDbConnected: boolean;
   isLoading: boolean;
-  addRequest: (req: Omit<RequestTicket, 'id' | 'createdAt' | 'updatedAt' | 'viewedByAssignee'>) => void;
+  addRequest: (req: Omit<RequestTicket, 'id' | 'createdAt' | 'updatedAt' | 'viewedByAssignee'>) => Promise<void>;
   updateRequestStatus: (id: string, status: RequestStatus) => void;
   updateRequest: (id: string, data: Partial<RequestTicket>) => void;
   bulkUpdateRequestStatus: (ids: string[], status: RequestStatus) => void;
   deleteRequest: (id: string) => void;
   addComment: (ticketId: string, userId: string, content: string) => void;
-  addUnit: (unit: Omit<Unit, 'id'>) => void;
-  addUser: (user: Omit<User, 'id'>) => void;
+  addUnit: (unit: Omit<Unit, 'id'>) => Promise<void>;
+  addUser: (user: Omit<User, 'id'>) => Promise<void>;
   updateUserPassword: (userId: string, newPassword: string) => void;
   updateUser: (userId: string, data: Partial<User>) => void;
   updateCompany: (id: string, data: Partial<Company>) => void;
@@ -63,6 +64,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [comments, setComments] = useState<Comment[]>([]);
   const [isDbConnected, setIsDbConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Utilizar o hook de toast diretamente aqui pode causar dependência circular se não tivermos cuidado,
+  // mas como o ToastProvider envolve o DataProvider no App.tsx, precisamos pegar o contexto de outra forma ou passar erros.
+  // Para simplificar e evitar erros de contexto undefined na inicialização, usaremos window.alert para falhas críticas de DB
+  // ou passaremos callbacks.
 
   const COMMENTS_LIMIT = 2000;
 
@@ -74,7 +80,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let unsubComments: () => void = () => {};
     let isMounted = true; 
 
-    // NÃO USAR ASYNC AQUI. Conectar listeners imediatamente.
     const startListeners = () => {
       const success = initFirebase();
       
@@ -151,7 +156,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // --- ACTIONS ---
 
-  const setupSystem = useCallback((data: SetupData) => {
+  const checkDb = () => {
+      if (!isFirebaseInitialized() && !initFirebase()) {
+          throw new Error("Banco de dados desconectado. Verifique as configurações (Environment Variables).");
+      }
+  };
+
+  const setupSystem = useCallback(async (data: SetupData) => {
     const newCompany: Company = { id: 'c1', name: sanitizeInput(data.companyName), domain: 'system.local', logoUrl: '' };
     const newUnit: Unit = { id: 'u1', companyId: 'c1', name: 'Matriz', location: 'Sede Principal' };
     const newAdmin: User = {
@@ -160,15 +171,17 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(sanitizeInput(data.adminName))}&background=random`
     };
 
-    if (isFirebaseInitialized()) {
-        fbSet('companies', newCompany.id, newCompany);
-        fbSet('units', newUnit.id, newUnit);
-        fbSet('users', newAdmin.id, newAdmin);
-    } else {
-        alert("Erro: Banco de dados não conectado.");
-        return;
+    try {
+        checkDb();
+        await fbSet('companies', newCompany.id, newCompany);
+        await fbSet('units', newUnit.id, newUnit);
+        await fbSet('users', newAdmin.id, newAdmin);
+        
+        // Se chegou aqui, salvou com sucesso. Atualiza estado local.
+        setCompanies([newCompany]); setUnits([newUnit]); setUsers([newAdmin]); setIsSetupDone(true);
+    } catch (e: any) {
+        alert("Erro fatal na configuração: " + e.message);
     }
-    setCompanies([newCompany]); setUnits([newUnit]); setUsers([newAdmin]); setIsSetupDone(true);
   }, []);
 
   const enableDemoMode = useCallback(() => {
@@ -190,7 +203,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(false);
   }, []);
 
-  const addRequest = useCallback((req: Omit<RequestTicket, 'id' | 'createdAt' | 'updatedAt' | 'viewedByAssignee'>) => {
+  const addRequest = useCallback(async (req: Omit<RequestTicket, 'id' | 'createdAt' | 'updatedAt' | 'viewedByAssignee'>) => {
     const newRequest: RequestTicket = {
       ...req,
       title: sanitizeInput(req.title),
@@ -203,17 +216,18 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       viewedByAssignee: false,
     };
     
-    // Optimistic Update
+    // 1. Atualização Otimista
     setRequests(prev => [newRequest, ...prev]);
 
-    // Check DB status directly to ensure write
-    if (isFirebaseInitialized()) {
-      fbSet('requests', newRequest.id, newRequest).catch(e => {
-        console.error("Firebase Add Request Failed", e);
-        // Optional: Rollback state here if needed
-      });
-    } else {
-        console.error("Firebase not initialized during addRequest");
+    // 2. Tentar Salvar no Banco
+    try {
+      checkDb();
+      await fbSet('requests', newRequest.id, newRequest);
+    } catch (e: any) {
+      console.error("Firebase Write Error:", e);
+      // 3. ROLLBACK se falhar (Remove o item da tela para não enganar o usuário)
+      setRequests(prev => prev.filter(r => r.id !== newRequest.id));
+      alert("ERRO AO SALVAR: Não foi possível conectar ao banco de dados. Sua requisição não foi salva.");
     }
   }, []);
 
@@ -247,9 +261,17 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const deleteRequest = useCallback((id: string) => {
+    const backup = requests.find(r => r.id === id);
     setRequests(prev => prev.filter(r => r.id !== id));
-    if (isFirebaseInitialized()) fbDelete('requests', id);
-  }, []);
+    
+    try {
+        checkDb();
+        fbDelete('requests', id);
+    } catch(e) {
+        if(backup) setRequests(prev => [...prev, backup]);
+        alert("Erro ao excluir. Verifique conexão.");
+    }
+  }, [requests]);
 
   const addComment = useCallback((ticketId: string, userId: string, content: string) => {
     const newComment: Comment = {
@@ -270,16 +292,30 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  const addUnit = useCallback((unit: Omit<Unit, 'id'>) => {
+  const addUnit = useCallback(async (unit: Omit<Unit, 'id'>) => {
     const newUnit = { ...unit, name: sanitizeInput(unit.name), location: sanitizeInput(unit.location), id: `u${Date.now()}` };
     setUnits(prev => [...prev, newUnit]);
-    if (isFirebaseInitialized()) fbSet('units', newUnit.id, newUnit);
+    
+    try {
+        checkDb();
+        await fbSet('units', newUnit.id, newUnit);
+    } catch (e) {
+        setUnits(prev => prev.filter(u => u.id !== newUnit.id));
+        alert("Erro ao salvar unidade. Verifique configuração do Firebase.");
+    }
   }, []);
 
-  const addUser = useCallback((user: Omit<User, 'id'>) => {
+  const addUser = useCallback(async (user: Omit<User, 'id'>) => {
     const newUser = { ...user, name: sanitizeInput(user.name), email: sanitizeInput(user.email), id: `user${Date.now()}` };
     setUsers(prev => [...prev, newUser]);
-    if (isFirebaseInitialized()) fbSet('users', newUser.id, newUser);
+    
+    try {
+        checkDb();
+        await fbSet('users', newUser.id, newUser);
+    } catch(e) {
+        setUsers(prev => prev.filter(u => u.id !== newUser.id));
+        alert("Erro ao salvar usuário. Verifique configuração do Firebase.");
+    }
   }, []);
 
   const updateUserPassword = useCallback((userId: string, pass: string) => {

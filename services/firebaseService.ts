@@ -12,7 +12,7 @@ const getEnvConfig = (): FirebaseConfig | null => {
     const env = (import.meta as any).env;
     if (!env) return null;
 
-    if (env.VITE_FIREBASE_API_KEY && env.VITE_FIREBASE_PROJECT_ID) {
+    if (env.VITE_FIREBASE_API_KEY) {
       return {
         apiKey: env.VITE_FIREBASE_API_KEY,
         authDomain: env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -29,7 +29,6 @@ const getEnvConfig = (): FirebaseConfig | null => {
   return null;
 };
 
-// Ler configuração de Storage
 const getStorageConfig = () => {
   try {
     const env = (import.meta as any).env;
@@ -53,7 +52,9 @@ const getStorageConfig = () => {
 
 export const initFirebase = (manualConfig?: FirebaseConfig): boolean => {
   try {
-    if (db) return true; // Já inicializado
+    // If we already have a DB connection, verifying it's actually live is hard without a read,
+    // but assuming the object exists is the first step.
+    if (db) return true;
 
     let config: FirebaseConfig | null = getEnvConfig();
 
@@ -62,10 +63,8 @@ export const initFirebase = (manualConfig?: FirebaseConfig): boolean => {
     }
 
     if (!config) {
-      const env = (import.meta as any).env;
-      if (env && env.DEV) {
-        console.warn("Firebase Init Skipped: Environment Variables missing.");
-      }
+      // Avoid console spam in development unless specifically debugging
+      // console.warn("Firebase Config missing"); 
       return false;
     }
 
@@ -157,8 +156,7 @@ export const fbSubscribeRecent = <T>(path: string, limit: number, callback: (dat
 
 export const fbSet = async (path: string, id: string, data: any) => {
   if (!db && !initFirebase()) {
-      console.error("Firebase not initialized in fbSet");
-      return;
+      throw new Error("Database not initialized");
   }
   try {
     await rtdb.set(rtdb.ref(db!, `${path}/${id}`), data);
