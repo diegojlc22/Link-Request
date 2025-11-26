@@ -64,9 +64,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isDbConnected, setIsDbConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Constants for Query Limits - CRITICAL FOR SCALABILITY
-  // Mantém o app leve mesmo com milhões de registros no banco
-  const REQUESTS_LIMIT = 500; 
+  // Constants for Query Limits
+  // Alterado: Removemos o limite das requests para garantir sincronização total em tempo real
   const COMMENTS_LIMIT = 2000;
 
   useEffect(() => {
@@ -125,11 +124,17 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
         });
 
-        // OTIMIZAÇÃO: Usar fbSubscribeRecent ao invés de baixar tudo
-        unsubRequests = fbSubscribeRecent<RequestTicket>('requests', REQUESTS_LIMIT, (data) => {
+        // CORREÇÃO DE SINCRONIZAÇÃO:
+        // Trocamos fbSubscribeRecent por fbSubscribe.
+        // O limitToLast pode causar problemas de sincronia entre clientes com horários diferentes
+        // ou quando a chave gerada não entra no intervalo da query do outro cliente.
+        // Ao usar fbSubscribe, garantimos que TODOS os clientes ouçam TODAS as mudanças na lista.
+        unsubRequests = fbSubscribe<RequestTicket>('requests', (data) => {
             if(isMounted && Array.isArray(data)) setRequests(data);
         });
 
+        // Comentários geralmente são muitos, mantemos o recent aqui se necessário, 
+        // mas requests precisam de consistência total.
         unsubComments = fbSubscribeRecent<Comment>('comments', COMMENTS_LIMIT, (data) => {
             if(isMounted && Array.isArray(data)) setComments(data);
         });
