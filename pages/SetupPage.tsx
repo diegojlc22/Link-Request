@@ -3,7 +3,7 @@ import { useData } from '../contexts/DataContext';
 import { useToast } from '../contexts/ToastContext';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
-import { ShieldCheck, Building2, User, Rocket, Settings, AlertTriangle, Cloud } from 'lucide-react';
+import { ShieldCheck, Building2, User, Rocket, Settings, AlertTriangle, Cloud, Image as ImageIcon } from 'lucide-react';
 
 export const SetupPage: React.FC = () => {
   const { setupSystem, isDbConnected, enableDemoMode } = useData();
@@ -43,7 +43,7 @@ export const SetupPage: React.FC = () => {
   if (!isDbConnected) {
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center justify-center p-4">
-            <div className="w-full max-w-2xl text-center animate-fade-in">
+            <div className="w-full max-w-4xl text-center animate-fade-in">
                  <div 
                     onClick={handleIconClick}
                     className="inline-flex items-center justify-center h-20 w-20 rounded-full bg-amber-100 text-amber-600 mb-6 shadow-lg shadow-amber-500/20 cursor-pointer hover:scale-105 active:scale-95 transition-transform select-none"
@@ -53,35 +53,65 @@ export const SetupPage: React.FC = () => {
                  </div>
                  <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-3">Configuração Pendente</h1>
                  <p className="text-lg text-gray-600 dark:text-gray-300 mb-8 max-w-lg mx-auto">
-                    O sistema precisa ser conectado ao Firebase através das <strong>Variáveis de Ambiente</strong> da sua hospedagem.
+                    O sistema precisa ser conectado aos serviços externos através das <strong>Variáveis de Ambiente</strong> da sua hospedagem.
                  </p>
                  
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
                     <Card className="border-t-4 border-t-orange-500">
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
-                                <Cloud className="h-5 w-5 text-orange-500" /> Cloudflare Pages
+                                <Cloud className="h-5 w-5 text-orange-500" /> 1. Firebase (Banco de Dados)
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="text-sm text-gray-600 dark:text-gray-400 space-y-3">
-                            <p>1. Acesse seu painel Cloudflare &gt; Workers & Pages.</p>
-                            <p>2. Selecione este projeto &gt; <strong>Settings</strong>.</p>
-                            <p>3. Vá em <strong>Environment variables</strong>.</p>
-                            <p>4. Adicione as chaves <code>VITE_FIREBASE_API_KEY</code>, etc.</p>
+                            <p>Configure as chaves do Firebase Authentication e Realtime Database.</p>
+                            <div className="bg-gray-100 dark:bg-gray-800 p-3 rounded font-mono text-xs overflow-x-auto space-y-1">
+                                <div className="text-gray-500 mb-2">Variáveis Obrigatórias:</div>
+                                <div className="text-orange-600 dark:text-orange-400">VITE_FIREBASE_API_KEY</div>
+                                <div className="text-orange-600 dark:text-orange-400">VITE_FIREBASE_AUTH_DOMAIN</div>
+                                <div className="text-orange-600 dark:text-orange-400">VITE_FIREBASE_PROJECT_ID</div>
+                                <div className="text-orange-600 dark:text-orange-400">VITE_FIREBASE_DATABASE_URL</div>
+                                <div className="text-gray-400">+ as outras chaves do SDK</div>
+                            </div>
                         </CardContent>
                     </Card>
 
-                    <Card className="border-t-4 border-t-black dark:border-t-white">
+                    <Card className="border-t-4 border-t-blue-500">
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
-                                <TriangleIcon className="h-5 w-5" /> Vercel / Netlify
+                                <ImageIcon className="h-5 w-5 text-blue-500" /> 2. Cloudinary (Imagens)
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="text-sm text-gray-600 dark:text-gray-400 space-y-3">
-                            <p>1. Acesse o Dashboard do projeto.</p>
-                            <p>2. Vá em <strong>Settings</strong> &gt; <strong>Environment Variables</strong>.</p>
-                            <p>3. Adicione as variáveis do Firebase copiadas do console.</p>
-                            <p>4. Faça um <strong>Re-deploy</strong> para aplicar.</p>
+                            <p>Para habilitar o upload de anexos, crie uma conta no Cloudinary e adicione:</p>
+                            <div className="bg-gray-100 dark:bg-gray-800 p-3 rounded font-mono text-xs overflow-x-auto space-y-2">
+                                <div>
+                                    <span className="text-blue-600 dark:text-blue-400 block font-bold">VITE_CLOUDINARY_CLOUD_NAME</span>
+                                    <span className="text-gray-500 text-[10px]">Nome da sua nuvem (Dashboard)</span>
+                                </div>
+                                <div>
+                                    <span className="text-blue-600 dark:text-blue-400 block font-bold">VITE_CLOUDINARY_UPLOAD_PRESET</span>
+                                    <span className="text-gray-500 text-[10px]">Deve ser um preset <strong>Unsigned</strong></span>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="border-t-4 border-t-gray-800 dark:border-t-gray-400 md:col-span-2">
+                         <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <Rocket className="h-5 w-5" /> Onde Configurar?
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="grid md:grid-cols-2 gap-4 text-sm text-gray-600 dark:text-gray-400">
+                            <div>
+                                <strong className="block text-gray-900 dark:text-white mb-1">Cloudflare Pages</strong>
+                                <p>Settings &gt; Environment variables</p>
+                            </div>
+                            <div>
+                                <strong className="block text-gray-900 dark:text-white mb-1">Vercel / Netlify</strong>
+                                <p>Settings &gt; Environment Variables</p>
+                            </div>
                         </CardContent>
                     </Card>
                  </div>
@@ -90,9 +120,8 @@ export const SetupPage: React.FC = () => {
                     <p className="text-sm text-blue-800 dark:text-blue-300 flex gap-2">
                         <AlertTriangle className="h-5 w-5 flex-shrink-0" />
                         <span>
-                            <strong>Dica:</strong> Após configurar as variáveis no painel da hospedagem, 
-                            você precisa aguardar o novo build ou forçar um novo deploy para que o sistema as reconheça.
-                            Atualize esta página após o processo.
+                            <strong>Nota:</strong> Após adicionar as variáveis no painel da sua hospedagem, 
+                            você precisa <strong>fazer um novo deploy</strong> (Retry Deployment) para que o sistema reconheça as chaves.
                         </span>
                     </p>
                  </div>
