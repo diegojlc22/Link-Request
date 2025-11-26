@@ -44,7 +44,7 @@ Para que o sistema funcione, você deve configurar as credenciais do Firebase na
 
 **IMPORTANTE:** Você deve criar **uma variável para cada linha** da tabela abaixo. Não cole tudo junto.
 
-### 📋 Tabela de Preenchimento
+### 📋 Tabela de Preenchimento (Firebase)
 
 No painel do Firebase (Project Settings > General > SDK Setup), pegue os valores e cadastre assim na hospedagem:
 
@@ -57,6 +57,15 @@ No painel do Firebase (Project Settings > General > SDK Setup), pegue os valores
 | `VITE_FIREBASE_MESSAGING_SENDER_ID` | `123456789` (messagingSenderId) |
 | `VITE_FIREBASE_APP_ID` | `1:123456:web:abcd...` (appId) |
 | `VITE_FIREBASE_DATABASE_URL` | `https://projeto...firebasedatabase.app` (databaseURL) |
+
+### ☁️ Tabela de Preenchimento (Cloudinary - Armazenamento de Imagens)
+
+Para habilitar upload de imagens (recomendado), configure o Cloudinary:
+
+| Nome da Variável | Valor | Descrição |
+| :--- | :--- | :--- |
+| `VITE_CLOUDINARY_CLOUD_NAME` | `demo123` | Seu "Cloud Name" no dashboard do Cloudinary |
+| `VITE_CLOUDINARY_UPLOAD_PRESET` | `meu_preset` | **IMPORTANTE:** Deve ser um preset **Unsigned** |
 
 ### 🟧 Cloudflare Pages (Passo a Passo)
 
@@ -91,6 +100,7 @@ No painel do Firebase (Project Settings > General > SDK Setup), pegue os valores
 Para rodar em sua máquina, crie um arquivo chamado `.env` na raiz do projeto e cole o conteúdo abaixo, substituindo os valores:
 
 ```bash
+# Firebase Config
 VITE_FIREBASE_API_KEY=AIzaSy...
 VITE_FIREBASE_AUTH_DOMAIN=projeto.firebaseapp.com
 VITE_FIREBASE_PROJECT_ID=projeto-id
@@ -98,6 +108,10 @@ VITE_FIREBASE_STORAGE_BUCKET=projeto.firebasestorage.app
 VITE_FIREBASE_MESSAGING_SENDER_ID=123456
 VITE_FIREBASE_APP_ID=1:12345:web:abc
 VITE_FIREBASE_DATABASE_URL=https://projeto-default-rtdb.firebaseio.com
+
+# Cloudinary Config
+VITE_CLOUDINARY_CLOUD_NAME=seu_cloud_name
+VITE_CLOUDINARY_UPLOAD_PRESET=seu_unsigned_preset
 ```
 
 Depois rode:

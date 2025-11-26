@@ -1,11 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { Building, Save, Cloud, Loader2, CheckCircle2, XCircle, HelpCircle, ExternalLink, Image as ImageIcon } from 'lucide-react';
+import { Building, Save, Cloud, Loader2, CheckCircle2, XCircle, HelpCircle, ExternalLink, Image as ImageIcon, Lock } from 'lucide-react';
 
 export const AdminCompany: React.FC = () => {
   const { companies, updateCompany } = useData();
@@ -22,6 +21,7 @@ export const AdminCompany: React.FC = () => {
     cloudName: '',
     uploadPreset: ''
   });
+  const [isEnvConfigured, setIsEnvConfigured] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<'idle' | 'success' | 'error'>('idle');
   const [showTutorial, setShowTutorial] = useState(false);
@@ -31,14 +31,24 @@ export const AdminCompany: React.FC = () => {
       setName(company.name);
     }
     
-    // Load storage config
-    try {
-      const stored = localStorage.getItem('link_req_storage_config');
-      if (stored) {
-        setStorageConfig(JSON.parse(stored));
-      }
-    } catch (e) {
-      // ignore
+    // Check Environment Variables first
+    const env = (import.meta as any).env;
+    if (env && env.VITE_CLOUDINARY_CLOUD_NAME && env.VITE_CLOUDINARY_UPLOAD_PRESET) {
+        setIsEnvConfigured(true);
+        setStorageConfig({
+            cloudName: env.VITE_CLOUDINARY_CLOUD_NAME,
+            uploadPreset: env.VITE_CLOUDINARY_UPLOAD_PRESET
+        });
+    } else {
+        // Fallback to Local Storage
+        try {
+          const stored = localStorage.getItem('link_req_storage_config');
+          if (stored) {
+            setStorageConfig(JSON.parse(stored));
+          }
+        } catch (e) {
+          // ignore
+        }
     }
   }, [company]);
 
@@ -52,6 +62,8 @@ export const AdminCompany: React.FC = () => {
 
   const handleSaveStorage = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isEnvConfigured) return; // Prevent saving if managed by Env
+
     if (storageConfig.cloudName && storageConfig.uploadPreset) {
       localStorage.setItem('link_req_storage_config', JSON.stringify(storageConfig));
       showToast('Configuração de armazenamento salva!', 'success');
@@ -65,7 +77,7 @@ export const AdminCompany: React.FC = () => {
 
   const handleTestStorage = async () => {
     if (!storageConfig.cloudName || !storageConfig.uploadPreset) {
-        showToast('Preencha os campos Cloud Name e Upload Preset antes de testar.', 'warning');
+        showToast('Configuração incompleta. Preencha os campos ou configure as variáveis de ambiente.', 'warning');
         return;
     }
 
@@ -168,24 +180,31 @@ export const AdminCompany: React.FC = () => {
                  <CardTitle className="flex items-center gap-2">
                     <Cloud className="h-5 w-5 text-blue-500" /> Armazenamento de Imagens
                  </CardTitle>
-                 <Button 
-                    type="button" 
-                    variant="ghost" 
-                    size="sm" 
-                    onClick={() => setShowTutorial(!showTutorial)}
-                    className="text-primary-600"
-                 >
-                    <HelpCircle className="h-4 w-4 mr-2" />
-                    {showTutorial ? 'Esconder Ajuda' : 'Como Configurar?'}
-                 </Button>
+                 {isEnvConfigured ? (
+                    <div className="flex items-center gap-2 px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full text-xs font-medium border border-green-200 dark:border-green-800">
+                        <Lock className="h-3 w-3" />
+                        Configurado via ENV
+                    </div>
+                 ) : (
+                     <Button 
+                        type="button" 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => setShowTutorial(!showTutorial)}
+                        className="text-primary-600"
+                     >
+                        <HelpCircle className="h-4 w-4 mr-2" />
+                        {showTutorial ? 'Esconder Ajuda' : 'Como Configurar?'}
+                     </Button>
+                 )}
              </div>
         </CardHeader>
 
-        {showTutorial && (
+        {showTutorial && !isEnvConfigured && (
             <div className="bg-blue-50/50 dark:bg-blue-900/10 p-6 border-b border-blue-100 dark:border-blue-800 animate-fade-in text-sm text-gray-700 dark:text-gray-300 space-y-4">
                 <div>
                     <h4 className="font-semibold text-blue-800 dark:text-blue-300 flex items-center gap-2 mb-2">
-                        <CheckCircle2 className="h-4 w-4" /> Passo 1: Configurar (Corrigir Erro 400)
+                        <CheckCircle2 className="h-4 w-4" /> Passo 1: Configurar Cloudinary
                     </h4>
                     <ol className="list-decimal list-inside space-y-2 ml-2">
                         <li>
@@ -195,26 +214,9 @@ export const AdminCompany: React.FC = () => {
                             Role até <strong>"Upload presets"</strong> e clique em "Add upload preset".
                         </li>
                         <li>
-                            <span className="bg-yellow-100 text-yellow-800 px-1 rounded font-bold">IMPORTANTE:</span> Mude o <strong>"Signing Mode"</strong> para <strong className="text-red-600 dark:text-red-400">"Unsigned"</strong>. Se deixar como Signed, dará Erro 400.
-                        </li>
-                        <li>
-                            Copie o nome do preset criado (ex: <code>ml_default</code>) e cole no campo abaixo.
+                            <span className="bg-yellow-100 text-yellow-800 px-1 rounded font-bold">IMPORTANTE:</span> Mude o <strong>"Signing Mode"</strong> para <strong className="text-red-600 dark:text-red-400">"Unsigned"</strong>.
                         </li>
                     </ol>
-                </div>
-                
-                <div className="pt-2 border-t border-blue-200 dark:border-blue-700 mt-2">
-                    <h4 className="font-semibold text-blue-800 dark:text-blue-300 flex items-center gap-2 mb-2">
-                        <ImageIcon className="h-4 w-4" /> Passo 2: Como saber se funcionou?
-                    </h4>
-                    <ul className="list-disc list-inside space-y-2 ml-2">
-                        <li>
-                            Clique no botão <strong>"Testar Conexão"</strong> abaixo. Se ficar <span className="text-green-600 font-bold">Verde</span>, o sistema conseguiu enviar.
-                        </li>
-                        <li>
-                            Para ver a imagem enviada, vá no Cloudinary e clique em <strong>"Media Library"</strong> no menu esquerdo. Você verá um quadrado pequeno (pixel transparente) criado agora.
-                        </li>
-                    </ul>
                 </div>
             </div>
         )}
@@ -222,6 +224,13 @@ export const AdminCompany: React.FC = () => {
         <CardContent className="pt-6">
              <form onSubmit={handleSaveStorage} className="space-y-6">
                 
+                {isEnvConfigured && (
+                    <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-400 mb-4">
+                        As credenciais do Cloudinary foram definidas globalmente pelas Variáveis de Ambiente do servidor. 
+                        A edição manual está desabilitada para garantir a consistência.
+                    </div>
+                )}
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -229,11 +238,12 @@ export const AdminCompany: React.FC = () => {
                         </label>
                         <input 
                             placeholder="Ex: demo123" 
-                            className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 dark:border-gray-600 text-sm font-mono"
+                            className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 dark:border-gray-600 text-sm font-mono ${isEnvConfigured ? 'opacity-60 cursor-not-allowed bg-gray-50 dark:bg-gray-800' : ''}`}
                             value={storageConfig.cloudName}
                             onChange={e => setStorageConfig({...storageConfig, cloudName: e.target.value})}
+                            disabled={isEnvConfigured}
                         />
-                        <p className="text-xs text-gray-500 mt-1">Nome da sua nuvem no Dashboard.</p>
+                        {!isEnvConfigured && <p className="text-xs text-gray-500 mt-1">Nome da sua nuvem no Dashboard.</p>}
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -241,11 +251,12 @@ export const AdminCompany: React.FC = () => {
                         </label>
                         <input 
                             placeholder="Ex: meu_preset_unsigned" 
-                            className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 dark:border-gray-600 text-sm font-mono"
+                            className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 dark:border-gray-600 text-sm font-mono ${isEnvConfigured ? 'opacity-60 cursor-not-allowed bg-gray-50 dark:bg-gray-800' : ''}`}
                             value={storageConfig.uploadPreset}
                             onChange={e => setStorageConfig({...storageConfig, uploadPreset: e.target.value})}
+                            disabled={isEnvConfigured}
                         />
-                        <p className="text-xs text-gray-500 mt-1">Deve estar configurado como "Unsigned" no Cloudinary.</p>
+                        {!isEnvConfigured && <p className="text-xs text-gray-500 mt-1">Deve estar configurado como "Unsigned" no Cloudinary.</p>}
                     </div>
                 </div>
 
@@ -266,10 +277,7 @@ export const AdminCompany: React.FC = () => {
                     <div>
                         <p className="font-bold">Falha na Conexão (Erro 400 ou similar)</p>
                         <p className="text-xs opacity-90 mt-1">
-                            Provavelmente o <strong>Preset não é Unsigned</strong>. 
-                            <button type="button" onClick={() => setShowTutorial(true)} className="underline ml-1 font-bold hover:text-red-900">
-                                Ver como corrigir
-                            </button>
+                            Provavelmente o <strong>Preset não é Unsigned</strong> ou as chaves estão incorretas.
                         </p>
                     </div>
                   </div>
@@ -290,9 +298,11 @@ export const AdminCompany: React.FC = () => {
                         )}
                         {isTesting ? 'Verificando...' : 'Testar Conexão'}
                     </Button>
-                    <Button type="submit" className="w-full sm:w-auto">
-                        <Save className="h-4 w-4 mr-2" /> Salvar Configuração
-                    </Button>
+                    {!isEnvConfigured && (
+                        <Button type="submit" className="w-full sm:w-auto">
+                            <Save className="h-4 w-4 mr-2" /> Salvar Configuração
+                        </Button>
+                    )}
                 </div>
              </form>
         </CardContent>

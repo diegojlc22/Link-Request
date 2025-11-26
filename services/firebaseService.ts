@@ -32,11 +32,28 @@ const getEnvConfig = (): FirebaseConfig | null => {
   return null;
 };
 
-// Ler configuração de Storage (Cloudinary)
+// Ler configuração de Storage (Prioridade: ENV > LocalStorage)
 const getStorageConfig = () => {
   try {
+    const env = (import.meta as any).env;
+    
+    // 1. Tenta pegar das Variáveis de Ambiente (Recomendado)
+    if (env && env.VITE_CLOUDINARY_CLOUD_NAME && env.VITE_CLOUDINARY_UPLOAD_PRESET) {
+      return {
+        cloudName: env.VITE_CLOUDINARY_CLOUD_NAME,
+        uploadPreset: env.VITE_CLOUDINARY_UPLOAD_PRESET,
+        source: 'env'
+      };
+    }
+
+    // 2. Fallback para LocalStorage (Legado/Manual)
     const local = localStorage.getItem('link_req_storage_config');
-    return local ? JSON.parse(local) : null;
+    if (local) {
+      const parsed = JSON.parse(local);
+      return { ...parsed, source: 'local' };
+    }
+    
+    return null;
   } catch (e) {
     return null;
   }
