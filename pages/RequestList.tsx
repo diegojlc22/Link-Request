@@ -17,7 +17,7 @@ import { Modal } from '../components/ui/Modal';
 import { fbUploadImage } from '../services/firebaseService';
 
 export const RequestList: React.FC = () => {
-  const { requests, units, addRequest, users, bulkUpdateRequestStatus, updateRequestStatus, deleteRequest } = useData();
+  const { requests, units, addRequest, users, bulkUpdateRequestStatus, updateRequestStatus, deleteRequest, updateRequest } = useData();
   const { currentUser, isAdmin, isLeader } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
@@ -203,6 +203,13 @@ export const RequestList: React.FC = () => {
   const handleDeleteClick = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     setRequestToDelete(id);
+  };
+
+  const handleAssignUser = (e: React.ChangeEvent<HTMLSelectElement>, requestId: string) => {
+    e.stopPropagation();
+    const userId = e.target.value;
+    updateRequest(requestId, { assigneeId: userId || undefined });
+    showToast('Responsável atualizado com sucesso.', 'success');
   };
 
   const confirmDelete = () => {
@@ -676,7 +683,22 @@ export const RequestList: React.FC = () => {
                           </div>
                         </td>
                         <td className="px-3 md:px-6 py-4 hidden md:table-cell">{unitName}</td>
-                        <td className="px-3 md:px-6 py-4 hidden lg:table-cell text-gray-900 dark:text-gray-300">{assigneeName}</td>
+                        <td className="px-3 md:px-6 py-4 hidden lg:table-cell text-gray-900 dark:text-gray-300" onClick={(e) => e.stopPropagation()}>
+                           {canManageStatus ? (
+                              <select
+                                value={req.assigneeId || ''}
+                                onChange={(e) => handleAssignUser(e, req.id)}
+                                className="bg-transparent text-sm border-gray-300 dark:border-gray-600 rounded-md focus:ring-primary-500 focus:border-primary-500 py-1 pl-1 pr-6 max-w-[150px] truncate"
+                              >
+                                <option value="">Não atribuído</option>
+                                {users.map(u => (
+                                  <option key={u.id} value={u.id}>{u.name}</option>
+                                ))}
+                              </select>
+                           ) : (
+                              assigneeName
+                           )}
+                        </td>
                         <td className="px-3 md:px-6 py-4">
                           <StatusBadge status={req.status} />
                         </td>
@@ -847,11 +869,24 @@ export const RequestList: React.FC = () => {
                             {req.title}
                          </h4>
                          <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-50 dark:border-gray-700/50">
-                            <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+                            <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400" onClick={(e) => e.stopPropagation()}>
                                <div className="w-5 h-5 rounded-full bg-gray-200 overflow-hidden">
                                   <img src={users.find(u => u.id === req.assigneeId)?.avatarUrl || 'https://ui-avatars.com/api/?name=?'} alt="" />
                                </div>
-                               <span className="max-w-[80px] truncate">{users.find(u => u.id === req.assigneeId)?.name || 'Sem resp.'}</span>
+                               {canManageStatus ? (
+                                  <select
+                                    value={req.assigneeId || ''}
+                                    onChange={(e) => handleAssignUser(e, req.id)}
+                                    className="bg-transparent border-none p-0 text-xs focus:ring-0 max-w-[100px] truncate text-gray-600 dark:text-gray-400 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                                  >
+                                    <option value="">Sem resp.</option>
+                                    {users.map(u => (
+                                      <option key={u.id} value={u.id}>{u.name}</option>
+                                    ))}
+                                  </select>
+                               ) : (
+                                  <span className="max-w-[80px] truncate">{users.find(u => u.id === req.assigneeId)?.name || 'Sem resp.'}</span>
+                               )}
                             </div>
                             <span className="text-[10px] text-gray-400">
                                {new Date(req.updatedAt).toLocaleDateString(undefined, {month:'short', day:'numeric'})}
