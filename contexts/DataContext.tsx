@@ -54,6 +54,18 @@ const sanitizeInput = (str: string): string => {
     .trim();
 };
 
+// FIREBASE FIX: Convert undefined to null to prevent SDK crash
+const sanitizeForFirebase = (data: any) => {
+  if (!data || typeof data !== 'object') return data;
+  const clean = { ...data };
+  Object.keys(clean).forEach(key => {
+    if (clean[key] === undefined) {
+      clean[key] = null;
+    }
+  });
+  return clean;
+};
+
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isSetupDone, setIsSetupDone] = useState<boolean>(true);
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -188,9 +200,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     try {
         checkDb();
-        await fbSet('companies', newCompany.id, newCompany);
-        await fbSet('units', newUnit.id, newUnit);
-        await fbSet('users', newAdmin.id, newAdmin);
+        await fbSet('companies', newCompany.id, sanitizeForFirebase(newCompany));
+        await fbSet('units', newUnit.id, sanitizeForFirebase(newUnit));
+        await fbSet('users', newAdmin.id, sanitizeForFirebase(newAdmin));
         
         setCompanies([newCompany]); setUnits([newUnit]); setUsers([newAdmin]); setIsSetupDone(true);
     } catch (e: any) {
@@ -238,7 +250,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!isDemo) {
         try {
           checkDb();
-          await fbSet('requests', newRequest.id, newRequest);
+          await fbSet('requests', newRequest.id, sanitizeForFirebase(newRequest));
         } catch (e: any) {
           console.error("Firebase Write Error:", e);
           // 3. Rollback if fail
@@ -261,7 +273,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (sanitized.description) sanitized.description = sanitizeInput(sanitized.description);
     
     setRequests(prev => prev.map(r => r.id === id ? { ...r, ...sanitized } : r));
-    if (isFirebaseInitialized() && !isDemo) fbUpdate('requests', id, sanitized);
+    if (isFirebaseInitialized() && !isDemo) fbUpdate('requests', id, sanitizeForFirebase(sanitized));
   }, [isDemo]);
 
   const bulkUpdateRequestStatus = useCallback((ids: string[], status: RequestStatus) => {
@@ -307,7 +319,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (isFirebaseInitialized() && !isDemo) {
       try {
-        await fbSet('comments', newComment.id, newComment);
+        await fbSet('comments', newComment.id, sanitizeForFirebase(newComment));
         await fbUpdate('requests', ticketId, { updatedAt });
       } catch (e: any) {
          setComments(prev => prev.filter(c => c.id !== newComment.id));
@@ -323,7 +335,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if(!isDemo) {
         try {
             checkDb();
-            await fbSet('units', newUnit.id, newUnit);
+            await fbSet('units', newUnit.id, sanitizeForFirebase(newUnit));
         } catch (e: any) {
             setUnits(prev => prev.filter(u => u.id !== newUnit.id));
             alert(`Erro ao salvar unidade: ${getErrorMessage(e)}`);
@@ -338,7 +350,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if(!isDemo) {
         try {
             checkDb();
-            await fbSet('users', newUser.id, newUser);
+            await fbSet('users', newUser.id, sanitizeForFirebase(newUser));
         } catch(e: any) {
             setUsers(prev => prev.filter(u => u.id !== newUser.id));
             alert(`Erro ao salvar usuário: ${getErrorMessage(e)}`);
@@ -356,14 +368,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (sanitized.name) sanitized.name = sanitizeInput(sanitized.name);
     if (sanitized.email) sanitized.email = sanitizeInput(sanitized.email);
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, ...sanitized } : u));
-    if (isFirebaseInitialized() && !isDemo) fbUpdate('users', userId, sanitized);
+    if (isFirebaseInitialized() && !isDemo) fbUpdate('users', userId, sanitizeForFirebase(sanitized));
   }, [isDemo]);
 
   const updateCompany = useCallback((id: string, data: Partial<Company>) => {
     const sanitized = { ...data };
     if (sanitized.name) sanitized.name = sanitizeInput(sanitized.name);
     setCompanies(prev => prev.map(c => c.id === id ? { ...c, ...sanitized } : c));
-    if (isFirebaseInitialized() && !isDemo) fbUpdate('companies', id, sanitized);
+    if (isFirebaseInitialized() && !isDemo) fbUpdate('companies', id, sanitizeForFirebase(sanitized));
   }, [isDemo]);
 
   const deleteUnit = useCallback((id: string) => {
