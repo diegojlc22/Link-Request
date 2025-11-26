@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 import { Company, Unit, User, RequestTicket, Comment, UserRole, RequestStatus, FirebaseConfig } from '../types';
 import { formatISO } from 'date-fns';
-import { initFirebase, fbSet, fbUpdate, fbDelete, fbSubscribe, fbSubscribeRecent, fbUpdateMulti } from '../services/firebaseService';
+import { initFirebase, fbSet, fbUpdate, fbDelete, fbSubscribe, fbSubscribeRecent, fbUpdateMulti, isFirebaseInitialized } from '../services/firebaseService';
 
 interface SetupData {
   companyName: string;
@@ -81,35 +81,25 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (success) {
         if(isMounted) setIsDbConnected(true);
 
-        // --- SUBSCRIPTIONS ---
-        // O onValue do Firebase dispara imediatamente com os dados iniciais.
-        // Não precisamos de "await fbGetAll", isso só atrasa a conexão.
-
         unsubUsers = fbSubscribe<User>('users', (data) => { 
             if(isMounted && data) {
                 setUsers(data);
-                // Lógica de Setup: Se não há usuários, o sistema não está configurado.
                 if (data.length === 0) {
                     setIsSetupDone(false);
                 } else {
                     setIsSetupDone(true);
                 }
-                setIsLoading(false); // Consideramos carregado assim que users chegam
+                setIsLoading(false);
             }
         });
 
         unsubCompanies = fbSubscribe<Company>('companies', (data) => isMounted && data && setCompanies(data));
-        
         unsubUnits = fbSubscribe<Unit>('units', (data) => isMounted && data && setUnits(data));
-
-        // Listener de Requests (Fundamental para o Admin ver atualizações em tempo real)
         unsubRequests = fbSubscribe<RequestTicket>('requests', (data) => {
             if(isMounted && Array.isArray(data)) {
                 setRequests(data);
             }
         });
-
-        // Comentários
         unsubComments = fbSubscribeRecent<Comment>('comments', COMMENTS_LIMIT, (data) => {
             if(isMounted && Array.isArray(data)) setComments(data);
         });
@@ -118,7 +108,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (isMounted) {
             setIsDbConnected(false);
             setIsLoading(false);
-            // Se falhar o init (falta de env vars), vai para setup manual ou erro
             setIsSetupDone(false);
         }
       }
@@ -128,7 +117,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return () => {
       isMounted = false;
-      // Cleanup seguro
       if (unsubCompanies) unsubCompanies();
       if (unsubUnits) unsubUnits();
       if (unsubUsers) unsubUsers();
@@ -172,7 +160,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(sanitizeInput(data.adminName))}&background=random`
     };
 
-    if (isDbConnected) {
+    if (isFirebaseInitialized()) {
         fbSet('companies', newCompany.id, newCompany);
         fbSet('units', newUnit.id, newUnit);
         fbSet('users', newAdmin.id, newAdmin);
@@ -180,9 +168,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         alert("Erro: Banco de dados não conectado.");
         return;
     }
-    // Otimistic update (mas o listener vai confirmar logo depois)
     setCompanies([newCompany]); setUnits([newUnit]); setUsers([newAdmin]); setIsSetupDone(true);
-  }, [isDbConnected]);
+  }, []);
 
   const enableDemoMode = useCallback(() => {
     const demoCompany: Company = { id: 'c-demo', name: 'Empresa Demo', domain: 'demo.com', logoUrl: '' };
@@ -216,19 +203,25 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       viewedByAssignee: false,
     };
     
-    // Otimistic
+    // Optimistic Update
     setRequests(prev => [newRequest, ...prev]);
 
-    if (isDbConnected) {
-      fbSet('requests', newRequest.id, newRequest).catch(e => console.error("Firebase Add Request Failed", e));
+    // Check DB status directly to ensure write
+    if (isFirebaseInitialized()) {
+      fbSet('requests', newRequest.id, newRequest).catch(e => {
+        console.error("Firebase Add Request Failed", e);
+        // Optional: Rollback state here if needed
+      });
+    } else {
+        console.error("Firebase not initialized during addRequest");
     }
-  }, [isDbConnected]);
+  }, []);
 
   const updateRequestStatus = useCallback((id: string, status: RequestStatus) => {
     const updatedAt = formatISO(new Date());
     setRequests(prev => prev.map(r => r.id === id ? { ...r, status, updatedAt } : r));
-    if (isDbConnected) fbUpdate('requests', id, { status, updatedAt });
-  }, [isDbConnected]);
+    if (isFirebaseInitialized()) fbUpdate('requests', id, { status, updatedAt });
+  }, []);
 
   const updateRequest = useCallback((id: string, data: Partial<RequestTicket>) => {
     const updatedAt = formatISO(new Date());
@@ -237,13 +230,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (sanitized.description) sanitized.description = sanitizeInput(sanitized.description);
     
     setRequests(prev => prev.map(r => r.id === id ? { ...r, ...sanitized } : r));
-    if (isDbConnected) fbUpdate('requests', id, sanitized);
-  }, [isDbConnected]);
+    if (isFirebaseInitialized()) fbUpdate('requests', id, sanitized);
+  }, []);
 
   const bulkUpdateRequestStatus = useCallback((ids: string[], status: RequestStatus) => {
     const updatedAt = formatISO(new Date());
     setRequests(prev => prev.map(r => ids.includes(r.id) ? { ...r, status, updatedAt } : r));
-    if (isDbConnected) {
+    if (isFirebaseInitialized()) {
       const updates: Record<string, any> = {};
       ids.forEach(id => {
         updates[`requests/${id}/status`] = status;
@@ -251,12 +244,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       fbUpdateMulti(updates);
     }
-  }, [isDbConnected]);
+  }, []);
 
   const deleteRequest = useCallback((id: string) => {
     setRequests(prev => prev.filter(r => r.id !== id));
-    if (isDbConnected) fbDelete('requests', id);
-  }, [isDbConnected]);
+    if (isFirebaseInitialized()) fbDelete('requests', id);
+  }, []);
 
   const addComment = useCallback((ticketId: string, userId: string, content: string) => {
     const newComment: Comment = {
@@ -271,53 +264,53 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setComments(prev => [...prev, newComment]);
     setRequests(prev => prev.map(r => r.id === ticketId ? { ...r, updatedAt } : r));
 
-    if (isDbConnected) {
+    if (isFirebaseInitialized()) {
       fbSet('comments', newComment.id, newComment);
       fbUpdate('requests', ticketId, { updatedAt });
     }
-  }, [isDbConnected]);
+  }, []);
 
   const addUnit = useCallback((unit: Omit<Unit, 'id'>) => {
     const newUnit = { ...unit, name: sanitizeInput(unit.name), location: sanitizeInput(unit.location), id: `u${Date.now()}` };
     setUnits(prev => [...prev, newUnit]);
-    if (isDbConnected) fbSet('units', newUnit.id, newUnit);
-  }, [isDbConnected]);
+    if (isFirebaseInitialized()) fbSet('units', newUnit.id, newUnit);
+  }, []);
 
   const addUser = useCallback((user: Omit<User, 'id'>) => {
     const newUser = { ...user, name: sanitizeInput(user.name), email: sanitizeInput(user.email), id: `user${Date.now()}` };
     setUsers(prev => [...prev, newUser]);
-    if (isDbConnected) fbSet('users', newUser.id, newUser);
-  }, [isDbConnected]);
+    if (isFirebaseInitialized()) fbSet('users', newUser.id, newUser);
+  }, []);
 
   const updateUserPassword = useCallback((userId: string, pass: string) => {
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, password: pass } : u));
-    if (isDbConnected) fbUpdate('users', userId, { password: pass });
-  }, [isDbConnected]);
+    if (isFirebaseInitialized()) fbUpdate('users', userId, { password: pass });
+  }, []);
 
   const updateUser = useCallback((userId: string, data: Partial<User>) => {
     const sanitized = { ...data };
     if (sanitized.name) sanitized.name = sanitizeInput(sanitized.name);
     if (sanitized.email) sanitized.email = sanitizeInput(sanitized.email);
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, ...sanitized } : u));
-    if (isDbConnected) fbUpdate('users', userId, sanitized);
-  }, [isDbConnected]);
+    if (isFirebaseInitialized()) fbUpdate('users', userId, sanitized);
+  }, []);
 
   const updateCompany = useCallback((id: string, data: Partial<Company>) => {
     const sanitized = { ...data };
     if (sanitized.name) sanitized.name = sanitizeInput(sanitized.name);
     setCompanies(prev => prev.map(c => c.id === id ? { ...c, ...sanitized } : c));
-    if (isDbConnected) fbUpdate('companies', id, sanitized);
-  }, [isDbConnected]);
+    if (isFirebaseInitialized()) fbUpdate('companies', id, sanitized);
+  }, []);
 
   const deleteUnit = useCallback((id: string) => {
     setUnits(prev => prev.filter(u => u.id !== id));
-    if (isDbConnected) fbDelete('units', id);
-  }, [isDbConnected]);
+    if (isFirebaseInitialized()) fbDelete('units', id);
+  }, []);
 
   const deleteUser = useCallback((id: string) => {
     setUsers(prev => prev.filter(u => u.id !== id));
-    if (isDbConnected) fbDelete('users', id);
-  }, [isDbConnected]);
+    if (isFirebaseInitialized()) fbDelete('users', id);
+  }, []);
 
   const getRequestsByUnit = useCallback((unitId: string) => sortedRequests.filter(r => r.unitId === unitId), [sortedRequests]);
   const getRequestsByCompany = useCallback((companyId: string) => sortedRequests.filter(r => r.companyId === companyId), [sortedRequests]);
