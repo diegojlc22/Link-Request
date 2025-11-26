@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 import { Company, Unit, User, RequestTicket, Comment, UserRole, RequestStatus, FirebaseConfig } from '../types';
 import { formatISO } from 'date-fns';
-import { initFirebase, fbSet, fbUpdate, fbDelete, fbSubscribe, fbSubscribeRecent, fbUpdateMulti, fbGetAll } from '../services/firebaseService';
+import { initFirebase, fbSet, fbUpdate, fbDelete, fbSubscribe, fbSubscribeRecent, fbUpdateMulti } from '../services/firebaseService';
 
 interface SetupData {
   companyName: string;
@@ -50,7 +50,7 @@ const sanitizeInput = (str: string): string => {
     .replace(/>/g, "&gt;")
     .replace(/script/gi, "")
     .replace(/javascript:/gi, "")
-    .replace(/on\w+=/gi, "") // remove event handlers like onclick=
+    .replace(/on\w+=/gi, "")
     .trim();
 };
 
@@ -64,8 +64,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isDbConnected, setIsDbConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Constants for Query Limits
-  // Alterado: Removemos o limite das requests para garantir sincronização total em tempo real
   const COMMENTS_LIMIT = 2000;
 
   useEffect(() => {
@@ -74,67 +72,44 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let unsubUsers: () => void = () => {};
     let unsubRequests: () => void = () => {};
     let unsubComments: () => void = () => {};
-    let isMounted = true; // MEMORY LEAK FIX
+    let isMounted = true; 
 
-    const initDb = async () => {
+    // NÃO USAR ASYNC AQUI. Conectar listeners imediatamente.
+    const startListeners = () => {
       const success = initFirebase();
       
       if (success) {
         if(isMounted) setIsDbConnected(true);
-        try {
-          // Check if system is setup by fetching users only (lightweight)
-          const initialUsers = await fbGetAll<User>('users');
-          
-          if (!isMounted) return;
 
-          if (initialUsers.length === 0) {
-            setIsSetupDone(false);
-            setIsLoading(false);
-          } else {
-            setIsSetupDone(true);
-            setUsers(initialUsers);
-            
-            // Fetch initial chunks for others
-            const [initCos, initUnits] = await Promise.all([
-                fbGetAll<Company>('companies'),
-                fbGetAll<Unit>('units')
-            ]);
-            
-            if (isMounted) {
-                setCompanies(initCos);
-                setUnits(initUnits);
-                setIsLoading(false);
-            }
-          }
-        } catch (err) {
-          console.error("Error fetching initial data:", err);
-          if (isMounted) {
-            setIsSetupDone(true); // Fallback to avoid lockout
-            setIsLoading(false);
-          }
-        }
+        // --- SUBSCRIPTIONS ---
+        // O onValue do Firebase dispara imediatamente com os dados iniciais.
+        // Não precisamos de "await fbGetAll", isso só atrasa a conexão.
 
-        // Subscriptions
-        unsubCompanies = fbSubscribe<Company>('companies', (data) => isMounted && data && setCompanies(data));
-        unsubUnits = fbSubscribe<Unit>('units', (data) => isMounted && data && setUnits(data));
         unsubUsers = fbSubscribe<User>('users', (data) => { 
             if(isMounted && data) {
                 setUsers(data);
-                if(data.length > 0) setIsSetupDone(true);
+                // Lógica de Setup: Se não há usuários, o sistema não está configurado.
+                if (data.length === 0) {
+                    setIsSetupDone(false);
+                } else {
+                    setIsSetupDone(true);
+                }
+                setIsLoading(false); // Consideramos carregado assim que users chegam
             }
         });
 
-        // CORREÇÃO DE SINCRONIZAÇÃO:
-        // Trocamos fbSubscribeRecent por fbSubscribe.
-        // O limitToLast pode causar problemas de sincronia entre clientes com horários diferentes
-        // ou quando a chave gerada não entra no intervalo da query do outro cliente.
-        // Ao usar fbSubscribe, garantimos que TODOS os clientes ouçam TODAS as mudanças na lista.
+        unsubCompanies = fbSubscribe<Company>('companies', (data) => isMounted && data && setCompanies(data));
+        
+        unsubUnits = fbSubscribe<Unit>('units', (data) => isMounted && data && setUnits(data));
+
+        // Listener de Requests (Fundamental para o Admin ver atualizações em tempo real)
         unsubRequests = fbSubscribe<RequestTicket>('requests', (data) => {
-            if(isMounted && Array.isArray(data)) setRequests(data);
+            if(isMounted && Array.isArray(data)) {
+                setRequests(data);
+            }
         });
 
-        // Comentários geralmente são muitos, mantemos o recent aqui se necessário, 
-        // mas requests precisam de consistência total.
+        // Comentários
         unsubComments = fbSubscribeRecent<Comment>('comments', COMMENTS_LIMIT, (data) => {
             if(isMounted && Array.isArray(data)) setComments(data);
         });
@@ -143,20 +118,24 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (isMounted) {
             setIsDbConnected(false);
             setIsLoading(false);
+            // Se falhar o init (falta de env vars), vai para setup manual ou erro
             setIsSetupDone(false);
         }
       }
     };
 
-    initDb();
+    startListeners();
 
     return () => {
-      isMounted = false; // Cleanup
-      if (isDbConnected) {
-        unsubCompanies(); unsubUnits(); unsubUsers(); unsubRequests(); unsubComments();
-      }
+      isMounted = false;
+      // Cleanup seguro
+      if (unsubCompanies) unsubCompanies();
+      if (unsubUnits) unsubUnits();
+      if (unsubUsers) unsubUsers();
+      if (unsubRequests) unsubRequests();
+      if (unsubComments) unsubComments();
     };
-  }, []); // Run once on mount
+  }, []); 
 
   useEffect(() => {
     if (companies.length > 0 && companies[0].name) {
@@ -164,10 +143,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [companies]);
 
-  // Memoized Sort to prevent calculation on every render
+  // Memoized Sort
   const sortedRequests = useMemo(() => {
     return [...requests].sort((a, b) => {
-        // Safe date parsing
         const getTime = (dateStr?: string) => {
              if(!dateStr) return 0;
              const t = new Date(dateStr).getTime();
@@ -183,7 +161,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return [...comments].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
   }, [comments]);
 
-  // --- ACTIONS (Mantidas idênticas, apenas encapsulamento de erros) ---
+  // --- ACTIONS ---
 
   const setupSystem = useCallback((data: SetupData) => {
     const newCompany: Company = { id: 'c1', name: sanitizeInput(data.companyName), domain: 'system.local', logoUrl: '' };
@@ -202,6 +180,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         alert("Erro: Banco de dados não conectado.");
         return;
     }
+    // Otimistic update (mas o listener vai confirmar logo depois)
     setCompanies([newCompany]); setUnits([newUnit]); setUsers([newAdmin]); setIsSetupDone(true);
   }, [isDbConnected]);
 
@@ -217,10 +196,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setCompanies([demoCompany]);
     setUnits([demoUnit]);
     setUsers([demoAdmin]);
-    setRequests([]); // Start empty for demo
+    setRequests([]); 
     
-    setIsDbConnected(true); // Mock connection
-    setIsSetupDone(true); // Mock setup done
+    setIsDbConnected(true); 
+    setIsSetupDone(true);
     setIsLoading(false);
   }, []);
 
@@ -230,14 +209,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       title: sanitizeInput(req.title),
       description: sanitizeInput(req.description),
       productUrl: sanitizeInput(req.productUrl || ''),
-      id: `r${Date.now()}`, // Timestamp garante ordenação natural pelo ID/Key no Firebase
+      id: `r${Date.now()}`,
       createdAt: formatISO(new Date()),
       updatedAt: formatISO(new Date()),
       attachments: req.attachments || [],
       viewedByAssignee: false,
     };
     
-    // Optimistic Update
+    // Otimistic
     setRequests(prev => [newRequest, ...prev]);
 
     if (isDbConnected) {
