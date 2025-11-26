@@ -6,23 +6,20 @@ import { FirebaseConfig } from '../types';
 let app: FirebaseApp | undefined;
 let db: rtdb.Database | undefined;
 
-// --- CONFIGURAÇÃO ---
-// PREENCHA AQUI PARA CONFIGURAR UMA VEZ SÓ (MODO FIXO)
-// Ao preencher estes dados, o sistema funcionará em qualquer dispositivo sem pedir configuração.
+// --- CONFIGURAÇÃO FIXA ---
+// Este valor pode ser preenchido manualmente ou gerado via SetupPage (Instalação Definitiva)
 const FIXED_CONFIG: FirebaseConfig | null = {
-  apiKey: "",             // Cole sua API Key aqui
-  authDomain: "",         // Cole seu Auth Domain
-  databaseURL: "",        // Cole sua Database URL
-  projectId: "",          // Cole seu Project ID
-  storageBucket: "",      // Cole seu Storage Bucket
-  messagingSenderId: "",  // Cole seu Messaging Sender ID
-  appId: ""               // Cole seu App ID
+  apiKey: "",
+  authDomain: "",
+  databaseURL: "",
+  projectId: "",
+  storageBucket: "",
+  messagingSenderId: "",
+  appId: ""
 };
 
 const getEnvConfig = (): FirebaseConfig | null => {
-  // Se o usuário preencheu o FIXED_CONFIG no código, usa ele com prioridade máxima
   if (FIXED_CONFIG && FIXED_CONFIG.apiKey !== "") {
-    console.log("Using FIXED_CONFIG from code.");
     return FIXED_CONFIG;
   }
 
@@ -72,7 +69,6 @@ export const initFirebase = (manualConfig?: FirebaseConfig): boolean => {
 
     if (getApps().length === 0) {
       app = initializeApp(config);
-      console.log("Firebase App Initialized.");
     } else {
       app = getApp();
     }
@@ -186,19 +182,14 @@ export const fbDelete = async (path: string, id: string) => {
 };
 
 // --- UPLOAD HÍBRIDO INTELIGENTE ---
-// Tenta Cloudinary > Se falhar ou não tiver config, usa Base64 (Banco Local)
-
 export const fbUploadImage = async (base64String: string, fileName: string): Promise<string> => {
   const storageConfig = getStorageConfig();
 
-  // 1. TENTATIVA CLOUDINARY (Se configurado)
   if (storageConfig && storageConfig.cloudName && storageConfig.uploadPreset) {
     try {
       const formData = new FormData();
       formData.append("file", base64String);
       formData.append("upload_preset", storageConfig.uploadPreset);
-      // Opcional: folder
-      // formData.append("folder", "link_requests");
 
       const response = await fetch(
         `https://api.cloudinary.com/v1_1/${storageConfig.cloudName}/image/upload`, 
@@ -211,20 +202,13 @@ export const fbUploadImage = async (base64String: string, fileName: string): Pro
       const data = await response.json();
 
       if (data.secure_url) {
-        console.log("Upload Cloudinary Sucesso");
         return data.secure_url;
-      } else {
-        console.error("Erro Cloudinary:", data);
-        // Não lança erro, deixa cair no fallback
       }
     } catch (error) {
       console.error("Falha na conexão com Cloudinary. Usando fallback local.", error);
     }
   }
 
-  // 2. FALLBACK: BANCO DE DADOS LOCAL (BASE64)
-  // Se não tem nuvem ou a nuvem falhou, salva a string da imagem direto no banco.
-  // Isso garante que o usuário nunca fique travado, mas aumenta o peso do banco.
-  console.warn("Usando armazenamento local (Base64) para imagem.");
+  // Fallback
   return base64String;
 };
