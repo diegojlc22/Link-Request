@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useData } from '../contexts/DataContext';
@@ -8,7 +7,57 @@ import { RequestStatus, RequestAttachment } from '../types';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { StatusBadge, PriorityBadge } from '../components/ui/Badge';
-import { ArrowLeft, Send, Paperclip, User as UserIcon, ExternalLink, ShoppingBag, Download, ZoomIn, FileText, X, Edit2, Save, ChevronLeft, ChevronRight, Info } from 'lucide-react';
+import { ArrowLeft, Send, Paperclip, User as UserIcon, ExternalLink, ShoppingBag, Download, ZoomIn, FileText, X, Edit2, Save, ChevronLeft, ChevronRight, Info, Loader2 } from 'lucide-react';
+
+// Sub-component for handling image lazy loading and state
+const AttachmentThumbnail: React.FC<{ 
+  att: RequestAttachment; 
+  onClick: () => void; 
+  isImage: (url: string) => boolean; 
+}> = ({ att, onClick, isImage }) => {
+  const [isLoaded, setIsLoaded] = useState(false);
+  const isImg = isImage(att.url);
+
+  if (!isImg) {
+    return (
+         <a 
+           href={att.url} 
+           target="_blank" 
+           rel="noopener noreferrer"
+           className="w-full h-full flex flex-col items-center justify-center p-4 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-center"
+         >
+           <FileText className="h-10 w-10 text-gray-400 mb-2" />
+           <span className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate w-full">
+             {att.name}
+           </span>
+         </a>
+    );
+  }
+
+  return (
+     <div 
+       className="w-full h-full cursor-pointer relative bg-gray-100 dark:bg-gray-800"
+       onClick={onClick}
+     >
+       {!isLoaded && (
+         <div className="absolute inset-0 flex items-center justify-center z-0">
+            <Loader2 className="h-6 w-6 text-gray-300 animate-spin" />
+         </div>
+       )}
+       <img 
+         src={att.url} 
+         alt={att.name} 
+         className={`w-full h-full object-cover transition-all duration-500 relative z-10 ${isLoaded ? 'opacity-100' : 'opacity-0'} group-hover:scale-110`}
+         loading="lazy"
+         decoding="async"
+         onLoad={() => setIsLoaded(true)}
+       />
+       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100 z-20">
+          <ZoomIn className="text-white h-8 w-8 drop-shadow-md" />
+       </div>
+     </div>
+  );
+};
 
 export const RequestDetail: React.FC = () => {
   const { id } = useParams();
@@ -262,44 +311,18 @@ export const RequestDetail: React.FC = () => {
                      <Paperclip className="h-4 w-4" /> Anexos
                    </h3>
                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                     {request.attachments.map(att => {
-                       const isImg = isImage(att.url);
-                       return (
-                         <div 
-                           key={att.id} 
-                           className="relative group rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 aspect-[4/3]"
-                         >
-                           {isImg ? (
-                             <div 
-                               className="w-full h-full cursor-pointer"
-                               onClick={() => setViewingAttachment(att)}
-                             >
-                               <img 
-                                 src={att.url} 
-                                 alt={att.name} 
-                                 className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-                                 loading="lazy"
-                               />
-                               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-                                  <ZoomIn className="text-white h-8 w-8 drop-shadow-md" />
-                               </div>
-                             </div>
-                           ) : (
-                             <a 
-                               href={att.url} 
-                               target="_blank" 
-                               rel="noopener noreferrer"
-                               className="w-full h-full flex flex-col items-center justify-center p-4 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-center"
-                             >
-                               <FileText className="h-10 w-10 text-gray-400 mb-2" />
-                               <span className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate w-full">
-                                 {att.name}
-                               </span>
-                             </a>
-                           )}
-                         </div>
-                       );
-                     })}
+                     {request.attachments.map(att => (
+                       <div 
+                         key={att.id} 
+                         className="relative group rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 aspect-[4/3]"
+                       >
+                         <AttachmentThumbnail 
+                           att={att} 
+                           onClick={() => setViewingAttachment(att)} 
+                           isImage={isImage}
+                         />
+                       </div>
+                     ))}
                    </div>
                  </div>
                )}
