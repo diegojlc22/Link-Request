@@ -11,7 +11,7 @@ import {
   Plus, Search, Link as LinkIcon, Image as ImageIcon, X, 
   ChevronLeft, ChevronRight, Trash2,
   LayoutGrid, List as ListIcon, FileSpreadsheet, Calendar, AlertTriangle, Loader2,
-  ListFilter
+  ListFilter, FilterX, Clock
 } from 'lucide-react';
 import { Modal } from '../components/ui/Modal';
 import { fbUploadImage } from '../services/firebaseService';
@@ -72,6 +72,17 @@ export const RequestList: React.FC = () => {
     }, 300);
     return () => clearTimeout(timer);
   }, [searchTerm]);
+
+  // Check if any filter is active
+  const hasActiveFilters = useMemo(() => {
+    return (
+      debouncedSearchTerm !== '' ||
+      statusFilter !== 'ALL' ||
+      assigneeFilter !== 'ALL' ||
+      startDate !== '' ||
+      endDate !== ''
+    );
+  }, [debouncedSearchTerm, statusFilter, assigneeFilter, startDate, endDate]);
 
   // --- FILTERING LOGIC ---
   const filteredRequests = useMemo(() => {
@@ -218,6 +229,41 @@ export const RequestList: React.FC = () => {
         showToast('Requisição excluída com sucesso.', 'success');
         setRequestToDelete(null);
     }
+  };
+
+  // --- DATE FILTER UTILS ---
+  const applyDatePreset = (preset: string) => {
+    const today = new Date();
+    let start = new Date();
+    let end = new Date();
+
+    if (preset === 'today') {
+      // Start and end are today
+    } else if (preset === '7days') {
+      start.setDate(today.getDate() - 7);
+    } else if (preset === '30days') {
+      start.setDate(today.getDate() - 30);
+    } else if (preset === 'thisMonth') {
+      start = new Date(today.getFullYear(), today.getMonth(), 1);
+    } else if (preset === 'lastMonth') {
+      start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+      end = new Date(today.getFullYear(), today.getMonth(), 0);
+    } else {
+      return; // Custom or unknown
+    }
+
+    setStartDate(start.toISOString().split('T')[0]);
+    setEndDate(end.toISOString().split('T')[0]);
+  };
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setDebouncedSearchTerm('');
+    setStatusFilter('ALL');
+    setAssigneeFilter('ALL');
+    setStartDate('');
+    setEndDate('');
+    showToast('Filtros limpos.', 'info');
   };
 
   // --- CSV EXPORT LOGIC (SECURITY FIXED) ---
@@ -500,46 +546,57 @@ export const RequestList: React.FC = () => {
         {/* Filters Wrapper */}
         <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto justify-start xl:justify-end">
             
-            {/* Date Filters */}
-            <div className="flex items-center gap-2 p-1 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-               <Calendar className="h-4 w-4 text-gray-400 ml-2" />
-               <select
-                  value={dateType}
-                  onChange={(e) => setDateType(e.target.value as 'created' | 'updated')}
-                  className="bg-transparent text-sm border-none focus:ring-0 text-gray-600 dark:text-gray-300 py-1"
-               >
-                 <option value="created">Criado</option>
-                 <option value="updated">Atualizado</option>
-               </select>
-               <input 
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-xs focus:ring-1 focus:ring-primary-500"
-                  title="Data Inicial"
-               />
-               <span className="text-gray-400">-</span>
-               <input 
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-xs focus:ring-1 focus:ring-primary-500"
-                  title="Data Final"
-               />
-               {(startDate || endDate) && (
-                 <button onClick={() => { setStartDate(''); setEndDate(''); }} className="p-1 hover:text-red-500 text-gray-400">
-                    <X className="h-3 w-3" />
-                 </button>
-               )}
-            </div>
+            {/* Improved Date Filters */}
+            <div className="flex items-center gap-1 p-1 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+               <div className="flex items-center pl-2 pr-1 border-r border-gray-200 dark:border-gray-700">
+                   <Clock className="h-4 w-4 text-gray-400 mr-1" />
+                   <select
+                      onChange={(e) => {
+                          if (e.target.value) applyDatePreset(e.target.value);
+                      }}
+                      className="bg-transparent text-sm border-none focus:ring-0 text-gray-600 dark:text-gray-300 py-1 pr-6 cursor-pointer"
+                      defaultValue=""
+                   >
+                     <option value="" disabled>Período...</option>
+                     <option value="today">Hoje</option>
+                     <option value="7days">Últimos 7 dias</option>
+                     <option value="30days">Últimos 30 dias</option>
+                     <option value="thisMonth">Este Mês</option>
+                     <option value="lastMonth">Mês Passado</option>
+                   </select>
+               </div>
+               
+               <div className="flex items-center gap-1 px-1">
+                 <select
+                    value={dateType}
+                    onChange={(e) => setDateType(e.target.value as 'created' | 'updated')}
+                    className="bg-transparent text-xs border-none focus:ring-0 text-gray-500 dark:text-gray-400 py-1 pr-4 hidden sm:block"
+                 >
+                   <option value="created">Criado em</option>
+                   <option value="updated">Atualiz.</option>
+                 </select>
 
-            <div className="h-6 w-px bg-gray-300 dark:bg-gray-600 mx-1 hidden xl:block"></div>
+                 <input 
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-xs focus:ring-1 focus:ring-primary-500 w-[110px]"
+                 />
+                 <span className="text-gray-400 text-xs">até</span>
+                 <input 
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-xs focus:ring-1 focus:ring-primary-500 w-[110px]"
+                 />
+               </div>
+            </div>
 
             {/* Standard Filters */}
             <select
               value={assigneeFilter}
               onChange={(e) => setAssigneeFilter(e.target.value)}
-              className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary-500"
+              className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary-500 max-w-[150px]"
             >
               <option value="ALL">Resp: Todos</option>
               <option value="UNASSIGNED">Não Atribuído</option>
@@ -558,26 +615,37 @@ export const RequestList: React.FC = () => {
                 <option key={s} value={s}>{s}</option>
               ))}
             </select>
-            
-            <div className="h-6 w-px bg-gray-300 dark:bg-gray-600 mx-1 hidden md:block"></div>
 
-            {/* Pagination Size Selector - NEW */}
-            <div className="flex items-center gap-2">
+            {/* Clear Filters Button (Conditional) */}
+            {hasActiveFilters && (
+                <button
+                    onClick={clearFilters}
+                    className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800 transition-colors"
+                    title="Limpar todos os filtros"
+                >
+                    <FilterX className="h-4 w-4" />
+                </button>
+            )}
+            
+            <div className="h-6 w-px bg-gray-300 dark:bg-gray-600 mx-1 hidden lg:block"></div>
+
+            {/* Pagination Size Selector */}
+            <div className="flex items-center gap-2 hidden lg:flex">
               <div className="relative">
                 <ListFilter className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
                 <select
                   value={itemsPerPage}
                   onChange={(e) => {
                     setItemsPerPage(Number(e.target.value));
-                    setCurrentPage(1); // Reset to first page
+                    setCurrentPage(1);
                   }}
-                  className="pl-8 pr-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary-500 appearance-none min-w-[130px]"
+                  className="pl-8 pr-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary-500 appearance-none"
                   title="Itens por página"
                 >
-                  <option value={10}>10 por pág.</option>
-                  <option value={20}>20 por pág.</option>
-                  <option value={50}>50 por pág.</option>
-                  <option value={100}>100 por pág.</option>
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
                 </select>
               </div>
             </div>
