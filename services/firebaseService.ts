@@ -52,8 +52,6 @@ const getStorageConfig = () => {
 
 export const initFirebase = (manualConfig?: FirebaseConfig): boolean => {
   try {
-    // If we already have a DB connection, verifying it's actually live is hard without a read,
-    // but assuming the object exists is the first step.
     if (db) return true;
 
     let config: FirebaseConfig | null = getEnvConfig();
@@ -63,8 +61,6 @@ export const initFirebase = (manualConfig?: FirebaseConfig): boolean => {
     }
 
     if (!config) {
-      // Avoid console spam in development unless specifically debugging
-      // console.warn("Firebase Config missing"); 
       return false;
     }
 
@@ -86,6 +82,24 @@ export const initFirebase = (manualConfig?: FirebaseConfig): boolean => {
 };
 
 export const isFirebaseInitialized = () => !!db;
+
+// New: Monitor connection status
+export const fbMonitorConnection = (callback: (connected: boolean) => void) => {
+    if (!db && !initFirebase()) return () => {};
+    try {
+        const connectedRef = rtdb.ref(db!, '.info/connected');
+        return rtdb.onValue(connectedRef, (snap) => {
+            if (snap.val() === true) {
+                callback(true);
+            } else {
+                callback(false);
+            }
+        });
+    } catch (e) {
+        console.error("Monitor connection failed", e);
+        return () => {};
+    }
+};
 
 const normalizeData = <T>(val: any): T[] => {
   if (!val) return [];
@@ -159,6 +173,7 @@ export const fbSet = async (path: string, id: string, data: any) => {
       throw new Error("Database not initialized");
   }
   try {
+    // We await this, which for standard web SDK waits for server ack usually, or local persistence.
     await rtdb.set(rtdb.ref(db!, `${path}/${id}`), data);
   } catch (error) {
     console.error(`Error setting doc in ${path}:`, error);

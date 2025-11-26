@@ -9,7 +9,9 @@ import {
   Sun, 
   Moon,
   Bell,
-  Briefcase
+  Briefcase,
+  Wifi,
+  WifiOff
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -22,7 +24,7 @@ interface LayoutProps {
 
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { currentUser, logout, isAdmin } = useAuth();
-  const { companies, requests, units } = useData();
+  const { companies, requests, units, isDbConnected } = useData();
   const { showToast } = useToast();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isDark, setIsDark] = useState(false);
@@ -30,12 +32,11 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Notification Logic: Watch for new requests (Real-time)
+  // Notification Logic
   const previousRequestsRef = useRef<Set<string>>(new Set());
   const isFirstLoad = useRef(true);
 
   useEffect(() => {
-    // If it's the first load, just populate the ref and don't notify
     if (isFirstLoad.current) {
       if (requests.length > 0) {
         requests.forEach(r => previousRequestsRef.current.add(r.id));
@@ -44,15 +45,12 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       return;
     }
 
-    // Check for new IDs
     if (isAdmin) {
       requests.forEach(req => {
         if (!previousRequestsRef.current.has(req.id)) {
-          // Verify if it's actually recent (created in the last minute) 
-          // to avoid alerts from old data syncing late
           const createdTime = new Date(req.createdAt).getTime();
           const now = Date.now();
-          const isRecent = (now - createdTime) < 60000; // 1 minute
+          const isRecent = (now - createdTime) < 60000;
 
           if (isRecent) {
              const unit = units.find(u => u.id === req.unitId);
@@ -64,13 +62,11 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         }
       });
     } else {
-      // For non-admins, just keep the ref updated to avoid stale state logic
       requests.forEach(r => previousRequestsRef.current.add(r.id));
     }
   }, [requests, isAdmin, showToast, units]);
 
 
-  // Get Current Company (Mock: first one or user's company)
   const currentCompany = companies.find(c => c.id === currentUser?.companyId) || companies[0];
   const companyName = currentCompany?.name || 'Link-Request';
   const companyLogoLetter = companyName.charAt(0).toUpperCase();
@@ -209,8 +205,12 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             <Menu className="h-6 w-6" />
           </button>
 
-          <div className="flex-1 px-4">
-             {/* Breadcrumb placeholder or search */}
+          <div className="flex-1 px-4 flex items-center">
+             {/* Connection Status Indicator */}
+             <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium transition-colors ${isDbConnected ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400'}`}>
+                {isDbConnected ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
+                <span className="hidden sm:inline">{isDbConnected ? 'Conectado' : 'Sem Conexão'}</span>
+             </div>
           </div>
 
           <div className="flex items-center gap-2">

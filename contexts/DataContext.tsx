@@ -1,8 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 import { Company, Unit, User, RequestTicket, Comment, UserRole, RequestStatus, FirebaseConfig } from '../types';
 import { formatISO } from 'date-fns';
-import { initFirebase, fbSet, fbUpdate, fbDelete, fbSubscribe, fbSubscribeRecent, fbUpdateMulti, isFirebaseInitialized } from '../services/firebaseService';
-import { useToast } from './ToastContext';
+import { initFirebase, fbSet, fbUpdate, fbDelete, fbSubscribe, fbSubscribeRecent, fbUpdateMulti, isFirebaseInitialized, fbMonitorConnection } from '../services/firebaseService';
 
 interface SetupData {
   companyName: string;
@@ -21,7 +20,7 @@ interface DataContextType {
   isSetupDone: boolean;
   setupSystem: (data: SetupData) => Promise<void>;
   enableDemoMode: () => void;
-  isDbConnected: boolean;
+  isDbConnected: boolean; // True if config exists and connection to server is ALIVE
   isLoading: boolean;
   addRequest: (req: Omit<RequestTicket, 'id' | 'createdAt' | 'updatedAt' | 'viewedByAssignee'>) => Promise<void>;
   updateRequestStatus: (id: string, status: RequestStatus) => void;
@@ -64,11 +63,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [comments, setComments] = useState<Comment[]>([]);
   const [isDbConnected, setIsDbConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  
-  // Utilizar o hook de toast diretamente aqui pode causar dependência circular se não tivermos cuidado,
-  // mas como o ToastProvider envolve o DataProvider no App.tsx, precisamos pegar o contexto de outra forma ou passar erros.
-  // Para simplificar e evitar erros de contexto undefined na inicialização, usaremos window.alert para falhas críticas de DB
-  // ou passaremos callbacks.
+  const [isDemo, setIsDemo] = useState(false);
 
   const COMMENTS_LIMIT = 2000;
 
@@ -78,18 +73,23 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let unsubUsers: () => void = () => {};
     let unsubRequests: () => void = () => {};
     let unsubComments: () => void = () => {};
+    let unsubConnection: () => void = () => {};
     let isMounted = true; 
 
     const startListeners = () => {
       const success = initFirebase();
       
       if (success) {
-        if(isMounted) setIsDbConnected(true);
+        // Start connection monitoring
+        unsubConnection = fbMonitorConnection((connected) => {
+            if (isMounted) setIsDbConnected(connected);
+        });
 
+        // Load Users first to check setup status
         unsubUsers = fbSubscribe<User>('users', (data) => { 
             if(isMounted && data) {
                 setUsers(data);
-                if (data.length === 0) {
+                if (data.length === 0 && !isDemo) {
                     setIsSetupDone(false);
                 } else {
                     setIsSetupDone(true);
@@ -118,7 +118,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
 
-    startListeners();
+    if (!isDemo) {
+        startListeners();
+    }
 
     return () => {
       isMounted = false;
@@ -127,8 +129,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (unsubUsers) unsubUsers();
       if (unsubRequests) unsubRequests();
       if (unsubComments) unsubComments();
+      if (unsubConnection) unsubConnection();
     };
-  }, []); 
+  }, [isDemo]); 
 
   useEffect(() => {
     if (companies.length > 0 && companies[0].name) {
@@ -157,8 +160,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // --- ACTIONS ---
 
   const checkDb = () => {
+      if (isDemo) return; // Demo mode never fails db check
       if (!isFirebaseInitialized() && !initFirebase()) {
-          throw new Error("Banco de dados desconectado. Verifique as configurações (Environment Variables).");
+          throw new Error("Banco de dados desconectado. Verifique as configurações.");
+      }
+      // Warn if initialized but offline
+      if (!isDbConnected && isFirebaseInitialized()) {
+          console.warn("Saving while offline...");
       }
   };
 
@@ -177,7 +185,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await fbSet('units', newUnit.id, newUnit);
         await fbSet('users', newAdmin.id, newAdmin);
         
-        // Se chegou aqui, salvou com sucesso. Atualiza estado local.
         setCompanies([newCompany]); setUnits([newUnit]); setUsers([newAdmin]); setIsSetupDone(true);
     } catch (e: any) {
         alert("Erro fatal na configuração: " + e.message);
@@ -185,6 +192,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const enableDemoMode = useCallback(() => {
+    setIsDemo(true);
     const demoCompany: Company = { id: 'c-demo', name: 'Empresa Demo', domain: 'demo.com', logoUrl: '' };
     const demoUnit: Unit = { id: 'u-demo', companyId: 'c-demo', name: 'Matriz Demo', location: 'Demo City, DC' };
     const demoAdmin: User = {
@@ -216,26 +224,28 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       viewedByAssignee: false,
     };
     
-    // 1. Atualização Otimista
+    // 1. Optimistic Update
     setRequests(prev => [newRequest, ...prev]);
 
-    // 2. Tentar Salvar no Banco
-    try {
-      checkDb();
-      await fbSet('requests', newRequest.id, newRequest);
-    } catch (e: any) {
-      console.error("Firebase Write Error:", e);
-      // 3. ROLLBACK se falhar (Remove o item da tela para não enganar o usuário)
-      setRequests(prev => prev.filter(r => r.id !== newRequest.id));
-      alert("ERRO AO SALVAR: Não foi possível conectar ao banco de dados. Sua requisição não foi salva.");
+    // 2. Persist
+    if (!isDemo) {
+        try {
+          checkDb();
+          await fbSet('requests', newRequest.id, newRequest);
+        } catch (e: any) {
+          console.error("Firebase Write Error:", e);
+          // 3. Rollback if fail
+          setRequests(prev => prev.filter(r => r.id !== newRequest.id));
+          alert("ERRO AO SALVAR: Não foi possível conectar ao banco de dados.");
+        }
     }
-  }, []);
+  }, [isDemo]);
 
   const updateRequestStatus = useCallback((id: string, status: RequestStatus) => {
     const updatedAt = formatISO(new Date());
     setRequests(prev => prev.map(r => r.id === id ? { ...r, status, updatedAt } : r));
-    if (isFirebaseInitialized()) fbUpdate('requests', id, { status, updatedAt });
-  }, []);
+    if (isFirebaseInitialized() && !isDemo) fbUpdate('requests', id, { status, updatedAt });
+  }, [isDemo]);
 
   const updateRequest = useCallback((id: string, data: Partial<RequestTicket>) => {
     const updatedAt = formatISO(new Date());
@@ -244,13 +254,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (sanitized.description) sanitized.description = sanitizeInput(sanitized.description);
     
     setRequests(prev => prev.map(r => r.id === id ? { ...r, ...sanitized } : r));
-    if (isFirebaseInitialized()) fbUpdate('requests', id, sanitized);
-  }, []);
+    if (isFirebaseInitialized() && !isDemo) fbUpdate('requests', id, sanitized);
+  }, [isDemo]);
 
   const bulkUpdateRequestStatus = useCallback((ids: string[], status: RequestStatus) => {
     const updatedAt = formatISO(new Date());
     setRequests(prev => prev.map(r => ids.includes(r.id) ? { ...r, status, updatedAt } : r));
-    if (isFirebaseInitialized()) {
+    if (isFirebaseInitialized() && !isDemo) {
       const updates: Record<string, any> = {};
       ids.forEach(id => {
         updates[`requests/${id}/status`] = status;
@@ -258,20 +268,22 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       fbUpdateMulti(updates);
     }
-  }, []);
+  }, [isDemo]);
 
   const deleteRequest = useCallback((id: string) => {
     const backup = requests.find(r => r.id === id);
     setRequests(prev => prev.filter(r => r.id !== id));
     
-    try {
-        checkDb();
-        fbDelete('requests', id);
-    } catch(e) {
-        if(backup) setRequests(prev => [...prev, backup]);
-        alert("Erro ao excluir. Verifique conexão.");
+    if (!isDemo) {
+        try {
+            checkDb();
+            fbDelete('requests', id);
+        } catch(e) {
+            if(backup) setRequests(prev => [...prev, backup]);
+            alert("Erro ao excluir. Verifique conexão.");
+        }
     }
-  }, [requests]);
+  }, [requests, isDemo]);
 
   const addComment = useCallback((ticketId: string, userId: string, content: string) => {
     const newComment: Comment = {
@@ -286,67 +298,71 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setComments(prev => [...prev, newComment]);
     setRequests(prev => prev.map(r => r.id === ticketId ? { ...r, updatedAt } : r));
 
-    if (isFirebaseInitialized()) {
+    if (isFirebaseInitialized() && !isDemo) {
       fbSet('comments', newComment.id, newComment);
       fbUpdate('requests', ticketId, { updatedAt });
     }
-  }, []);
+  }, [isDemo]);
 
   const addUnit = useCallback(async (unit: Omit<Unit, 'id'>) => {
     const newUnit = { ...unit, name: sanitizeInput(unit.name), location: sanitizeInput(unit.location), id: `u${Date.now()}` };
     setUnits(prev => [...prev, newUnit]);
     
-    try {
-        checkDb();
-        await fbSet('units', newUnit.id, newUnit);
-    } catch (e) {
-        setUnits(prev => prev.filter(u => u.id !== newUnit.id));
-        alert("Erro ao salvar unidade. Verifique configuração do Firebase.");
+    if(!isDemo) {
+        try {
+            checkDb();
+            await fbSet('units', newUnit.id, newUnit);
+        } catch (e) {
+            setUnits(prev => prev.filter(u => u.id !== newUnit.id));
+            alert("Erro ao salvar unidade.");
+        }
     }
-  }, []);
+  }, [isDemo]);
 
   const addUser = useCallback(async (user: Omit<User, 'id'>) => {
     const newUser = { ...user, name: sanitizeInput(user.name), email: sanitizeInput(user.email), id: `user${Date.now()}` };
     setUsers(prev => [...prev, newUser]);
     
-    try {
-        checkDb();
-        await fbSet('users', newUser.id, newUser);
-    } catch(e) {
-        setUsers(prev => prev.filter(u => u.id !== newUser.id));
-        alert("Erro ao salvar usuário. Verifique configuração do Firebase.");
+    if(!isDemo) {
+        try {
+            checkDb();
+            await fbSet('users', newUser.id, newUser);
+        } catch(e) {
+            setUsers(prev => prev.filter(u => u.id !== newUser.id));
+            alert("Erro ao salvar usuário.");
+        }
     }
-  }, []);
+  }, [isDemo]);
 
   const updateUserPassword = useCallback((userId: string, pass: string) => {
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, password: pass } : u));
-    if (isFirebaseInitialized()) fbUpdate('users', userId, { password: pass });
-  }, []);
+    if (isFirebaseInitialized() && !isDemo) fbUpdate('users', userId, { password: pass });
+  }, [isDemo]);
 
   const updateUser = useCallback((userId: string, data: Partial<User>) => {
     const sanitized = { ...data };
     if (sanitized.name) sanitized.name = sanitizeInput(sanitized.name);
     if (sanitized.email) sanitized.email = sanitizeInput(sanitized.email);
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, ...sanitized } : u));
-    if (isFirebaseInitialized()) fbUpdate('users', userId, sanitized);
-  }, []);
+    if (isFirebaseInitialized() && !isDemo) fbUpdate('users', userId, sanitized);
+  }, [isDemo]);
 
   const updateCompany = useCallback((id: string, data: Partial<Company>) => {
     const sanitized = { ...data };
     if (sanitized.name) sanitized.name = sanitizeInput(sanitized.name);
     setCompanies(prev => prev.map(c => c.id === id ? { ...c, ...sanitized } : c));
-    if (isFirebaseInitialized()) fbUpdate('companies', id, sanitized);
-  }, []);
+    if (isFirebaseInitialized() && !isDemo) fbUpdate('companies', id, sanitized);
+  }, [isDemo]);
 
   const deleteUnit = useCallback((id: string) => {
     setUnits(prev => prev.filter(u => u.id !== id));
-    if (isFirebaseInitialized()) fbDelete('units', id);
-  }, []);
+    if (isFirebaseInitialized() && !isDemo) fbDelete('units', id);
+  }, [isDemo]);
 
   const deleteUser = useCallback((id: string) => {
     setUsers(prev => prev.filter(u => u.id !== id));
-    if (isFirebaseInitialized()) fbDelete('users', id);
-  }, []);
+    if (isFirebaseInitialized() && !isDemo) fbDelete('users', id);
+  }, [isDemo]);
 
   const getRequestsByUnit = useCallback((unitId: string) => sortedRequests.filter(r => r.unitId === unitId), [sortedRequests]);
   const getRequestsByCompany = useCallback((companyId: string) => sortedRequests.filter(r => r.companyId === companyId), [sortedRequests]);
