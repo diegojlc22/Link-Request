@@ -42,34 +42,36 @@ Isso garante segurança total dos dados e facilidade de gestão.
 
 Para que o sistema funcione, você deve configurar as credenciais do Firebase nas "Environment Variables" da sua hospedagem.
 
-### 📋 Lista de Variáveis Necessárias
+**IMPORTANTE:** Você deve criar **uma variável para cada linha** da tabela abaixo. Não cole tudo junto.
 
-Você encontrará esses valores no Console do Firebase > Project Settings > General (Role até o final na seção SDK Setup).
+### 📋 Tabela de Preenchimento
 
-```env
-VITE_FIREBASE_API_KEY=...
-VITE_FIREBASE_AUTH_DOMAIN=...
-VITE_FIREBASE_PROJECT_ID=...
-VITE_FIREBASE_STORAGE_BUCKET=...
-VITE_FIREBASE_MESSAGING_SENDER_ID=...
-VITE_FIREBASE_APP_ID=...
-VITE_FIREBASE_DATABASE_URL=...
-```
+No painel do Firebase (Project Settings > General > SDK Setup), pegue os valores e cadastre assim na hospedagem:
+
+| Nome da Variável (Copie daqui) | Valor (Pegue no Firebase) |
+| :--- | :--- |
+| `VITE_FIREBASE_API_KEY` | `AIzaSy...` (apiKey) |
+| `VITE_FIREBASE_AUTH_DOMAIN` | `projeto.firebaseapp.com` (authDomain) |
+| `VITE_FIREBASE_PROJECT_ID` | `projeto-id` (projectId) |
+| `VITE_FIREBASE_STORAGE_BUCKET` | `projeto.firebasestorage.app` (storageBucket) |
+| `VITE_FIREBASE_MESSAGING_SENDER_ID` | `123456789` (messagingSenderId) |
+| `VITE_FIREBASE_APP_ID` | `1:123456:web:abcd...` (appId) |
+| `VITE_FIREBASE_DATABASE_URL` | `https://projeto...firebasedatabase.app` (databaseURL) |
 
 ### 🟧 Cloudflare Pages (Passo a Passo)
 
 1. Faça o deploy do repositório no **Cloudflare Pages**.
 2. Após o deploy, vá no painel do projeto no Cloudflare.
 3. Clique na aba **Settings** > **Environment variables**.
-4. Clique em **Add variable** para cada item da lista acima.
-   * *Produção e Preview:* Certifique-se de adicionar para ambos ou apenas Production conforme sua necessidade.
-5. **IMPORTANTE:** Após salvar as variáveis, vá na aba **Deployments** e clique em **Retrying deployment** (ou faça um novo push) para que as variáveis sejam embutidas no site.
+4. Clique em **Add variable** e adicione cada item da tabela acima, um por um.
+   * *Produção e Preview:* Adicione para ambos se quiser testar antes.
+5. **MUITO IMPORTANTE:** Após salvar as variáveis, vá na aba **Deployments** e clique em **Retrying deployment** (nos três pontinhos do último deploy) para que o site seja reconstruído com as novas chaves.
 
 ### ▲ Vercel (Passo a Passo)
 
 1. Importe o projeto na Vercel.
 2. Na tela de configuração de importação, abra a aba **Environment Variables**.
-3. Copie e cole as variáveis.
+3. Copie e cole as variáveis da tabela.
 4. Clique em Deploy.
 5. Se precisar alterar depois: Vá em **Settings** > **Environment Variables**, adicione as novas e faça um **Redeploy** na aba Deployments.
 
@@ -77,7 +79,7 @@ VITE_FIREBASE_DATABASE_URL=...
 
 1. Importe o projeto.
 2. Vá em **Site configuration** > **Environment variables**.
-3. Adicione as variáveis.
+3. Adicione as variáveis da tabela.
 4. Vá na aba **Deploys** e clique em **Trigger deploy**.
 
 ---
@@ -86,19 +88,21 @@ VITE_FIREBASE_DATABASE_URL=...
 
 ## 🚀 Instalação Local (Desenvolvimento)
 
-Para rodar em sua máquina, crie um arquivo `.env` na raiz do projeto com as variáveis citadas acima.
+Para rodar em sua máquina, crie um arquivo chamado `.env` na raiz do projeto e cole o conteúdo abaixo, substituindo os valores:
 
 ```bash
-# 1. Clone o repositório
-git clone https://github.com/seu-usuario/link-request.git
+VITE_FIREBASE_API_KEY=AIzaSy...
+VITE_FIREBASE_AUTH_DOMAIN=projeto.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=projeto-id
+VITE_FIREBASE_STORAGE_BUCKET=projeto.firebasestorage.app
+VITE_FIREBASE_MESSAGING_SENDER_ID=123456
+VITE_FIREBASE_APP_ID=1:12345:web:abc
+VITE_FIREBASE_DATABASE_URL=https://projeto-default-rtdb.firebaseio.com
+```
 
-# 2. Acesse a pasta
-cd link-request
+Depois rode:
 
-# 3. Crie o arquivo .env
-# (Cole as variáveis VITE_FIREBASE... nele)
-
-# 4. Instale e rode
+```bash
 npm install
 npm run dev
 ```
