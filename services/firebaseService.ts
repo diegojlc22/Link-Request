@@ -13,7 +13,7 @@ const getEnvConfig = (): FirebaseConfig | null => {
     if (!env) return null;
 
     if (env.VITE_FIREBASE_API_KEY) {
-      return {
+      const config: FirebaseConfig = {
         apiKey: env.VITE_FIREBASE_API_KEY,
         authDomain: env.VITE_FIREBASE_AUTH_DOMAIN,
         databaseURL: env.VITE_FIREBASE_DATABASE_URL,
@@ -22,6 +22,14 @@ const getEnvConfig = (): FirebaseConfig | null => {
         messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID,
         appId: env.VITE_FIREBASE_APP_ID
       };
+
+      // FALLBACK: Se não tiver databaseURL, tenta construir o padrão do Firebase (US-Central)
+      if (!config.databaseURL && config.projectId) {
+         config.databaseURL = `https://${config.projectId}-default-rtdb.firebaseio.com`;
+         console.warn("Aviso: VITE_FIREBASE_DATABASE_URL não encontrada. Tentando URL padrão:", config.databaseURL);
+      }
+
+      return config;
     }
   } catch (e) {
     console.warn("Error reading env vars:", e);

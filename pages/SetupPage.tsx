@@ -3,7 +3,7 @@ import { useData } from '../contexts/DataContext';
 import { useToast } from '../contexts/ToastContext';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
-import { ShieldCheck, Building2, User, Rocket, Settings, AlertTriangle, Cloud, Image as ImageIcon } from 'lucide-react';
+import { ShieldCheck, Building2, User, Rocket, Settings, AlertTriangle, Cloud, Image as ImageIcon, Lock } from 'lucide-react';
 
 export const SetupPage: React.FC = () => {
   const { setupSystem, isDbConnected, enableDemoMode } = useData();
@@ -68,7 +68,6 @@ export const SetupPage: React.FC = () => {
                             <div className="bg-gray-100 dark:bg-gray-800 p-3 rounded font-mono text-xs overflow-x-auto space-y-1">
                                 <div className="text-gray-500 mb-2">Variáveis Obrigatórias:</div>
                                 <div className="text-orange-600 dark:text-orange-400">VITE_FIREBASE_API_KEY</div>
-                                <div className="text-orange-600 dark:text-orange-400">VITE_FIREBASE_AUTH_DOMAIN</div>
                                 <div className="text-orange-600 dark:text-orange-400">VITE_FIREBASE_PROJECT_ID</div>
                                 <div className="text-orange-600 dark:text-orange-400">VITE_FIREBASE_DATABASE_URL</div>
                                 <div className="text-gray-400">+ as outras chaves do SDK</div>
@@ -76,10 +75,27 @@ export const SetupPage: React.FC = () => {
                         </CardContent>
                     </Card>
 
+                    <Card className="border-t-4 border-t-red-500">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <Lock className="h-5 w-5 text-red-500" /> 2. Regras (Permission Denied)
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="text-sm text-gray-600 dark:text-gray-400 space-y-3">
+                            <p className="font-semibold text-red-600 dark:text-red-400">Importante:</p>
+                            <p>O Firebase vem bloqueado por padrão. Se vir erro de Permissão:</p>
+                            <ol className="list-decimal pl-4 space-y-1">
+                                <li>Vá no Console Firebase &gt; Realtime Database.</li>
+                                <li>Aba <strong>Regras (Rules)</strong>.</li>
+                                <li>Mude para <code>".read": true</code> e <code>".write": true</code>.</li>
+                            </ol>
+                        </CardContent>
+                    </Card>
+
                     <Card className="border-t-4 border-t-blue-500">
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
-                                <ImageIcon className="h-5 w-5 text-blue-500" /> 2. Cloudinary (Imagens)
+                                <ImageIcon className="h-5 w-5 text-blue-500" /> 3. Cloudinary (Imagens)
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="text-sm text-gray-600 dark:text-gray-400 space-y-3">
@@ -97,13 +113,13 @@ export const SetupPage: React.FC = () => {
                         </CardContent>
                     </Card>
 
-                    <Card className="border-t-4 border-t-gray-800 dark:border-t-gray-400 md:col-span-2">
+                    <Card className="border-t-4 border-t-gray-800 dark:border-t-gray-400">
                          <CardHeader>
                             <CardTitle className="flex items-center gap-2">
                                 <Rocket className="h-5 w-5" /> Onde Configurar?
                             </CardTitle>
                         </CardHeader>
-                        <CardContent className="grid md:grid-cols-2 gap-4 text-sm text-gray-600 dark:text-gray-400">
+                        <CardContent className="grid gap-2 text-sm text-gray-600 dark:text-gray-400">
                             <div>
                                 <strong className="block text-gray-900 dark:text-white mb-1">Cloudflare Pages</strong>
                                 <p>Settings &gt; Environment variables</p>

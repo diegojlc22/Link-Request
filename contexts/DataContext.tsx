@@ -170,6 +170,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
   };
 
+  const getErrorMessage = (e: any) => {
+      if (e.code === 'PERMISSION_DENIED') {
+          return "Permissão Negada (PERMISSION_DENIED). Seu banco de dados está bloqueado. Vá no Console do Firebase > Realtime Database > Rules e altere '.read' e '.write' para 'true'.";
+      }
+      return e.message || "Erro desconhecido ao salvar.";
+  };
+
   const setupSystem = useCallback(async (data: SetupData) => {
     const newCompany: Company = { id: 'c1', name: sanitizeInput(data.companyName), domain: 'system.local', logoUrl: '' };
     const newUnit: Unit = { id: 'u1', companyId: 'c1', name: 'Matriz', location: 'Sede Principal' };
@@ -187,7 +194,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         setCompanies([newCompany]); setUnits([newUnit]); setUsers([newAdmin]); setIsSetupDone(true);
     } catch (e: any) {
-        alert("Erro fatal na configuração: " + e.message);
+        alert("Erro fatal na configuração: " + getErrorMessage(e));
     }
   }, []);
 
@@ -236,7 +243,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.error("Firebase Write Error:", e);
           // 3. Rollback if fail
           setRequests(prev => prev.filter(r => r.id !== newRequest.id));
-          alert("ERRO AO SALVAR: Não foi possível conectar ao banco de dados.");
+          alert(`ERRO AO SALVAR: ${getErrorMessage(e)}`);
         }
     }
   }, [isDemo]);
@@ -278,14 +285,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
             checkDb();
             fbDelete('requests', id);
-        } catch(e) {
+        } catch(e: any) {
             if(backup) setRequests(prev => [...prev, backup]);
-            alert("Erro ao excluir. Verifique conexão.");
+            alert(`Erro ao excluir: ${getErrorMessage(e)}`);
         }
     }
   }, [requests, isDemo]);
 
-  const addComment = useCallback((ticketId: string, userId: string, content: string) => {
+  const addComment = useCallback(async (ticketId: string, userId: string, content: string) => {
     const newComment: Comment = {
       id: `cm${Date.now()}`,
       requestId: ticketId,
@@ -299,8 +306,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setRequests(prev => prev.map(r => r.id === ticketId ? { ...r, updatedAt } : r));
 
     if (isFirebaseInitialized() && !isDemo) {
-      fbSet('comments', newComment.id, newComment);
-      fbUpdate('requests', ticketId, { updatedAt });
+      try {
+        await fbSet('comments', newComment.id, newComment);
+        await fbUpdate('requests', ticketId, { updatedAt });
+      } catch (e: any) {
+         setComments(prev => prev.filter(c => c.id !== newComment.id));
+         alert(`Erro ao comentar: ${getErrorMessage(e)}`);
+      }
     }
   }, [isDemo]);
 
@@ -312,9 +324,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
             checkDb();
             await fbSet('units', newUnit.id, newUnit);
-        } catch (e) {
+        } catch (e: any) {
             setUnits(prev => prev.filter(u => u.id !== newUnit.id));
-            alert("Erro ao salvar unidade.");
+            alert(`Erro ao salvar unidade: ${getErrorMessage(e)}`);
         }
     }
   }, [isDemo]);
@@ -327,9 +339,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
             checkDb();
             await fbSet('users', newUser.id, newUser);
-        } catch(e) {
+        } catch(e: any) {
             setUsers(prev => prev.filter(u => u.id !== newUser.id));
-            alert("Erro ao salvar usuário.");
+            alert(`Erro ao salvar usuário: ${getErrorMessage(e)}`);
         }
     }
   }, [isDemo]);
