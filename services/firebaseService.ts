@@ -82,15 +82,31 @@ export const initFirebase = (manualConfig?: FirebaseConfig): boolean => {
 export const isFirebaseInitialized = () => !!db;
 
 // Helper para normalizar dados do Firebase
+// ROBUSTNESS FIX: Added stricter type checks to prevent crashes on corrupted data
 const normalizeData = <T>(val: any): T[] => {
   if (!val) return [];
-  if (Array.isArray(val)) {
-    return val.map((item, index) => item ? { ...item, id: String(index) } : null).filter(Boolean) as T[];
+  
+  try {
+    if (Array.isArray(val)) {
+      return val.map((item, index) => item ? { ...item, id: String(index) } : null).filter(Boolean) as T[];
+    }
+    
+    if (typeof val === 'object' && val !== null) {
+      return Object.keys(val).map(key => {
+        const item = val[key];
+        // Ensure item is an object before spreading
+        if (typeof item === 'object' && item !== null) {
+            return { ...item, id: key };
+        }
+        return null;
+      }).filter(Boolean) as T[];
+    }
+    
+    return [];
+  } catch (e) {
+    console.error("Error normalizing data:", e);
+    return [];
   }
-  return Object.keys(val).map(key => ({
-    ...val[key],
-    id: key
-  })) as T[];
 };
 
 export const fbGetAll = async <T>(path: string): Promise<T[]> => {
@@ -204,6 +220,13 @@ export const fbUploadImage = async (base64String: string, fileName: string): Pro
     }
   }
 
-  // Fallback
+  // Fallback de Segurança
+  // Se falhar o Cloudinary, verificamos se a imagem é muito grande para o Firebase.
+  // Limite de segurança: ~1MB (base64 string length ~1.4M chars)
+  if (base64String.length > 1500000) {
+      console.warn("Imagem muito grande para fallback local. Upload cancelado para evitar travamento.");
+      throw new Error("Imagem muito grande. Configure o Cloudinary ou use imagens menores.");
+  }
+
   return base64String;
 };

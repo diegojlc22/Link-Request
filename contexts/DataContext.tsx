@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 import { Company, Unit, User, RequestTicket, Comment, UserRole, RequestStatus, FirebaseConfig } from '../types';
 import { formatISO } from 'date-fns';
@@ -42,9 +41,16 @@ interface DataContextType {
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
+// SECURITY FIX: Enhanced sanitization
 const sanitizeInput = (str: string): string => {
   if (!str) return '';
-  return str.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/script/gi, "").replace(/javascript:/gi, "").trim();
+  return str
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/script/gi, "")
+    .replace(/javascript:/gi, "")
+    .replace(/on\w+=/gi, "") // remove event handlers like onclick=
+    .trim();
 };
 
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -68,72 +74,83 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let unsubUsers: () => void = () => {};
     let unsubRequests: () => void = () => {};
     let unsubComments: () => void = () => {};
+    let isMounted = true; // MEMORY LEAK FIX
 
     const initDb = async () => {
       const success = initFirebase();
       
       if (success) {
-        setIsDbConnected(true);
+        if(isMounted) setIsDbConnected(true);
         try {
           // Check if system is setup by fetching users only (lightweight)
           const initialUsers = await fbGetAll<User>('users');
+          
+          if (!isMounted) return;
+
           if (initialUsers.length === 0) {
             setIsSetupDone(false);
             setIsLoading(false);
           } else {
             setIsSetupDone(true);
             setUsers(initialUsers);
+            
             // Fetch initial chunks for others
             const [initCos, initUnits] = await Promise.all([
                 fbGetAll<Company>('companies'),
                 fbGetAll<Unit>('units')
             ]);
-            setCompanies(initCos);
-            setUnits(initUnits);
-            setIsLoading(false);
+            
+            if (isMounted) {
+                setCompanies(initCos);
+                setUnits(initUnits);
+                setIsLoading(false);
+            }
           }
         } catch (err) {
           console.error("Error fetching initial data:", err);
-          setIsSetupDone(true); // Fallback to avoid lockout
-          setIsLoading(false);
+          if (isMounted) {
+            setIsSetupDone(true); // Fallback to avoid lockout
+            setIsLoading(false);
+          }
         }
 
         // Subscriptions
-        unsubCompanies = fbSubscribe<Company>('companies', (data) => data && setCompanies(data));
-        unsubUnits = fbSubscribe<Unit>('units', (data) => data && setUnits(data));
+        unsubCompanies = fbSubscribe<Company>('companies', (data) => isMounted && data && setCompanies(data));
+        unsubUnits = fbSubscribe<Unit>('units', (data) => isMounted && data && setUnits(data));
         unsubUsers = fbSubscribe<User>('users', (data) => { 
-            if(data) {
+            if(isMounted && data) {
                 setUsers(data);
                 if(data.length > 0) setIsSetupDone(true);
             }
         });
 
         // OTIMIZAÇÃO: Usar fbSubscribeRecent ao invés de baixar tudo
-        // Isso garante que o cliente só "veja" os últimos 500 itens.
-        // Para ver mais antigo, seria necessário paginação server-side (não suportado neste MVP sem backend)
         unsubRequests = fbSubscribeRecent<RequestTicket>('requests', REQUESTS_LIMIT, (data) => {
-            if(Array.isArray(data)) setRequests(data);
+            if(isMounted && Array.isArray(data)) setRequests(data);
         });
 
         unsubComments = fbSubscribeRecent<Comment>('comments', COMMENTS_LIMIT, (data) => {
-            if(Array.isArray(data)) setComments(data);
+            if(isMounted && Array.isArray(data)) setComments(data);
         });
 
       } else {
-        setIsDbConnected(false);
-        setIsLoading(false);
-        setIsSetupDone(false);
+        if (isMounted) {
+            setIsDbConnected(false);
+            setIsLoading(false);
+            setIsSetupDone(false);
+        }
       }
     };
 
     initDb();
 
     return () => {
+      isMounted = false; // Cleanup
       if (isDbConnected) {
         unsubCompanies(); unsubUnits(); unsubUsers(); unsubRequests(); unsubComments();
       }
     };
-  }, []);
+  }, []); // Run once on mount
 
   useEffect(() => {
     if (companies.length > 0 && companies[0].name) {

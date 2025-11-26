@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useData } from '../contexts/DataContext';
@@ -87,7 +86,7 @@ export const RequestList: React.FC = () => {
 
     const term = debouncedSearchTerm.toLowerCase().trim();
 
-    // Date boundaries preparation
+    // Date boundaries preparation (Performance: Calculate timestamps once)
     let startTimestamp: number | null = null;
     let endTimestamp: number | null = null;
 
@@ -100,9 +99,9 @@ export const RequestList: React.FC = () => {
       endTimestamp = new Date(endDate + 'T23:59:59.999').getTime();
     }
 
+    // Single pass filtering
     return requests.filter(req => {
       // 1. ACCESS CONTROL
-      // Check permission based on Role and ID matching
       const reqCreator = String(req.creatorId || '');
       const reqCompany = String(req.companyId || '');
       const reqUnit = String(req.unitId || '');
@@ -120,6 +119,7 @@ export const RequestList: React.FC = () => {
       if (!hasAccess) return false;
 
       // 2. VIEW FILTERS
+      // Fail fast if text doesn't match
       if (term) {
         const title = (req.title || '').toLowerCase();
         const id = (req.id || '').toLowerCase();
@@ -138,9 +138,11 @@ export const RequestList: React.FC = () => {
         }
       }
 
-      // 3. DATE FILTER
+      // 3. DATE FILTER (Expensive operation, do last)
       if (startTimestamp || endTimestamp) {
         const dateStr = dateType === 'created' ? req.createdAt : req.updatedAt;
+        // Optimization: Use simple string comparison for ISO dates if possible, 
+        // but timestamps are safer for timezone correctness.
         const reqTime = new Date(dateStr).getTime();
 
         if (startTimestamp && reqTime < startTimestamp) return false;
@@ -211,12 +213,23 @@ export const RequestList: React.FC = () => {
     }
   };
 
-  // --- CSV EXPORT LOGIC ---
+  // --- CSV EXPORT LOGIC (SECURITY FIXED) ---
   const exportToCSV = () => {
     if (filteredRequests.length === 0) {
       showToast('Não há dados para exportar.', 'info');
       return;
     }
+
+    // Security: Helper to prevent CSV Injection (Formula Injection)
+    const sanitizeCsvField = (field: any) => {
+        let str = String(field || '');
+        // If field starts with restricted chars, prepend ' to force text mode in Excel
+        if (/^[=+\-@]/.test(str)) {
+            str = "'" + str;
+        }
+        // Escape quotes
+        return `"${str.replace(/"/g, '""')}"`;
+    };
 
     const headers = ['ID', 'Título', 'Status', 'Prioridade', 'Data Criação', 'Unidade', 'Solicitante', 'Responsável'];
     
@@ -224,17 +237,16 @@ export const RequestList: React.FC = () => {
       const unitName = units.find(u => u.id === req.unitId)?.name || 'N/A';
       const creatorName = users.find(u => u.id === req.creatorId)?.name || 'N/A';
       const assigneeName = users.find(u => u.id === req.assigneeId)?.name || 'Não atribuído';
-      const safeTitle = `"${req.title.replace(/"/g, '""')}"`;
       
       return [
-        req.id,
-        safeTitle,
-        req.status,
-        req.priority,
-        new Date(req.createdAt).toLocaleDateString(),
-        `"${unitName}"`,
-        `"${creatorName}"`,
-        `"${assigneeName}"`
+        sanitizeCsvField(req.id),
+        sanitizeCsvField(req.title),
+        sanitizeCsvField(req.status),
+        sanitizeCsvField(req.priority),
+        sanitizeCsvField(new Date(req.createdAt).toLocaleDateString()),
+        sanitizeCsvField(unitName),
+        sanitizeCsvField(creatorName),
+        sanitizeCsvField(assigneeName)
       ].join(',');
     });
 
@@ -415,7 +427,7 @@ export const RequestList: React.FC = () => {
                 };
             } catch (err) {
                 console.error("Upload failed", err);
-                showToast(`Falha ao processar imagem ${index+1}`, 'warning');
+                showToast(`Falha ao processar imagem ${index+1}. Tente um arquivo menor.`, 'warning');
                 return null;
             }
         });
