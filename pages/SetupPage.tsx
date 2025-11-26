@@ -1,16 +1,15 @@
-
 import React, { useState, useEffect } from 'react';
 import { useData } from '../contexts/DataContext';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
-import { ShieldCheck, Building2, User, Rocket, FileCode, Database, Lock, Globe, Download, CheckCircle, AlertTriangle } from 'lucide-react';
+import { ShieldCheck, Building2, User, Rocket, Database, Link as LinkIcon, Globe, Copy, Check, AlertCircle } from 'lucide-react';
 import { FirebaseConfig } from '../types';
 
 export const SetupPage: React.FC = () => {
   const { setupSystem, isDbConnected } = useData();
   
   const [step, setStep] = useState(1);
-  const [mode, setMode] = useState<'local' | 'production'>('local');
+  const [mode, setMode] = useState<'setup' | 'share'>('setup');
   
   // Data for setup
   const [companyName, setCompanyName] = useState('');
@@ -29,6 +28,9 @@ export const SetupPage: React.FC = () => {
     databaseURL: ''
   });
 
+  const [generatedLink, setGeneratedLink] = useState('');
+  const [copied, setCopied] = useState(false);
+
   const handleFinish = (e: React.FormEvent) => {
     e.preventDefault();
     setupSystem({
@@ -45,170 +47,30 @@ export const SetupPage: React.FC = () => {
     window.location.reload();
   };
 
-  const generateServiceFile = () => {
-    const fileContent = `
-import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import * as rtdb from 'firebase/database';
-import { FirebaseConfig } from '../types';
-
-let app: FirebaseApp | undefined;
-let db: rtdb.Database | undefined;
-
-// --- CONFIGURAÇÃO FIXA (GERADA PELO INSTALADOR) ---
-const FIXED_CONFIG: FirebaseConfig | null = {
-  apiKey: "${manualConfig.apiKey}",
-  authDomain: "${manualConfig.authDomain}",
-  databaseURL: "${manualConfig.databaseURL}",
-  projectId: "${manualConfig.projectId}",
-  storageBucket: "${manualConfig.storageBucket}",
-  messagingSenderId: "${manualConfig.messagingSenderId}",
-  appId: "${manualConfig.appId}"
-};
-
-const getEnvConfig = (): FirebaseConfig | null => {
-  if (FIXED_CONFIG && FIXED_CONFIG.apiKey !== "") {
-    return FIXED_CONFIG;
-  }
-  return null;
-};
-
-// Ler configuração de Storage (Cloudinary)
-const getStorageConfig = () => {
-  try {
-    const local = localStorage.getItem('link_req_storage_config');
-    return local ? JSON.parse(local) : null;
-  } catch (e) {
-    return null;
-  }
-};
-
-export const initFirebase = (manualConfig?: FirebaseConfig): boolean => {
-  try {
-    let config: FirebaseConfig | null = manualConfig && manualConfig.apiKey ? manualConfig : getEnvConfig();
-
-    if (!config) {
-      console.warn("Firebase Init Skipped: Missing configuration.");
-      return false;
-    }
-
-    if (getApps().length === 0) {
-      app = initializeApp(config);
-    } else {
-      app = getApp();
-    }
+  const generateMagicLink = () => {
+    // 1. Minificar o objeto para ocupar menos espaço na URL
+    // Removemos campos vazios opcionais
+    const cleanConfig = Object.fromEntries(
+        Object.entries(manualConfig).filter(([_, v]) => v !== '')
+    );
     
-    if (app) {
-      db = rtdb.getDatabase(app);
-    }
+    // 2. Converter para String JSON
+    const jsonStr = JSON.stringify(cleanConfig);
     
-    return true;
-  } catch (error) {
-    console.error("Firebase initialization critical error:", error);
-    return false;
-  }
-};
+    // 3. Encode Base64 (Simples, mas suficiente para URL)
+    const base64 = btoa(jsonStr);
+    
+    // 4. Montar URL
+    const baseUrl = window.location.origin + window.location.pathname;
+    const link = `${baseUrl}?config=${base64}`;
+    
+    setGeneratedLink(link);
+  };
 
-export const isFirebaseInitialized = () => !!db;
-
-const normalizeData = <T>(val: any): T[] => {
-  if (!val) return [];
-  if (Array.isArray(val)) {
-    return val.map((item, index) => item ? { ...item, id: String(index) } : null).filter(Boolean) as T[];
-  }
-  return Object.keys(val).map(key => ({
-    ...val[key],
-    id: key
-  })) as T[];
-};
-
-export const fbGetAll = async <T>(path: string): Promise<T[]> => {
-  if (!db) return [];
-  try {
-    const dbRef = rtdb.ref(db, path);
-    const snapshot = await rtdb.get(dbRef);
-    if (snapshot.exists()) {
-      return normalizeData<T>(snapshot.val());
-    }
-    return [];
-  } catch (error) {
-    return [];
-  }
-};
-
-export const fbSubscribe = <T>(path: string, callback: (data: T[]) => void): () => void => {
-  if (!db) return () => {};
-  try {
-    const dbRef = rtdb.ref(db, path);
-    return rtdb.onValue(dbRef, (snapshot) => {
-      callback(normalizeData<T>(snapshot.val()));
-    });
-  } catch (error) {
-    return () => {};
-  }
-};
-
-export const fbSubscribeRecent = <T>(path: string, limit: number, callback: (data: T[]) => void): () => void => {
-  if (!db) return () => {};
-  try {
-    const dbQuery = rtdb.query(rtdb.ref(db, path), rtdb.orderByKey(), rtdb.limitToLast(limit));
-    return rtdb.onValue(dbQuery, (snapshot) => {
-      callback(normalizeData<T>(snapshot.val()));
-    });
-  } catch (error) {
-    return () => {};
-  }
-};
-
-export const fbSet = async (path: string, id: string, data: any) => {
-  if (!db) return;
-  await rtdb.set(rtdb.ref(db, \`\${path}/\${id}\`), data);
-};
-
-export const fbUpdate = async (path: string, id: string, data: any) => {
-  if (!db) return;
-  await rtdb.update(rtdb.ref(db, \`\${path}/\${id}\`), data);
-};
-
-export const fbUpdateMulti = async (updates: Record<string, any>) => {
-  if (!db) return;
-  await rtdb.update(rtdb.ref(db), updates);
-};
-
-export const fbDelete = async (path: string, id: string) => {
-  if (!db) return;
-  await rtdb.remove(rtdb.ref(db, \`\${path}/\${id}\`));
-};
-
-export const fbUploadImage = async (base64String: string, fileName: string): Promise<string> => {
-  const storageConfig = getStorageConfig();
-  if (storageConfig && storageConfig.cloudName && storageConfig.uploadPreset) {
-    try {
-      const formData = new FormData();
-      formData.append("file", base64String);
-      formData.append("upload_preset", storageConfig.uploadPreset);
-      const response = await fetch(
-        \`https://api.cloudinary.com/v1_1/\${storageConfig.cloudName}/image/upload\`, 
-        { method: "POST", body: formData }
-      );
-      const data = await response.json();
-      if (data.secure_url) return data.secure_url;
-    } catch (error) {
-      console.error("Cloudinary failed", error);
-    }
-  }
-  return base64String;
-};
-`;
-
-    const blob = new Blob([fileContent], { type: 'text/typescript' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'firebaseService.ts';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(generatedLink);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   // MODO INSTALADOR (SEM BANCO CONECTADO)
@@ -219,41 +81,40 @@ export const fbUploadImage = async (base64String: string, fileName: string): Pro
                  <div className="inline-flex items-center justify-center h-16 w-16 rounded-full bg-blue-100 text-blue-600 mb-4 shadow-lg shadow-blue-500/20">
                     <Database className="h-8 w-8" />
                  </div>
-                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Instalação do Sistema</h1>
+                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Conectar Empresa</h1>
                  <p className="text-gray-600 dark:text-gray-300 mb-6">
-                    Configure o banco de dados para iniciar.
+                    Configure o banco de dados da sua unidade ou gere um link para seus funcionários.
                  </p>
                  
                  <Card className="text-left shadow-xl border-t-4 border-t-primary-600">
                     <div className="flex border-b border-gray-100 dark:border-gray-700">
                         <button 
-                            onClick={() => setMode('local')}
-                            className={`flex-1 py-4 text-sm font-medium transition-colors ${mode === 'local' ? 'text-primary-600 border-b-2 border-primary-600 bg-primary-50 dark:bg-primary-900/10' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
+                            onClick={() => setMode('setup')}
+                            className={`flex-1 py-4 text-sm font-medium transition-colors ${mode === 'setup' ? 'text-primary-600 border-b-2 border-primary-600 bg-primary-50 dark:bg-primary-900/10' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
                         >
                             <div className="flex items-center justify-center gap-2">
                                 <Globe className="h-4 w-4" /> 
-                                Instalação Rápida (Local)
+                                Configurar Este PC
                             </div>
                         </button>
                         <button 
-                            onClick={() => setMode('production')}
-                            className={`flex-1 py-4 text-sm font-medium transition-colors ${mode === 'production' ? 'text-green-600 border-b-2 border-green-600 bg-green-50 dark:bg-green-900/10' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
+                            onClick={() => setMode('share')}
+                            className={`flex-1 py-4 text-sm font-medium transition-colors ${mode === 'share' ? 'text-purple-600 border-b-2 border-purple-600 bg-purple-50 dark:bg-purple-900/10' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
                         >
                             <div className="flex items-center justify-center gap-2">
-                                <Lock className="h-4 w-4" /> 
-                                Instalação Definitiva
+                                <LinkIcon className="h-4 w-4" /> 
+                                Gerar Link de Acesso
                             </div>
                         </button>
                     </div>
 
                     <CardContent className="p-6">
-                        {mode === 'local' ? (
+                        {mode === 'setup' ? (
                             <div className="space-y-4">
                                 <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-sm text-blue-800 dark:text-blue-300 mb-4">
                                     <p>
-                                        <strong>Como funciona:</strong> Salva as credenciais no navegador atual.
-                                        <br/>
-                                        <span className="text-xs opacity-80">Ideal para testes rápidos. Se trocar de PC, terá que configurar de novo.</span>
+                                        <strong>Configuração Local:</strong> Insira os dados do Firebase da sua empresa.
+                                        Eles serão salvos neste navegador.
                                     </p>
                                 </div>
                                 
@@ -273,27 +134,27 @@ export const fbUploadImage = async (base64String: string, fileName: string): Pro
                                         </div>
                                     </div>
                                     <Button type="submit" className="w-full py-3">
-                                        <Rocket className="h-4 w-4 mr-2" /> Salvar neste Navegador
+                                        <Rocket className="h-4 w-4 mr-2" /> Salvar e Conectar
                                     </Button>
                                 </form>
                             </div>
                         ) : (
                             <div className="space-y-6">
-                                <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg text-sm text-green-800 dark:text-green-300">
+                                <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg text-sm text-purple-800 dark:text-purple-300">
                                     <p className="flex items-start gap-2">
-                                        <CheckCircle className="h-5 w-5 mt-0.5 flex-shrink-0" />
+                                        <LinkIcon className="h-5 w-5 mt-0.5 flex-shrink-0" />
                                         <span>
-                                            <strong>Solução Definitiva:</strong> Gera um arquivo de sistema com suas senhas embutidas. 
-                                            Assim você nunca mais precisará configurar, não importa o dispositivo.
+                                            <strong>Para Equipes (SaaS):</strong> Preencha os dados e gere um Link Mágico.
+                                            Envie este link para seus funcionários. Ao clicarem, o sistema configurará automaticamente o acesso à sua empresa, sem que eles precisem digitar nada.
                                         </span>
                                     </p>
                                 </div>
 
                                 <div className="space-y-3">
-                                    <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">1. Preencha os dados:</label>
+                                    <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">1. Dados da Conexão:</label>
                                     <input placeholder="API Key" required className="w-full p-2 text-sm border rounded bg-white dark:bg-gray-800 dark:border-gray-700" value={manualConfig.apiKey} onChange={e => setManualConfig({...manualConfig, apiKey: e.target.value})} />
-                                    <input placeholder="Project ID" required className="w-full p-2 text-sm border rounded bg-white dark:bg-gray-800 dark:border-gray-700" value={manualConfig.projectId} onChange={e => setManualConfig({...manualConfig, projectId: e.target.value})} />
                                     <input placeholder="Database URL" required className="w-full p-2 text-sm border rounded bg-white dark:bg-gray-800 dark:border-gray-700" value={manualConfig.databaseURL} onChange={e => setManualConfig({...manualConfig, databaseURL: e.target.value})} />
+                                    <input placeholder="Project ID" required className="w-full p-2 text-sm border rounded bg-white dark:bg-gray-800 dark:border-gray-700" value={manualConfig.projectId} onChange={e => setManualConfig({...manualConfig, projectId: e.target.value})} />
                                     <div className="grid grid-cols-2 gap-3">
                                         <input placeholder="Auth Domain" className="w-full p-2 text-sm border rounded bg-white dark:bg-gray-800 dark:border-gray-700" value={manualConfig.authDomain} onChange={e => setManualConfig({...manualConfig, authDomain: e.target.value})} />
                                         <input placeholder="Storage Bucket" className="w-full p-2 text-sm border rounded bg-white dark:bg-gray-800 dark:border-gray-700" value={manualConfig.storageBucket} onChange={e => setManualConfig({...manualConfig, storageBucket: e.target.value})} />
@@ -303,21 +164,32 @@ export const fbUploadImage = async (base64String: string, fileName: string): Pro
                                 </div>
 
                                 <div className="border-t border-gray-100 dark:border-gray-700 pt-4">
-                                    <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 block mb-2">2. Gere o arquivo e substitua no projeto:</label>
-                                    <Button 
-                                        onClick={generateServiceFile} 
-                                        variant="secondary"
-                                        className="w-full py-3 mb-2 bg-gray-900 text-white hover:bg-gray-800 dark:bg-white dark:text-gray-900"
-                                        disabled={!manualConfig.apiKey || !manualConfig.databaseURL}
-                                    >
-                                        <Download className="h-4 w-4 mr-2" /> 
-                                        Baixar Arquivo "firebaseService.ts"
-                                    </Button>
-                                    
-                                    <div className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400 mt-2 bg-amber-50 dark:bg-amber-900/10 p-2 rounded">
-                                        <AlertTriangle className="h-4 w-4" />
-                                        Substitua o arquivo original em: <code>src/services/firebaseService.ts</code>
-                                    </div>
+                                    <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 block mb-2">2. Gerar Link:</label>
+                                    {!generatedLink ? (
+                                        <Button 
+                                            onClick={generateMagicLink} 
+                                            variant="secondary"
+                                            className="w-full py-3 mb-2 bg-purple-600 text-white hover:bg-purple-700 border-none"
+                                            disabled={!manualConfig.apiKey || !manualConfig.databaseURL}
+                                        >
+                                            <LinkIcon className="h-4 w-4 mr-2" /> 
+                                            Criar Magic Link
+                                        </Button>
+                                    ) : (
+                                        <div className="space-y-3 animate-fade-in">
+                                            <div className="p-3 bg-gray-100 dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700 break-all text-xs font-mono text-gray-600 dark:text-gray-400">
+                                                {generatedLink}
+                                            </div>
+                                            <Button 
+                                                onClick={copyToClipboard} 
+                                                className={`w-full py-3 ${copied ? 'bg-green-600 hover:bg-green-700' : ''}`}
+                                            >
+                                                {copied ? <Check className="h-4 w-4 mr-2" /> : <Copy className="h-4 w-4 mr-2" />}
+                                                {copied ? 'Copiado!' : 'Copiar Link'}
+                                            </Button>
+                                            <p className="text-xs text-center text-gray-500">Envie este link para sua equipe. Ao clicarem, o sistema abrirá já conectado.</p>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         )}

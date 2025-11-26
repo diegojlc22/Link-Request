@@ -1,4 +1,3 @@
-
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import * as rtdb from 'firebase/database';
 import { FirebaseConfig } from '../types';
@@ -6,23 +5,18 @@ import { FirebaseConfig } from '../types';
 let app: FirebaseApp | undefined;
 let db: rtdb.Database | undefined;
 
-// --- CONFIGURAÇÃO FIXA ---
-// Este valor pode ser preenchido manualmente ou gerado via SetupPage (Instalação Definitiva)
-const FIXED_CONFIG: FirebaseConfig | null = {
-  apiKey: "",
-  authDomain: "",
-  databaseURL: "",
-  projectId: "",
-  storageBucket: "",
-  messagingSenderId: "",
-  appId: ""
-};
+// Em modo SaaS, o fixed config deve ficar vazio.
+// A configuração virá do LocalStorage (injetado via Magic Link)
+// ou das variáveis de ambiente (para white-label ou instância única).
+const FIXED_CONFIG: FirebaseConfig | null = null;
 
 const getEnvConfig = (): FirebaseConfig | null => {
-  if (FIXED_CONFIG && FIXED_CONFIG.apiKey !== "") {
+  // 1. Prioridade: Hardcode (Apenas se modificado manualmente no código)
+  if (FIXED_CONFIG && (FIXED_CONFIG as any).apiKey) {
     return FIXED_CONFIG;
   }
 
+  // 2. Prioridade: LocalStorage (Injetado via Magic Link / SetupPage)
   try {
     const localConfig = localStorage.getItem('firebase_config_override');
     if (localConfig) {
@@ -33,6 +27,8 @@ const getEnvConfig = (): FirebaseConfig | null => {
     console.warn("Erro ao ler config do localStorage", e);
   }
 
+  // 3. Prioridade: Variáveis de Ambiente (Vercel/Netlify)
+  // Útil para empresas que querem hospedar sua própria versão "Single Tenant"
   const env = (import.meta as any).env;
   if (env && env.VITE_FIREBASE_API_KEY) {
     return {
