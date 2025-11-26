@@ -9,14 +9,14 @@ let db: rtdb.Database | undefined;
 // --- CONFIGURAÇÃO ---
 // PREENCHA AQUI PARA CONFIGURAR UMA VEZ SÓ (MODO FIXO)
 // Ao preencher estes dados, o sistema funcionará em qualquer dispositivo sem pedir configuração.
-const FIXED_CONFIG: FirebaseConfig | null = {
-  apiKey: "",             // Cole sua API Key aqui
-  authDomain: "",         // Cole seu Auth Domain
-  databaseURL: "",        // Cole sua Database URL
-  projectId: "",          // Cole seu Project ID
-  storageBucket: "",      // Cole seu Storage Bucket
-  messagingSenderId: "",  // Cole seu Messaging Sender ID
-  appId: ""               // Cole seu App ID
+const firebaseConfig = {
+  apiKey: "AIzaSyBDHw4KVz1xEqyx_rpl-427brY77kPa9wo",
+  authDomain: "link-request-43543.firebaseapp.com",
+  databaseURL: "https://link-request-43543-default-rtdb.firebaseio.com",
+  projectId: "link-request-43543",
+  storageBucket: "link-request-43543.firebasestorage.app",
+  messagingSenderId: "695289301024",
+  appId: "1:695289301024:web:252286047e003c436d5445"
 };
 
 const getEnvConfig = (): FirebaseConfig | null => {
