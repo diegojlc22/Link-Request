@@ -1,33 +1,6 @@
-import React, { ReactNode, ErrorInfo } from 'react';
+import React, { ReactNode, ErrorInfo, Component } from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
-
-// --- MAGIC LINK BOOTSTRAP ---
-// Verifica se a URL contém uma configuração codificada (Magic Link)
-// Se tiver, salva no LocalStorage e recarrega a página limpa.
-// Isso permite que usuários entrem no sistema já configurados apenas clicando em um link.
-const params = new URLSearchParams(window.location.search);
-const encodedConfig = params.get('config');
-
-if (encodedConfig) {
-  try {
-    const decoded = atob(encodedConfig);
-    const configObj = JSON.parse(decoded);
-    
-    // Validação básica para garantir que é uma config válida
-    if (configObj.apiKey && configObj.projectId) {
-      localStorage.setItem('firebase_config_override', JSON.stringify(configObj));
-      
-      // Limpa a URL para não ficar feio e recarrega para aplicar
-      const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
-      window.history.replaceState({ path: newUrl }, '', newUrl);
-      window.location.reload();
-    }
-  } catch (e) {
-    console.error("Erro ao processar Link de Configuração:", e);
-    alert("O link de acesso parece estar inválido ou corrompido.");
-  }
-}
 
 interface ErrorBoundaryProps {
   children?: ReactNode;
@@ -39,11 +12,8 @@ interface ErrorBoundaryState {
 }
 
 // Error Boundary to catch crashes and prevent white screen
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  public state: ErrorBoundaryState = { hasError: false, error: null };
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };

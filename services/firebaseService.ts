@@ -5,32 +5,13 @@ import { FirebaseConfig } from '../types';
 let app: FirebaseApp | undefined;
 let db: rtdb.Database | undefined;
 
-// Em modo SaaS, o fixed config deve ficar vazio.
-// A configuração virá do LocalStorage (injetado via Magic Link)
-// ou das variáveis de ambiente (para white-label ou instância única).
-const FIXED_CONFIG: FirebaseConfig | null = null;
-
+// O sistema agora busca a configuração EXCLUSIVAMENTE nas variáveis de ambiente.
+// Isso permite configurar cada cliente diretamente no painel da Cloudflare/Vercel/Netlify.
 const getEnvConfig = (): FirebaseConfig | null => {
-  // 1. Prioridade: Hardcode (Apenas se modificado manualmente no código)
-  if (FIXED_CONFIG && (FIXED_CONFIG as any).apiKey) {
-    return FIXED_CONFIG;
-  }
-
-  // 2. Prioridade: LocalStorage (Injetado via Magic Link / SetupPage)
-  try {
-    const localConfig = localStorage.getItem('firebase_config_override');
-    if (localConfig) {
-      const parsed = JSON.parse(localConfig);
-      if (parsed.apiKey && parsed.projectId) return parsed;
-    }
-  } catch (e) {
-    console.warn("Erro ao ler config do localStorage", e);
-  }
-
-  // 3. Prioridade: Variáveis de Ambiente (Vercel/Netlify)
-  // Útil para empresas que querem hospedar sua própria versão "Single Tenant"
   const env = (import.meta as any).env;
-  if (env && env.VITE_FIREBASE_API_KEY) {
+
+  // Verifica se as variáveis essenciais existem
+  if (env && env.VITE_FIREBASE_API_KEY && env.VITE_FIREBASE_PROJECT_ID) {
     return {
       apiKey: env.VITE_FIREBASE_API_KEY,
       authDomain: env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -56,10 +37,16 @@ const getStorageConfig = () => {
 
 export const initFirebase = (manualConfig?: FirebaseConfig): boolean => {
   try {
-    let config: FirebaseConfig | null = manualConfig && manualConfig.apiKey ? manualConfig : getEnvConfig();
+    // Prioridade total para Variáveis de Ambiente
+    let config: FirebaseConfig | null = getEnvConfig();
+
+    // Fallback para config manual (apenas se passada explicitamente, raro nesse novo modelo)
+    if (!config && manualConfig && manualConfig.apiKey) {
+        config = manualConfig;
+    }
 
     if (!config) {
-      console.warn("Firebase Init Skipped: Missing configuration.");
+      console.warn("Firebase Init Skipped: Environment Variables missing.");
       return false;
     }
 

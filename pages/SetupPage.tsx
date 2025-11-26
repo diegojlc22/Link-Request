@@ -1,35 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useData } from '../contexts/DataContext';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
-import { ShieldCheck, Building2, User, Rocket, Database, Link as LinkIcon, Globe, Copy, Check, AlertCircle } from 'lucide-react';
-import { FirebaseConfig } from '../types';
+import { ShieldCheck, Building2, User, Rocket, Settings, AlertTriangle, Cloud } from 'lucide-react';
 
 export const SetupPage: React.FC = () => {
   const { setupSystem, isDbConnected } = useData();
-  
   const [step, setStep] = useState(1);
-  const [mode, setMode] = useState<'setup' | 'share'>('setup');
   
   // Data for setup
   const [companyName, setCompanyName] = useState('');
   const [adminName, setAdminName] = useState('');
   const [adminEmail, setAdminEmail] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
-
-  // Manual Config State
-  const [manualConfig, setManualConfig] = useState<FirebaseConfig>({
-    apiKey: '',
-    authDomain: '',
-    projectId: '',
-    storageBucket: '',
-    messagingSenderId: '',
-    appId: '',
-    databaseURL: ''
-  });
-
-  const [generatedLink, setGeneratedLink] = useState('');
-  const [copied, setCopied] = useState(false);
 
   const handleFinish = (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,160 +24,59 @@ export const SetupPage: React.FC = () => {
     });
   };
 
-  const handleSaveLocalConfig = (e: React.FormEvent) => {
-    e.preventDefault();
-    localStorage.setItem('firebase_config_override', JSON.stringify(manualConfig));
-    window.location.reload();
-  };
-
-  const generateMagicLink = () => {
-    // 1. Minificar o objeto para ocupar menos espaço na URL
-    // Removemos campos vazios opcionais
-    const cleanConfig = Object.fromEntries(
-        Object.entries(manualConfig).filter(([_, v]) => v !== '')
-    );
-    
-    // 2. Converter para String JSON
-    const jsonStr = JSON.stringify(cleanConfig);
-    
-    // 3. Encode Base64 (Simples, mas suficiente para URL)
-    const base64 = btoa(jsonStr);
-    
-    // 4. Montar URL
-    const baseUrl = window.location.origin + window.location.pathname;
-    const link = `${baseUrl}?config=${base64}`;
-    
-    setGeneratedLink(link);
-  };
-
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(generatedLink);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  // MODO INSTALADOR (SEM BANCO CONECTADO)
+  // MODO: FALTA CONFIGURAÇÃO (Variáveis de Ambiente não encontradas)
   if (!isDbConnected) {
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center justify-center p-4">
             <div className="w-full max-w-2xl text-center animate-fade-in">
-                 <div className="inline-flex items-center justify-center h-16 w-16 rounded-full bg-blue-100 text-blue-600 mb-4 shadow-lg shadow-blue-500/20">
-                    <Database className="h-8 w-8" />
+                 <div className="inline-flex items-center justify-center h-20 w-20 rounded-full bg-amber-100 text-amber-600 mb-6 shadow-lg shadow-amber-500/20">
+                    <Settings className="h-10 w-10" />
                  </div>
-                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Conectar Empresa</h1>
-                 <p className="text-gray-600 dark:text-gray-300 mb-6">
-                    Configure o banco de dados da sua unidade ou gere um link para seus funcionários.
+                 <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-3">Configuração Pendente</h1>
+                 <p className="text-lg text-gray-600 dark:text-gray-300 mb-8 max-w-lg mx-auto">
+                    O sistema precisa ser conectado ao Firebase através das <strong>Variáveis de Ambiente</strong> da sua hospedagem.
                  </p>
                  
-                 <Card className="text-left shadow-xl border-t-4 border-t-primary-600">
-                    <div className="flex border-b border-gray-100 dark:border-gray-700">
-                        <button 
-                            onClick={() => setMode('setup')}
-                            className={`flex-1 py-4 text-sm font-medium transition-colors ${mode === 'setup' ? 'text-primary-600 border-b-2 border-primary-600 bg-primary-50 dark:bg-primary-900/10' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
-                        >
-                            <div className="flex items-center justify-center gap-2">
-                                <Globe className="h-4 w-4" /> 
-                                Configurar Este PC
-                            </div>
-                        </button>
-                        <button 
-                            onClick={() => setMode('share')}
-                            className={`flex-1 py-4 text-sm font-medium transition-colors ${mode === 'share' ? 'text-purple-600 border-b-2 border-purple-600 bg-purple-50 dark:bg-purple-900/10' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
-                        >
-                            <div className="flex items-center justify-center gap-2">
-                                <LinkIcon className="h-4 w-4" /> 
-                                Gerar Link de Acesso
-                            </div>
-                        </button>
-                    </div>
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
+                    <Card className="border-t-4 border-t-orange-500">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <Cloud className="h-5 w-5 text-orange-500" /> Cloudflare Pages
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="text-sm text-gray-600 dark:text-gray-400 space-y-3">
+                            <p>1. Acesse seu painel Cloudflare &gt; Workers & Pages.</p>
+                            <p>2. Selecione este projeto &gt; <strong>Settings</strong>.</p>
+                            <p>3. Vá em <strong>Environment variables</strong>.</p>
+                            <p>4. Adicione as chaves <code>VITE_FIREBASE_API_KEY</code>, etc.</p>
+                        </CardContent>
+                    </Card>
 
-                    <CardContent className="p-6">
-                        {mode === 'setup' ? (
-                            <div className="space-y-4">
-                                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-sm text-blue-800 dark:text-blue-300 mb-4">
-                                    <p>
-                                        <strong>Configuração Local:</strong> Insira os dados do Firebase da sua empresa.
-                                        Eles serão salvos neste navegador.
-                                    </p>
-                                </div>
-                                
-                                <form onSubmit={handleSaveLocalConfig} className="space-y-4">
-                                    <div className="space-y-3">
-                                        <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Cole suas credenciais do Firebase:</label>
-                                        <input placeholder="API Key" required className="w-full p-2 text-sm border rounded bg-white dark:bg-gray-800 dark:border-gray-700" value={manualConfig.apiKey} onChange={e => setManualConfig({...manualConfig, apiKey: e.target.value})} />
-                                        <input placeholder="Project ID" required className="w-full p-2 text-sm border rounded bg-white dark:bg-gray-800 dark:border-gray-700" value={manualConfig.projectId} onChange={e => setManualConfig({...manualConfig, projectId: e.target.value})} />
-                                        <input placeholder="Database URL" required className="w-full p-2 text-sm border rounded bg-white dark:bg-gray-800 dark:border-gray-700" value={manualConfig.databaseURL} onChange={e => setManualConfig({...manualConfig, databaseURL: e.target.value})} />
-                                        
-                                        {/* Optional/Hidden fields for functionality */}
-                                        <div className="grid grid-cols-2 gap-3 opacity-80">
-                                            <input placeholder="Auth Domain" className="w-full p-2 text-sm border rounded bg-white dark:bg-gray-800 dark:border-gray-700" value={manualConfig.authDomain} onChange={e => setManualConfig({...manualConfig, authDomain: e.target.value})} />
-                                            <input placeholder="Storage Bucket" className="w-full p-2 text-sm border rounded bg-white dark:bg-gray-800 dark:border-gray-700" value={manualConfig.storageBucket} onChange={e => setManualConfig({...manualConfig, storageBucket: e.target.value})} />
-                                            <input placeholder="Messaging Sender ID" className="w-full p-2 text-sm border rounded bg-white dark:bg-gray-800 dark:border-gray-700" value={manualConfig.messagingSenderId} onChange={e => setManualConfig({...manualConfig, messagingSenderId: e.target.value})} />
-                                            <input placeholder="App ID" className="w-full p-2 text-sm border rounded bg-white dark:bg-gray-800 dark:border-gray-700" value={manualConfig.appId} onChange={e => setManualConfig({...manualConfig, appId: e.target.value})} />
-                                        </div>
-                                    </div>
-                                    <Button type="submit" className="w-full py-3">
-                                        <Rocket className="h-4 w-4 mr-2" /> Salvar e Conectar
-                                    </Button>
-                                </form>
-                            </div>
-                        ) : (
-                            <div className="space-y-6">
-                                <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg text-sm text-purple-800 dark:text-purple-300">
-                                    <p className="flex items-start gap-2">
-                                        <LinkIcon className="h-5 w-5 mt-0.5 flex-shrink-0" />
-                                        <span>
-                                            <strong>Para Equipes (SaaS):</strong> Preencha os dados e gere um Link Mágico.
-                                            Envie este link para seus funcionários. Ao clicarem, o sistema configurará automaticamente o acesso à sua empresa, sem que eles precisem digitar nada.
-                                        </span>
-                                    </p>
-                                </div>
-
-                                <div className="space-y-3">
-                                    <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">1. Dados da Conexão:</label>
-                                    <input placeholder="API Key" required className="w-full p-2 text-sm border rounded bg-white dark:bg-gray-800 dark:border-gray-700" value={manualConfig.apiKey} onChange={e => setManualConfig({...manualConfig, apiKey: e.target.value})} />
-                                    <input placeholder="Database URL" required className="w-full p-2 text-sm border rounded bg-white dark:bg-gray-800 dark:border-gray-700" value={manualConfig.databaseURL} onChange={e => setManualConfig({...manualConfig, databaseURL: e.target.value})} />
-                                    <input placeholder="Project ID" required className="w-full p-2 text-sm border rounded bg-white dark:bg-gray-800 dark:border-gray-700" value={manualConfig.projectId} onChange={e => setManualConfig({...manualConfig, projectId: e.target.value})} />
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <input placeholder="Auth Domain" className="w-full p-2 text-sm border rounded bg-white dark:bg-gray-800 dark:border-gray-700" value={manualConfig.authDomain} onChange={e => setManualConfig({...manualConfig, authDomain: e.target.value})} />
-                                        <input placeholder="Storage Bucket" className="w-full p-2 text-sm border rounded bg-white dark:bg-gray-800 dark:border-gray-700" value={manualConfig.storageBucket} onChange={e => setManualConfig({...manualConfig, storageBucket: e.target.value})} />
-                                        <input placeholder="Messaging Sender ID" className="w-full p-2 text-sm border rounded bg-white dark:bg-gray-800 dark:border-gray-700" value={manualConfig.messagingSenderId} onChange={e => setManualConfig({...manualConfig, messagingSenderId: e.target.value})} />
-                                        <input placeholder="App ID" className="w-full p-2 text-sm border rounded bg-white dark:bg-gray-800 dark:border-gray-700" value={manualConfig.appId} onChange={e => setManualConfig({...manualConfig, appId: e.target.value})} />
-                                    </div>
-                                </div>
-
-                                <div className="border-t border-gray-100 dark:border-gray-700 pt-4">
-                                    <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 block mb-2">2. Gerar Link:</label>
-                                    {!generatedLink ? (
-                                        <Button 
-                                            onClick={generateMagicLink} 
-                                            variant="secondary"
-                                            className="w-full py-3 mb-2 bg-purple-600 text-white hover:bg-purple-700 border-none"
-                                            disabled={!manualConfig.apiKey || !manualConfig.databaseURL}
-                                        >
-                                            <LinkIcon className="h-4 w-4 mr-2" /> 
-                                            Criar Magic Link
-                                        </Button>
-                                    ) : (
-                                        <div className="space-y-3 animate-fade-in">
-                                            <div className="p-3 bg-gray-100 dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700 break-all text-xs font-mono text-gray-600 dark:text-gray-400">
-                                                {generatedLink}
-                                            </div>
-                                            <Button 
-                                                onClick={copyToClipboard} 
-                                                className={`w-full py-3 ${copied ? 'bg-green-600 hover:bg-green-700' : ''}`}
-                                            >
-                                                {copied ? <Check className="h-4 w-4 mr-2" /> : <Copy className="h-4 w-4 mr-2" />}
-                                                {copied ? 'Copiado!' : 'Copiar Link'}
-                                            </Button>
-                                            <p className="text-xs text-center text-gray-500">Envie este link para sua equipe. Ao clicarem, o sistema abrirá já conectado.</p>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        )}
-                    </CardContent>
-                 </Card>
+                    <Card className="border-t-4 border-t-black dark:border-t-white">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <TriangleIcon className="h-5 w-5" /> Vercel / Netlify
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="text-sm text-gray-600 dark:text-gray-400 space-y-3">
+                            <p>1. Acesse o Dashboard do projeto.</p>
+                            <p>2. Vá em <strong>Settings</strong> &gt; <strong>Environment Variables</strong>.</p>
+                            <p>3. Adicione as variáveis do Firebase copiadas do console.</p>
+                            <p>4. Faça um <strong>Re-deploy</strong> para aplicar.</p>
+                        </CardContent>
+                    </Card>
+                 </div>
+                 
+                 <div className="mt-8 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800 inline-block text-left max-w-2xl">
+                    <p className="text-sm text-blue-800 dark:text-blue-300 flex gap-2">
+                        <AlertTriangle className="h-5 w-5 flex-shrink-0" />
+                        <span>
+                            <strong>Dica:</strong> Após configurar as variáveis no painel da hospedagem, 
+                            você precisa aguardar o novo build ou forçar um novo deploy para que o sistema as reconheça.
+                            Atualize esta página após o processo.
+                        </span>
+                    </p>
+                 </div>
             </div>
         </div>
     );
@@ -304,3 +186,9 @@ export const SetupPage: React.FC = () => {
     </div>
   );
 };
+
+const TriangleIcon: React.FC<{className?: string}> = ({className}) => (
+  <svg className={className} viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+    <path d="M12 1L24 22H0L12 1Z" />
+  </svg>
+);
