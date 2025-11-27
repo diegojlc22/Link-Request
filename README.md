@@ -38,7 +38,7 @@ Isso garante segurança total dos dados e facilidade de gestão.
 
 <div id="-configuracao-cloudflare"></div>
 
-## ☁️ Configuração de Variáveis (Cloudflare, Vercel, Netlify)
+## ☁️ Configuração de Variáveis (Cloudflare, Vercel)
 
 Para que o sistema funcione, você deve configurar as credenciais do Firebase nas "Environment Variables" da sua hospedagem.
 
@@ -83,13 +83,6 @@ Para habilitar upload de imagens (recomendado), configure o Cloudinary:
 3. Copie e cole as variáveis da tabela.
 4. Clique em Deploy.
 5. Se precisar alterar depois: Vá em **Settings** > **Environment Variables**, adicione as novas e faça um **Redeploy** na aba Deployments.
-
-### 💠 Netlify (Passo a Passo)
-
-1. Importe o projeto.
-2. Vá em **Site configuration** > **Environment variables**.
-3. Adicione as variáveis da tabela.
-4. Vá na aba **Deploys** e clique em **Trigger deploy**.
 
 ---
 

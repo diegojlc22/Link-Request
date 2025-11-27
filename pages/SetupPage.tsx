@@ -125,7 +125,7 @@ export const SetupPage: React.FC = () => {
                                 <p>Settings &gt; Environment variables</p>
                             </div>
                             <div>
-                                <strong className="block text-gray-900 dark:text-white mb-1">Vercel / Netlify</strong>
+                                <strong className="block text-gray-900 dark:text-white mb-1">Vercel</strong>
                                 <p>Settings &gt; Environment Variables</p>
                             </div>
                         </CardContent>
