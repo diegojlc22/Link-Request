@@ -1,3 +1,4 @@
+// ... (Keep existing imports)
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useData } from '../contexts/DataContext';
@@ -431,6 +432,98 @@ export const RequestList: React.FC = () => {
       }
     }
     return range.filter((val, idx, arr) => val !== '...' || (val === '...' && arr[idx-1] !== '...'));
+  };
+
+  const renderPagination = () => {
+    if (filteredRequests.length === 0) return null;
+
+    return (
+      <div className={`flex items-center justify-between px-4 py-3 sm:px-6 ${viewMode === 'list' ? 'border-t border-gray-100 dark:border-gray-700' : 'bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 mt-4'}`}>
+        <div className="flex flex-1 justify-between sm:hidden">
+          <Button 
+            onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} 
+            disabled={currentPage === 1}
+            variant="secondary"
+            size="sm"
+          >
+            Anterior
+          </Button>
+          <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+            {currentPage} / {totalPages}
+          </div>
+          <Button 
+            onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} 
+            disabled={currentPage === totalPages}
+            variant="secondary"
+            size="sm"
+          >
+            Próximo
+          </Button>
+        </div>
+        <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm text-gray-700 dark:text-gray-400">
+              Mostrando <span className="font-medium text-gray-900 dark:text-white">{indexOfFirstItem + 1}</span> até <span className="font-medium text-gray-900 dark:text-white">{Math.min(indexOfLastItem, sortedRequests.length)}</span> de <span className="font-medium text-gray-900 dark:text-white">{sortedRequests.length}</span> resultados
+            </p>
+          </div>
+          <div>
+            <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+              {/* Previous Button */}
+              <button
+                onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
+                disabled={currentPage === 1}
+                className="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed focus:z-20 focus:outline-offset-0"
+              >
+                <span className="sr-only">Anterior</span>
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              
+              {/* Page Numbers */}
+              {getPaginationItems().map((page, index) => {
+                if (page === '...') {
+                  return (
+                    <span
+                      key={`dots-${index}`}
+                      className="relative inline-flex items-center px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-400 ring-1 ring-inset ring-gray-300 dark:ring-gray-600 focus:outline-offset-0"
+                    >
+                      ...
+                    </span>
+                  );
+                }
+                
+                const isCurrent = page === currentPage;
+                return (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page as number)}
+                    aria-current={isCurrent ? 'page' : undefined}
+                    className={`
+                      relative inline-flex items-center px-4 py-2 text-sm font-semibold focus:z-20 focus:outline-offset-0
+                      ${isCurrent 
+                        ? 'z-10 bg-primary-600 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600' 
+                        : 'text-gray-900 dark:text-gray-300 ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                      }
+                    `}
+                  >
+                    {page}
+                  </button>
+                );
+              })}
+
+              {/* Next Button */}
+              <button
+                onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
+                disabled={currentPage === totalPages}
+                className="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed focus:z-20 focus:outline-offset-0"
+              >
+                <span className="sr-only">Próximo</span>
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </nav>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   // --- KANBAN LOGIC ---
@@ -896,100 +989,16 @@ export const RequestList: React.FC = () => {
               </tbody>
             </table>
           </div>
-
-          {filteredRequests.length > 0 && (
-            <div className="flex items-center justify-between border-t border-gray-100 dark:border-gray-700 px-4 py-3 sm:px-6">
-              <div className="flex flex-1 justify-between sm:hidden">
-                <Button 
-                  onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} 
-                  disabled={currentPage === 1}
-                  variant="secondary"
-                  size="sm"
-                >
-                  Anterior
-                </Button>
-                <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-                  {currentPage} / {totalPages}
-                </div>
-                <Button 
-                  onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} 
-                  disabled={currentPage === totalPages}
-                  variant="secondary"
-                  size="sm"
-                >
-                  Próximo
-                </Button>
-              </div>
-              <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-sm text-gray-700 dark:text-gray-400">
-                    Mostrando <span className="font-medium text-gray-900 dark:text-white">{indexOfFirstItem + 1}</span> até <span className="font-medium text-gray-900 dark:text-white">{Math.min(indexOfLastItem, sortedRequests.length)}</span> de <span className="font-medium text-gray-900 dark:text-white">{sortedRequests.length}</span> resultados
-                  </p>
-                </div>
-                <div>
-                  <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
-                    {/* Previous Button */}
-                    <button
-                      onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
-                      disabled={currentPage === 1}
-                      className="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed focus:z-20 focus:outline-offset-0"
-                    >
-                      <span className="sr-only">Anterior</span>
-                      <ChevronLeft className="h-4 w-4" />
-                    </button>
-                    
-                    {/* Page Numbers */}
-                    {getPaginationItems().map((page, index) => {
-                      if (page === '...') {
-                        return (
-                          <span
-                            key={`dots-${index}`}
-                            className="relative inline-flex items-center px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-400 ring-1 ring-inset ring-gray-300 dark:ring-gray-600 focus:outline-offset-0"
-                          >
-                            ...
-                          </span>
-                        );
-                      }
-                      
-                      const isCurrent = page === currentPage;
-                      return (
-                        <button
-                          key={page}
-                          onClick={() => setCurrentPage(page as number)}
-                          aria-current={isCurrent ? 'page' : undefined}
-                          className={`
-                            relative inline-flex items-center px-4 py-2 text-sm font-semibold focus:z-20 focus:outline-offset-0
-                            ${isCurrent 
-                              ? 'z-10 bg-primary-600 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600' 
-                              : 'text-gray-900 dark:text-gray-300 ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-                            }
-                          `}
-                        >
-                          {page}
-                        </button>
-                      );
-                    })}
-
-                    {/* Next Button */}
-                    <button
-                      onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
-                      disabled={currentPage === totalPages}
-                      className="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed focus:z-20 focus:outline-offset-0"
-                    >
-                      <span className="sr-only">Próximo</span>
-                      <ChevronRight className="h-4 w-4" />
-                    </button>
-                  </nav>
-                </div>
-              </div>
-            </div>
-          )}
+          {renderPagination()}
         </Card>
       ) : (
         // === KANBAN VIEW ===
+        <>
         <div className="flex gap-4 overflow-x-auto pb-6 -mx-4 px-4 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600">
            {Object.values(RequestStatus).map((status) => {
-             const statusRequests = filteredRequests.filter(r => r.status === status);
+             // Pagination for Kanban: Use currentItems for cards, but filteredRequests for total counts
+             const statusRequests = currentItems.filter(r => r.status === status);
+             const totalStatusCount = filteredRequests.filter(r => r.status === status).length;
              
              return (
                <div 
@@ -1008,8 +1017,8 @@ export const RequestList: React.FC = () => {
                        }`}></span>
                        {status}
                     </h3>
-                    <span className="bg-white dark:bg-gray-700 text-gray-500 dark:text-gray-300 text-xs px-2 py-0.5 rounded-full font-medium">
-                      {statusRequests.length}
+                    <span className="bg-white dark:bg-gray-700 text-gray-500 dark:text-gray-300 text-xs px-2 py-0.5 rounded-full font-medium" title="Total nesta coluna (filtrado)">
+                      {totalStatusCount}
                     </span>
                  </div>
 
@@ -1071,7 +1080,7 @@ export const RequestList: React.FC = () => {
                     ))}
                     {statusRequests.length === 0 && (
                       <div className="h-24 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-lg flex items-center justify-center text-gray-400 text-xs">
-                         Vazio
+                         {totalStatusCount > 0 ? 'Outros na próx. pág.' : 'Vazio'}
                       </div>
                     )}
                  </div>
@@ -1079,6 +1088,8 @@ export const RequestList: React.FC = () => {
              );
            })}
         </div>
+        {renderPagination()}
+        </>
       )}
       
       {/* BULK ACTIONS FLOATING BAR (Only List View) */}
