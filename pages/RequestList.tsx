@@ -1,4 +1,3 @@
-// ... (Keep existing imports)
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useData } from '../contexts/DataContext';
@@ -12,7 +11,7 @@ import {
   Plus, Search, Link as LinkIcon, Image as ImageIcon, X, 
   ChevronLeft, ChevronRight, Trash2,
   LayoutGrid, List as ListIcon, FileSpreadsheet, Calendar, AlertTriangle, Loader2,
-  ListFilter, FilterX, Clock, ArrowUpDown, ArrowUp, ArrowDown
+  ListFilter, FilterX, Clock, ArrowUpDown, ArrowUp, ArrowDown, User
 } from 'lucide-react';
 import { Modal } from '../components/ui/Modal';
 import { fbUploadImage } from '../services/firebaseService';
@@ -782,19 +781,23 @@ export const RequestList: React.FC = () => {
                </div>
             </div>
 
-            {/* Standard Filters */}
-            <select
-              value={assigneeFilter}
-              onChange={(e) => setAssigneeFilter(e.target.value)}
-              className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary-500 max-w-[150px]"
-            >
-              <option value="ALL">Resp: Todos</option>
-              <option value="UNASSIGNED">Não Atribuído</option>
-              {users.map(user => (
-                <option key={user.id} value={user.id}>{user.name}</option>
-              ))}
-            </select>
+            {/* Assignee Filter */}
+            <div className="relative">
+                <User className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+                <select
+                  value={assigneeFilter}
+                  onChange={(e) => setAssigneeFilter(e.target.value)}
+                  className="pl-8 pr-8 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary-500 appearance-none min-w-[160px]"
+                >
+                  <option value="ALL">Responsável: Todos</option>
+                  <option value="UNASSIGNED">Não Atribuído</option>
+                  {users.map(user => (
+                    <option key={user.id} value={user.id}>{user.name}</option>
+                  ))}
+                </select>
+            </div>
 
+            {/* Status Filter */}
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
@@ -871,424 +874,357 @@ export const RequestList: React.FC = () => {
 
       {/* CONTENT AREA */}
       {viewMode === 'list' ? (
-        // === LIST VIEW ===
-        <Card>
-          <div className="overflow-x-auto min-h-[400px]">
+        <Card className="overflow-hidden border-0 shadow-none bg-transparent">
+          <div className="overflow-x-auto bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm">
             <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
-              <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
-                <tr>
-                  <th scope="col" className="p-4 w-4">
-                    <div className="flex items-center">
-                      <input 
-                        id="checkbox-all" 
-                        type="checkbox" 
-                        className="w-4 h-4 text-primary-600 bg-gray-100 border-gray-300 rounded focus:ring-primary-500 dark:focus:ring-primary-600 dark:ring-offset-gray-800 dark:focus:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
-                        checked={currentItems.length > 0 && selectedIds.size === currentItems.length}
-                        onChange={toggleSelectAll}
-                      />
-                      <label htmlFor="checkbox-all" className="sr-only">checkbox</label>
-                    </div>
-                  </th>
-                  <SortableHeader label="ID / Título" sortKey="title" />
-                  <SortableHeader label="Unidade" sortKey="unitName" className="hidden md:table-cell" />
-                  <SortableHeader label="Responsável" sortKey="assigneeName" className="hidden lg:table-cell" />
-                  <SortableHeader label="Status" sortKey="status" />
-                  <SortableHeader label="Prioridade" sortKey="priority" className="hidden md:table-cell" />
-                  <SortableHeader label="Atualizado" sortKey="updatedAt" className="hidden xl:table-cell" />
-                  <th className="px-3 md:px-6 py-3">Ação</th>
-                </tr>
-              </thead>
-              <tbody>
-                {currentItems.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
-                      {filteredRequests.length === 0 && requests.length > 0 
-                        ? "Nenhum resultado para os filtros aplicados." 
-                        : "Nenhuma requisição encontrada."}
-                    </td>
-                  </tr>
-                ) : (
-                  currentItems.map((req) => {
-                    const unitName = units.find(u => u.id === req.unitId)?.name || 'N/A';
-                    const assigneeName = users.find(u => u.id === req.assigneeId)?.name || '—';
-                    const isSelected = selectedIds.has(req.id);
-
-                    return (
-                      <tr 
-                        key={req.id} 
-                        className={`
-                          border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors
-                          ${isSelected ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-white dark:bg-gray-800'}
-                        `}
-                      >
-                        <td className="w-4 p-4">
-                          <div className="flex items-center">
-                            <input 
-                              id={`checkbox-${req.id}`} 
-                              type="checkbox" 
-                              className="w-4 h-4 text-primary-600 bg-gray-100 border-gray-300 rounded focus:ring-primary-500 dark:focus:ring-primary-600 dark:ring-offset-gray-800 dark:focus:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
-                              checked={isSelected}
-                              onChange={() => toggleSelection(req.id)}
-                            />
-                            <label htmlFor={`checkbox-${req.id}`} className="sr-only">checkbox</label>
-                          </div>
-                        </td>
-                        <td className="px-3 md:px-6 py-4 font-medium text-gray-900 dark:text-white">
-                          <div className="flex flex-col cursor-pointer" onClick={() => navigate(`/requests/${req.id}`)}>
-                             <span className="text-xs text-gray-400">#{req.id}</span>
-                             <span className="font-semibold truncate max-w-[150px] sm:max-w-[200px] hover:text-primary-600">{req.title}</span>
-                             <span className="text-xs text-gray-500 md:hidden mt-1">{unitName}</span>
-                          </div>
-                        </td>
-                        <td className="px-3 md:px-6 py-4 hidden md:table-cell">{unitName}</td>
-                        <td className="px-3 md:px-6 py-4 hidden lg:table-cell text-gray-900 dark:text-gray-300" onClick={(e) => e.stopPropagation()}>
-                           {canManageStatus ? (
-                              <select
-                                value={req.assigneeId || ''}
-                                onChange={(e) => handleAssignUser(e, req.id)}
-                                className="bg-transparent text-sm border-gray-300 dark:border-gray-600 rounded-md focus:ring-primary-500 focus:border-primary-500 py-1 pl-1 pr-6 max-w-[150px] truncate"
-                              >
-                                <option value="">Não atribuído</option>
-                                {users.map(u => (
-                                  <option key={u.id} value={u.id}>{u.name}</option>
-                                ))}
-                              </select>
-                           ) : (
-                              assigneeName
-                           )}
-                        </td>
-                        <td className="px-3 md:px-6 py-4">
-                          <StatusBadge status={req.status} />
-                        </td>
-                        <td className="px-3 md:px-6 py-4 hidden md:table-cell">
-                          <PriorityBadge priority={req.priority} />
-                        </td>
-                        <td className="px-3 md:px-6 py-4 hidden xl:table-cell">
-                          {new Date(req.updatedAt).toLocaleDateString()}
-                        </td>
-                        <td className="px-3 md:px-6 py-4">
-                           <div className="flex items-center gap-2">
-                              <Button size="sm" variant="secondary" onClick={() => navigate(`/requests/${req.id}`)}>
-                                Ver
-                              </Button>
-                              {canManageStatus && (
-                                <button 
-                                    onClick={(e) => handleDeleteClick(e, req.id)}
-                                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                                    title="Excluir"
-                                >
-                                    <Trash2 className="h-4 w-4" />
-                                </button>
-                              )}
+               <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-900/50 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">
+                 <tr>
+                   <th className="p-4 w-4">
+                     <div className="flex items-center">
+                       <input 
+                         type="checkbox" 
+                         className="w-4 h-4 text-primary-600 bg-gray-100 border-gray-300 rounded focus:ring-primary-500 dark:focus:ring-primary-600 dark:ring-offset-gray-800 dark:bg-gray-700 dark:border-gray-600"
+                         checked={selectedIds.size > 0 && selectedIds.size === currentItems.length}
+                         onChange={toggleSelectAll}
+                       />
+                     </div>
+                   </th>
+                   <SortableHeader label="ID" sortKey="id" />
+                   <SortableHeader label="Título" sortKey="title" className="min-w-[200px]" />
+                   <SortableHeader label="Unidade" sortKey="unitName" />
+                   <SortableHeader label="Solicitante" sortKey="creatorName" />
+                   <SortableHeader label="Responsável" sortKey="assigneeName" />
+                   <SortableHeader label="Prioridade" sortKey="priority" />
+                   <SortableHeader label="Status" sortKey="status" />
+                   <SortableHeader label="Atualizado" sortKey="updatedAt" />
+                   <th className="px-6 py-3 text-right">Ações</th>
+                 </tr>
+               </thead>
+               <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                 {currentItems.length > 0 ? (
+                   currentItems.map((req) => {
+                     const isSelected = selectedIds.has(req.id);
+                     return (
+                       <tr 
+                         key={req.id} 
+                         onClick={() => navigate(`/requests/${req.id}`)}
+                         className={`
+                           hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer
+                           ${isSelected ? 'bg-blue-50 dark:bg-blue-900/10' : ''}
+                         `}
+                       >
+                         <td className="w-4 p-4" onClick={(e) => e.stopPropagation()}>
+                           <div className="flex items-center">
+                             <input 
+                               type="checkbox" 
+                               className="w-4 h-4 text-primary-600 bg-gray-100 border-gray-300 rounded focus:ring-primary-500 dark:focus:ring-primary-600 dark:ring-offset-gray-800 dark:bg-gray-700 dark:border-gray-600"
+                               checked={isSelected}
+                               onChange={() => toggleSelection(req.id)}
+                             />
                            </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
+                         </td>
+                         <td className="px-6 py-4 font-mono text-xs text-gray-400">
+                           #{req.id.slice(-6)}
+                         </td>
+                         <td className="px-6 py-4">
+                           <div className="font-medium text-gray-900 dark:text-white truncate max-w-[200px]" title={req.title}>
+                             {req.title}
+                           </div>
+                           <div className="text-xs text-gray-400 truncate max-w-[200px]">
+                             {req.description}
+                           </div>
+                         </td>
+                         <td className="px-6 py-4">
+                           {units.find(u => u.id === req.unitId)?.name || 'N/A'}
+                         </td>
+                         <td className="px-6 py-4">
+                           <div className="flex items-center gap-2">
+                             <div className="h-6 w-6 rounded-full bg-gray-200 overflow-hidden flex-shrink-0">
+                               <img src={users.find(u => u.id === req.creatorId)?.avatarUrl} alt="" className="h-full w-full object-cover" />
+                             </div>
+                             <span className="truncate max-w-[100px]">
+                               {users.find(u => u.id === req.creatorId)?.name || 'N/A'}
+                             </span>
+                           </div>
+                         </td>
+                         <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                           <select
+                             value={req.assigneeId || ''}
+                             onChange={(e) => handleAssignUser(e, req.id)}
+                             className="bg-transparent text-sm border-none focus:ring-0 p-0 text-gray-600 dark:text-gray-300 max-w-[120px] truncate"
+                           >
+                             <option value="">Não atribuído</option>
+                             {users.map(u => (
+                               <option key={u.id} value={u.id}>{u.name}</option>
+                             ))}
+                           </select>
+                         </td>
+                         <td className="px-6 py-4">
+                           <PriorityBadge priority={req.priority} />
+                         </td>
+                         <td className="px-6 py-4">
+                           <StatusBadge status={req.status} />
+                         </td>
+                         <td className="px-6 py-4 text-xs text-gray-500">
+                           {new Date(req.updatedAt).toLocaleDateString()}
+                         </td>
+                         <td className="px-6 py-4 text-right">
+                           <button 
+                             onClick={(e) => handleDeleteClick(e, req.id)}
+                             className="text-gray-400 hover:text-red-500 transition-colors p-1"
+                             title="Excluir"
+                           >
+                             <Trash2 className="h-4 w-4" />
+                           </button>
+                         </td>
+                       </tr>
+                     );
+                   })
+                 ) : (
+                   <tr>
+                     <td colSpan={10} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                        <div className="flex flex-col items-center justify-center">
+                          <Search className="h-10 w-10 text-gray-300 mb-2" />
+                          <p>Nenhuma requisição encontrada.</p>
+                        </div>
+                     </td>
+                   </tr>
+                 )}
+               </tbody>
             </table>
           </div>
+
+          {/* Bulk Actions Bar */}
+          {selectedIds.size > 0 && (
+            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-6 py-3 rounded-full shadow-xl border border-gray-200 dark:border-gray-700 flex items-center gap-4 z-50 animate-fade-in">
+              <span className="font-medium text-sm">{selectedIds.size} selecionado(s)</span>
+              <div className="h-4 w-px bg-gray-300 dark:bg-gray-600" />
+              <div className="flex gap-2">
+                 {Object.values(RequestStatus).map(status => (
+                    <button 
+                       key={status}
+                       onClick={() => handleBulkStatusChange(status)}
+                       className="text-xs px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+                       title={`Mudar para ${status}`}
+                    >
+                       {status}
+                    </button>
+                 ))}
+              </div>
+            </div>
+          )}
+          
           {renderPagination()}
         </Card>
       ) : (
-        // === KANBAN VIEW ===
-        <>
-        <div className="flex gap-4 overflow-x-auto pb-6 -mx-4 px-4 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600">
-           {Object.values(RequestStatus).map((status) => {
-             // Pagination for Kanban: Use currentItems for cards, but filteredRequests for total counts
-             const statusRequests = currentItems.filter(r => r.status === status);
-             const totalStatusCount = filteredRequests.filter(r => r.status === status).length;
-             
+        <div className="flex gap-4 overflow-x-auto pb-4 h-[calc(100vh-200px)]">
+           {Object.values(RequestStatus).map(status => {
+             const itemsInStatus = filteredRequests.filter(r => r.status === status);
              return (
                <div 
-                  key={status} 
-                  className="min-w-[300px] w-[300px] flex flex-col bg-gray-100 dark:bg-gray-800/50 rounded-xl p-3 border border-gray-200 dark:border-gray-700"
-                  onDragOver={handleDragOver}
-                  onDrop={(e) => handleDrop(e, status)}
+                 key={status} 
+                 className="flex-shrink-0 w-80 bg-gray-100/50 dark:bg-gray-800/50 rounded-xl flex flex-col max-h-full border border-gray-200/50 dark:border-gray-700/50"
+                 onDragOver={handleDragOver}
+                 onDrop={(e) => handleDrop(e, status)}
                >
-                 <div className="flex items-center justify-between mb-3 px-1">
-                    <h3 className="font-semibold text-sm text-gray-700 dark:text-gray-200 flex items-center gap-2">
-                       <span className={`w-2 h-2 rounded-full ${
-                          status === RequestStatus.SENT ? 'bg-blue-500' :
-                          status === RequestStatus.IN_PROGRESS ? 'bg-amber-500' :
-                          status === RequestStatus.RESOLVED ? 'bg-emerald-500' :
-                          status === RequestStatus.CANCELLED ? 'bg-gray-500' : 'bg-purple-500'
-                       }`}></span>
-                       {status}
-                    </h3>
-                    <span className="bg-white dark:bg-gray-700 text-gray-500 dark:text-gray-300 text-xs px-2 py-0.5 rounded-full font-medium" title="Total nesta coluna (filtrado)">
-                      {totalStatusCount}
+                 <div className="p-3 font-medium text-sm text-gray-700 dark:text-gray-300 flex justify-between items-center bg-gray-100 dark:bg-gray-800 rounded-t-xl border-b border-gray-200 dark:border-gray-700">
+                    <span className="flex items-center gap-2">
+                      <span className={`w-2 h-2 rounded-full ${
+                        status === RequestStatus.SENT ? 'bg-blue-400' :
+                        status === RequestStatus.IN_PROGRESS ? 'bg-amber-400' :
+                        status === RequestStatus.RESOLVED ? 'bg-emerald-400' :
+                        'bg-gray-400'
+                      }`} />
+                      {status}
+                    </span>
+                    <span className="bg-white dark:bg-gray-700 px-2 py-0.5 rounded-full text-xs text-gray-500">
+                      {itemsInStatus.length}
                     </span>
                  </div>
-
-                 <div className="flex-1 space-y-3 overflow-y-auto max-h-[calc(100vh-250px)] pr-1 custom-scrollbar">
-                    {statusRequests.map(req => (
-                      <div
+                 <div className="p-2 overflow-y-auto flex-1 space-y-2">
+                    {itemsInStatus.map(req => (
+                      <Card 
                         key={req.id}
-                        draggable={canManageStatus}
+                        className="p-3 cursor-move hover:shadow-md transition-all border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800"
+                        draggable
                         onDragStart={(e) => handleDragStart(e, req.id)}
                         onClick={() => navigate(`/requests/${req.id}`)}
-                        className={`
-                          bg-white dark:bg-gray-800 p-3 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 
-                          cursor-pointer hover:shadow-md transition-all active:cursor-grabbing relative group
-                          ${canManageStatus ? 'cursor-grab' : ''}
-                        `}
                       >
                          <div className="flex justify-between items-start mb-2">
-                            <span className="text-[10px] font-mono text-gray-400">#{req.id.slice(-6)}</span>
-                            <PriorityBadge priority={req.priority} />
+                           <span className="font-mono text-[10px] text-gray-400">#{req.id.slice(-4)}</span>
+                           <PriorityBadge priority={req.priority} />
                          </div>
-                         <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-2 line-clamp-2 leading-snug">
-                            {req.title}
-                         </h4>
-                         <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-50 dark:border-gray-700/50">
-                            <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400" onClick={(e) => e.stopPropagation()}>
-                               <div className="w-5 h-5 rounded-full bg-gray-200 overflow-hidden">
-                                  <img src={users.find(u => u.id === req.assigneeId)?.avatarUrl || 'https://ui-avatars.com/api/?name=?'} alt="" />
-                               </div>
-                               {canManageStatus ? (
-                                  <select
-                                    value={req.assigneeId || ''}
-                                    onChange={(e) => handleAssignUser(e, req.id)}
-                                    className="bg-transparent border-none p-0 text-xs focus:ring-0 max-w-[100px] truncate text-gray-600 dark:text-gray-400 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-                                  >
-                                    <option value="">Sem resp.</option>
-                                    {users.map(u => (
-                                      <option key={u.id} value={u.id}>{u.name}</option>
-                                    ))}
-                                  </select>
-                               ) : (
-                                  <span className="max-w-[80px] truncate">{users.find(u => u.id === req.assigneeId)?.name || 'Sem resp.'}</span>
-                               )}
+                         <h4 className="font-medium text-sm text-gray-900 dark:text-white mb-1 line-clamp-2">{req.title}</h4>
+                         <div className="flex items-center justify-between mt-3">
+                            <div className="flex items-center gap-1">
+                               <img src={users.find(u => u.id === req.assigneeId)?.avatarUrl || 'https://ui-avatars.com/api/?name=?'} className="w-5 h-5 rounded-full" alt="" />
                             </div>
-                            <span className="text-[10px] text-gray-400">
-                               {new Date(req.updatedAt).toLocaleDateString(undefined, {month:'short', day:'numeric'})}
-                            </span>
+                            <span className="text-[10px] text-gray-400">{new Date(req.updatedAt).toLocaleDateString()}</span>
                          </div>
-                         
-                         {canManageStatus && (
-                            <button 
-                                onClick={(e) => handleDeleteClick(e, req.id)}
-                                className="absolute top-2 right-2 p-1.5 bg-white dark:bg-gray-700 rounded-md shadow-sm opacity-0 group-hover:opacity-100 transition-opacity hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30"
-                                title="Excluir"
-                            >
-                                <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                         )}
-                      </div>
+                      </Card>
                     ))}
-                    {statusRequests.length === 0 && (
-                      <div className="h-24 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-lg flex items-center justify-center text-gray-400 text-xs">
-                         {totalStatusCount > 0 ? 'Outros na próx. pág.' : 'Vazio'}
-                      </div>
-                    )}
                  </div>
                </div>
              );
            })}
         </div>
-        {renderPagination()}
-        </>
       )}
-      
-      {/* BULK ACTIONS FLOATING BAR (Only List View) */}
-      {viewMode === 'list' && selectedIds.size > 0 && canManageStatus && (
-        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-2xl rounded-xl p-4 flex flex-col sm:flex-row items-center gap-4 z-40 animate-fade-in w-[90%] sm:w-auto">
-          <div className="flex items-center gap-2 font-medium text-gray-900 dark:text-white border-r border-gray-200 dark:border-gray-700 pr-4">
-             <span className="bg-primary-600 text-white text-xs px-2 py-1 rounded-full">{selectedIds.size}</span>
-             <span>Selecionados</span>
-          </div>
-          <div className="flex items-center gap-2 overflow-x-auto max-w-full pb-2 sm:pb-0">
-             <span className="text-sm text-gray-500 whitespace-nowrap">Alterar para:</span>
-             <div className="flex gap-2">
-                <button 
-                  onClick={() => handleBulkStatusChange(RequestStatus.IN_PROGRESS)}
-                  className="px-3 py-1.5 text-xs font-medium rounded-lg bg-amber-100 text-amber-800 hover:bg-amber-200 transition-colors whitespace-nowrap"
-                >
-                  Em Andamento
-                </button>
-                <button 
-                   onClick={() => handleBulkStatusChange(RequestStatus.WAITING_CLIENT)}
-                   className="px-3 py-1.5 text-xs font-medium rounded-lg bg-purple-100 text-purple-800 hover:bg-purple-200 transition-colors whitespace-nowrap"
-                >
-                   Aguard. Cliente
-                </button>
-                <button 
-                   onClick={() => handleBulkStatusChange(RequestStatus.RESOLVED)}
-                   className="px-3 py-1.5 text-xs font-medium rounded-lg bg-emerald-100 text-emerald-800 hover:bg-emerald-200 transition-colors whitespace-nowrap"
-                >
-                   Resolvido
-                </button>
-             </div>
-          </div>
-          <button 
-            onClick={() => setSelectedIds(new Set())} 
-            className="ml-2 p-1 text-gray-400 hover:text-red-500 transition-colors"
-            title="Cancelar seleção"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-      )}
-      
-      {/* CONFIRM DELETE MODAL */}
-      <Modal 
-         isOpen={!!requestToDelete} 
-         onClose={() => setRequestToDelete(null)}
-         title="Confirmar Exclusão"
-      >
-         <div className="flex flex-col items-center text-center p-4">
-            <div className="h-12 w-12 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 flex items-center justify-center mb-4">
-                <AlertTriangle className="h-6 w-6" />
-            </div>
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Excluir Requisição?</h3>
-            <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">
-                Tem certeza que deseja excluir esta requisição permanentemente? <br/>
-                Esta ação não pode ser desfeita.
-            </p>
-            <div className="flex gap-3 w-full">
-                <Button variant="secondary" onClick={() => setRequestToDelete(null)} className="flex-1">
-                    Cancelar
-                </Button>
-                <Button variant="danger" onClick={confirmDelete} className="flex-1">
-                    Sim, Excluir
-                </Button>
-            </div>
-         </div>
-      </Modal>
 
-      {/* MODAL CREATE (Existing) */}
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Nova Requisição">
+      {/* NEW REQUEST MODAL */}
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title="Nova Requisição"
+      >
         <form onSubmit={handleCreate} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Título</label>
-            <input required maxLength={100} value={newTitle} onChange={e => setNewTitle(e.target.value)} className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 dark:border-gray-600" />
+            <input 
+              required
+              value={newTitle}
+              onChange={e => setNewTitle(e.target.value)}
+              className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-primary-500"
+              placeholder="Resumo da solicitação"
+              maxLength={100}
+            />
           </div>
           
-          {!currentUser?.unitId && (
-            <div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Descrição Detalhada</label>
+            <textarea 
+              required
+              value={newDesc}
+              onChange={e => setNewDesc(e.target.value)}
+              className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-primary-500 min-h-[100px]"
+              placeholder="Descreva o problema ou necessidade..."
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+             <div>
                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Unidade</label>
-               <select value={newUnitId} onChange={e => setNewUnitId(e.target.value)} className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 dark:border-gray-600">
-                 {units.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+               <select 
+                 required
+                 value={newUnitId}
+                 onChange={e => setNewUnitId(e.target.value)}
+                 className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-primary-500"
+                 disabled={!isAdmin && currentUser?.role !== UserRole.LEADER}
+               >
+                 {units.map(u => (
+                   <option key={u.id} value={u.id}>{u.name}</option>
+                 ))}
                </select>
-            </div>
+             </div>
+             <div>
+               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Prioridade</label>
+               <select 
+                 value={newPriority}
+                 onChange={e => setNewPriority(e.target.value as any)}
+                 className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-primary-500"
+               >
+                 <option value="Low">Baixa</option>
+                 <option value="Medium">Média</option>
+                 <option value="High">Alta</option>
+                 <option value="Critical">Crítica</option>
+               </select>
+             </div>
+          </div>
+
+          {/* New: Link URL */}
+          <div>
+             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-2">
+                <LinkIcon className="h-4 w-4" /> Link do Produto (Opcional)
+             </label>
+             <input 
+               type="url"
+               value={newProductUrl}
+               onChange={e => setNewProductUrl(e.target.value)}
+               className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-primary-500"
+               placeholder="https://..."
+             />
+          </div>
+
+          {/* New: Image Upload */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+                <ImageIcon className="h-4 w-4" /> Anexar Imagens (Máx 5)
+             </label>
+             
+             <div className="grid grid-cols-5 gap-2 mb-2">
+                {attachedImages.map((img, idx) => (
+                    <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 group">
+                        <img src={img} alt="" className="w-full h-full object-cover" />
+                        <button
+                            type="button"
+                            onClick={() => removeImage(idx)}
+                            className="absolute top-0.5 right-0.5 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                            <X className="h-3 w-3" />
+                        </button>
+                    </div>
+                ))}
+                {attachedImages.length < 5 && (
+                    <label className={`
+                        flex items-center justify-center border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg aspect-square cursor-pointer hover:border-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/10 transition-colors
+                        ${isCompressing ? 'opacity-50 cursor-not-allowed' : ''}
+                    `}>
+                        {isCompressing ? <Loader2 className="h-5 w-5 animate-spin text-primary-500" /> : <Plus className="h-6 w-6 text-gray-400" />}
+                        <input 
+                            type="file" 
+                            accept="image/*" 
+                            multiple 
+                            className="hidden" 
+                            onChange={handleFileChange}
+                            disabled={isCompressing}
+                        />
+                    </label>
+                )}
+             </div>
+          </div>
+
+          {(canManageStatus) && (
+             <div>
+               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Atribuir Responsável (Opcional)</label>
+               <select 
+                 value={newAssigneeId}
+                 onChange={e => setNewAssigneeId(e.target.value)}
+                 className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-primary-500"
+               >
+                 <option value="">-- Selecione --</option>
+                 {users.map(u => (
+                   <option key={u.id} value={u.id}>{u.name}</option>
+                 ))}
+               </select>
+             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Prioridade</label>
-              <select value={newPriority} onChange={e => setNewPriority(e.target.value as any)} className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 dark:border-gray-600">
-                <option value="Low">Baixa</option>
-                <option value="Medium">Média</option>
-                <option value="High">Alta</option>
-              </select>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Responsável (Opcional)</label>
-              <select value={newAssigneeId} onChange={e => setNewAssigneeId(e.target.value)} className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 dark:border-gray-600">
-                <option value="">Aguardar atribuição</option>
-                {users.map(u => (
-                  <option key={u.id} value={u.id}>{u.name}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Descrição</label>
-            <textarea 
-              required 
-              rows={4} 
-              value={newDesc} 
-              onChange={e => setNewDesc(e.target.value)} 
-              className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 dark:border-gray-600"
-              spellCheck={true}
-              lang="pt-BR"
-              placeholder="Descreva os detalhes da sua solicitação..."
-              maxLength={2000}
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-2">
-              <LinkIcon className="h-4 w-4" />
-              Link do Produto (Opcional)
-            </label>
-            <input 
-              type="url"
-              value={newProductUrl} 
-              onChange={e => setNewProductUrl(e.target.value)} 
-              className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 dark:border-gray-600 text-blue-600"
-              placeholder="https://produto.mercadolivre.com.br/..."
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Anexos (Máx: 5)
-            </label>
-            
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
-              {attachedImages.map((img, index) => (
-                <div key={index} className="relative aspect-square bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 group">
-                   <img src={img} alt={`Anexo ${index + 1}`} className="w-full h-full object-cover" />
-                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <button
-                        type="button"
-                        onClick={() => removeImage(index)}
-                        className="p-1.5 bg-red-600 text-white rounded-full hover:bg-red-700 shadow-sm"
-                        title="Remover imagem"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                   </div>
-                </div>
-              ))}
-              
-              {attachedImages.length < 5 && (
-                <label className={`flex flex-col items-center justify-center aspect-square border-2 border-dashed rounded-lg cursor-pointer bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-700 hover:bg-gray-100 transition-colors ${isCompressing ? 'border-primary-500 opacity-70 cursor-wait' : 'border-gray-300 dark:border-gray-600'}`}>
-                  <div className="flex flex-col items-center justify-center p-2 text-center">
-                    {isCompressing ? (
-                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-600"></div>
-                    ) : (
-                      <>
-                        <ImageIcon className="w-6 h-6 mb-1 text-gray-500 dark:text-gray-400" />
-                        <span className="text-[10px] text-gray-500 dark:text-gray-400">Add Foto</span>
-                      </>
-                    )}
-                  </div>
-                  <input 
-                    type="file" 
-                    className="hidden" 
-                    accept="image/*"
-                    onChange={handleFileChange}
-                    disabled={isCompressing || isSubmitting}
-                    multiple
-                  />
-                </label>
-              )}
-            </div>
-            
-            <p className="text-xs text-gray-400 text-right">
-              {attachedImages.length} de 5 imagens
-            </p>
-          </div>
-
-          <div className="flex justify-end pt-4">
-            <Button type="button" variant="ghost" onClick={() => setIsModalOpen(false)} className="mr-2" disabled={isSubmitting}>Cancelar</Button>
-            <Button type="submit" disabled={isCompressing || isSubmitting}>
-              {isSubmitting ? (
-                <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Enviando...
-                </>
-              ) : 'Criar Ticket'}
+          <div className="flex justify-end pt-4 gap-3">
+            <Button type="button" variant="ghost" onClick={() => setIsModalOpen(false)}>Cancelar</Button>
+            <Button type="submit" disabled={isSubmitting || isCompressing}>
+                {isSubmitting ? 'Enviando...' : 'Criar Requisição'}
             </Button>
           </div>
         </form>
       </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={!!requestToDelete}
+        onClose={() => setRequestToDelete(null)}
+        title="Confirmar Exclusão"
+      >
+         <div className="space-y-4">
+            <div className="flex items-center gap-3 text-red-600 bg-red-50 dark:bg-red-900/20 p-4 rounded-lg">
+                <AlertTriangle className="h-6 w-6 flex-shrink-0" />
+                <p className="text-sm font-medium">Esta ação não pode ser desfeita. A requisição será permanentemente removida.</p>
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+                <Button variant="ghost" onClick={() => setRequestToDelete(null)}>Cancelar</Button>
+                <Button variant="danger" onClick={confirmDelete}>Excluir Definitivamente</Button>
+            </div>
+         </div>
+      </Modal>
+
     </div>
   );
 };
