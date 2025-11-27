@@ -16,7 +16,31 @@ const AttachmentThumbnail: React.FC<{
   isImage: (url: string) => boolean; 
 }> = ({ att, onClick, isImage }) => {
   const [isLoaded, setIsLoaded] = useState(false);
+  const [shouldLoad, setShouldLoad] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
   const isImg = isImage(att.url);
+
+  useEffect(() => {
+    if (!isImg) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setShouldLoad(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '100px' } // Load when image is 100px away from viewport
+    );
+
+    if (containerRef.current) {
+      observer.observe(containerRef.current);
+    }
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [isImg]);
 
   if (!isImg) {
     return (
@@ -36,22 +60,28 @@ const AttachmentThumbnail: React.FC<{
 
   return (
      <div 
+       ref={containerRef}
        className="w-full h-full cursor-pointer relative bg-gray-100 dark:bg-gray-800"
        onClick={onClick}
      >
-       {!isLoaded && (
-         <div className="absolute inset-0 flex items-center justify-center z-0">
+       {/* Placeholder / Loader */}
+       {(!shouldLoad || !isLoaded) && (
+         <div className="absolute inset-0 flex items-center justify-center z-0 bg-gray-100 dark:bg-gray-800">
             <Loader2 className="h-6 w-6 text-gray-300 animate-spin" />
          </div>
        )}
-       <img 
-         src={att.url} 
-         alt={att.name} 
-         className={`w-full h-full object-cover transition-all duration-500 relative z-10 ${isLoaded ? 'opacity-100' : 'opacity-0'} group-hover:scale-110`}
-         loading="lazy"
-         decoding="async"
-         onLoad={() => setIsLoaded(true)}
-       />
+       
+       {shouldLoad && (
+         <img 
+           src={att.url} 
+           alt={att.name} 
+           className={`w-full h-full object-cover transition-opacity duration-500 relative z-10 ${isLoaded ? 'opacity-100' : 'opacity-0'} group-hover:scale-110`}
+           loading="lazy"
+           decoding="async"
+           onLoad={() => setIsLoaded(true)}
+         />
+       )}
+
        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100 z-20">
           <ZoomIn className="text-white h-8 w-8 drop-shadow-md" />
        </div>
