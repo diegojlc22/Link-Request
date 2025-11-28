@@ -90,10 +90,16 @@ export interface FirebaseConfig {
   appId: string;
 }
 
+export interface CloudinaryConfig {
+  cloudName: string;
+  uploadPreset: string;
+}
+
 // MULTI-TENANT CONFIG
 export interface Tenant {
   id: string;
   name: string;
   slug: string; // identificador na URL
-  config: FirebaseConfig;
+  firebaseConfig: FirebaseConfig;
+  cloudinaryConfig?: CloudinaryConfig; // Opcional: Se não tiver, usa .env ou Base64
 }

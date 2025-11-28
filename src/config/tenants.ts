@@ -1,22 +1,18 @@
-import { Tenant, FirebaseConfig } from '../types';
+import { Tenant } from '../types';
 
 /**
  * 🏢 REGISTRO MESTRE DE CLIENTES (TENANTS)
  * 
- * Para adicionar um novo cliente:
- * 1. Crie o projeto no Firebase Console.
- * 2. Adicione as credenciais abaixo.
- * 3. Dê git push.
- * 
- * O sistema vai detectar o cliente automaticamente pelo SLUG.
+ * Cada cliente tem seu próprio banco de dados (Firebase) e pode ter
+ * seu próprio armazenamento de imagens (Cloudinary).
  */
 export const tenants: Tenant[] = [
   // --- CLIENTE 1: EMPRESA DEMO ---
   {
     id: 'client-demo',
     name: 'Empresa Demo',
-    slug: 'demo', // Acessível via demo.app.com ou pelo portal digitando "demo"
-    config: {
+    slug: 'demo', 
+    firebaseConfig: {
       apiKey: "SUA_API_KEY_DO_FIREBASE_DEMO",
       authDomain: "projeto-demo.firebaseapp.com",
       projectId: "projeto-demo",
@@ -24,19 +20,25 @@ export const tenants: Tenant[] = [
       messagingSenderId: "123456789",
       appId: "1:123456:web:...",
       databaseURL: "https://projeto-demo-default-rtdb.firebaseio.com"
-    }
+    },
+    // Opcional: Se a empresa tiver seu próprio Cloudinary
+    // cloudinaryConfig: {
+    //   cloudName: "demo-cloud",
+    //   uploadPreset: "demo-preset"
+    // }
   },
   
-  // --- CLIENTE 2: EXEMPLO ---
+  // --- CLIENTE 2: OUTRO EXEMPLO ---
   // {
-  //   id: 'client-nike',
-  //   name: 'Nike Filiais',
-  //   slug: 'nike',
-  //   config: { ... }
+  //   id: 'client-padaria',
+  //   name: 'Padaria do João',
+  //   slug: 'padaria',
+  //   firebaseConfig: { ... },
+  //   cloudinaryConfig: { ... }
   // }
 ];
 
-export const getTenantConfig = (slug: string): FirebaseConfig | null => {
+export const getTenant = (slug: string): Tenant | null => {
   const tenant = tenants.find(t => t.slug.toLowerCase() === slug.toLowerCase());
-  return tenant ? tenant.config : null;
+  return tenant || null;
 };

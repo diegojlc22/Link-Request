@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Search, Building, ArrowRight } from 'lucide-react';
-import { getTenantConfig } from '../config/tenants';
+import { getTenant } from '../config/tenants';
 
 interface PortalProps {
   onTenantSelect: (slug: string) => void;
@@ -16,8 +16,8 @@ export const Portal: React.FC<PortalProps> = ({ onTenantSelect }) => {
     e.preventDefault();
     if (!slug.trim()) return;
 
-    const config = getTenantConfig(slug);
-    if (config) {
+    const tenant = getTenant(slug);
+    if (tenant) {
       onTenantSelect(slug);
     } else {
       setError('Empresa não encontrada. Verifique o identificador (slug) em tenants.ts.');

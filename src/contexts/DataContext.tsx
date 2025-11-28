@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
-import { Company, Unit, User, RequestTicket, Comment, UserRole, RequestStatus, FirebaseConfig } from '../types';
+import { Company, Unit, User, RequestTicket, Comment, UserRole, RequestStatus, Tenant } from '../types';
 import { formatISO } from 'date-fns';
 import { initFirebase, fbSet, fbUpdate, fbDelete, fbSubscribe, fbSubscribeRecent, fbUpdateMulti, isFirebaseInitialized, fbMonitorConnection } from '../services/firebaseService';
 
@@ -8,7 +8,6 @@ interface SetupData {
   adminName: string;
   adminEmail: string;
   adminPassword: string;
-  firebaseConfig?: FirebaseConfig;
 }
 
 interface DataContextType {
@@ -67,8 +66,8 @@ const sanitizeForFirebase = (data: any) => {
   return clean;
 };
 
-// MODIFICADO: Aceita initialConfig prop
-export const DataProvider: React.FC<{ children: React.ReactNode; initialConfig?: FirebaseConfig }> = ({ children, initialConfig }) => {
+// MODIFICADO: Aceita o Tenant completo
+export const DataProvider: React.FC<{ children: React.ReactNode; currentTenant?: Tenant | null }> = ({ children, currentTenant }) => {
   const [isSetupDone, setIsSetupDone] = useState<boolean>(true);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
@@ -93,8 +92,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode; initialConfig?:
     let isMounted = true; 
 
     const startListeners = () => {
-      // INICIALIZAÇÃO COM CONFIGURAÇÃO ESPECÍFICA DO TENANT
-      const success = initFirebase(initialConfig);
+      // INICIALIZAÇÃO COM CONFIGURAÇÃO ESPECÍFICA DO TENANT (Firebase E Cloudinary)
+      const success = initFirebase(currentTenant?.firebaseConfig, currentTenant?.cloudinaryConfig);
       
       if (success) {
         // Start connection monitoring
@@ -150,7 +149,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode; initialConfig?:
       if (unsubComments) unsubComments();
       if (unsubConnection) unsubConnection();
     };
-  }, [isDemo, initialConfig]); // Re-executa se mudar o Tenant
+  }, [isDemo, currentTenant]); // Re-executa se mudar o Tenant
 
   useEffect(() => {
     if (companies.length > 0 && companies[0].name) {
@@ -180,7 +179,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode; initialConfig?:
 
   const checkDb = () => {
       if (isDemo) return;
-      if (!isFirebaseInitialized() && !initFirebase(initialConfig)) {
+      if (!isFirebaseInitialized() && !initFirebase(currentTenant?.firebaseConfig, currentTenant?.cloudinaryConfig)) {
           throw new Error("Banco de dados desconectado. Verifique as configurações.");
       }
       if (!isDbConnected && isFirebaseInitialized()) {

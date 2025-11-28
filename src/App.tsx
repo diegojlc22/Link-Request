@@ -9,9 +9,9 @@ import { RequestList } from './pages/RequestList';
 import { RequestDetail } from './pages/RequestDetail';
 import { SetupPage } from './pages/SetupPage';
 import { Layout } from './components/Layout';
-import { Portal } from './pages/Portal'; // NOVO
-import { getTenantConfig } from './config/tenants';
-import { FirebaseConfig } from './types';
+import { Portal } from './pages/Portal';
+import { getTenant } from './config/tenants';
+import { Tenant } from './types';
 
 // Lazy Load Admin Pages
 const AdminUnits = React.lazy(() => import('./pages/AdminUnits').then(module => ({ default: module.AdminUnits })));
@@ -73,7 +73,7 @@ const AppContent: React.FC = () => {
 
 const App: React.FC = () => {
   // LÓGICA DE DETECÇÃO DE CLIENTE (TENANT)
-  const [tenantConfig, setTenantConfig] = useState<FirebaseConfig | null>(null);
+  const [currentTenant, setCurrentTenant] = useState<Tenant | null>(null);
   const [isLoadingConfig, setIsLoadingConfig] = useState(true);
 
   useEffect(() => {
@@ -93,9 +93,9 @@ const App: React.FC = () => {
 
     // Se achou no subdomínio, carrega a config
     if (slug) {
-        const config = getTenantConfig(slug);
-        if (config) {
-            setTenantConfig(config);
+        const tenant = getTenant(slug);
+        if (tenant) {
+            setCurrentTenant(tenant);
             setIsLoadingConfig(false);
             return;
         }
@@ -104,23 +104,22 @@ const App: React.FC = () => {
     // 2. Fallback: Checa se usuário selecionou no Portal anteriormente (LocalStorage)
     const storedSlug = localStorage.getItem('link_req_tenant_slug');
     if (storedSlug) {
-        const config = getTenantConfig(storedSlug);
-        if (config) {
-            setTenantConfig(config);
+        const tenant = getTenant(storedSlug);
+        if (tenant) {
+            setCurrentTenant(tenant);
         }
     }
     
     // 3. Fallback Final: Verifica se existem Variáveis de Ambiente (Modo Legacy/Single Tenant)
-    // Se não tiver tenantConfig e nem Env Vars, o App vai renderizar o Portal.
     setIsLoadingConfig(false);
 
   }, []);
 
   const handlePortalSelect = (slug: string) => {
-      const config = getTenantConfig(slug);
-      if (config) {
+      const tenant = getTenant(slug);
+      if (tenant) {
           localStorage.setItem('link_req_tenant_slug', slug);
-          setTenantConfig(config);
+          setCurrentTenant(tenant);
           // Recarrega para limpar estados antigos
           window.location.href = '/'; 
       }
@@ -132,15 +131,15 @@ const App: React.FC = () => {
   const hasEnvVars = (import.meta as any).env?.VITE_FIREBASE_API_KEY;
 
   // Se não temos Tenant Configurado e nem Env Vars, mostra o Portal
-  if (!tenantConfig && !hasEnvVars) {
+  if (!currentTenant && !hasEnvVars) {
       return <Portal onTenantSelect={handlePortalSelect} />;
   }
 
   return (
     <BrowserRouter>
       <ToastProvider>
-        {/* Passamos a config dinâmica para o Provider */}
-        <DataProvider initialConfig={tenantConfig || undefined}>
+        {/* Passamos o Tenant completo para o Provider */}
+        <DataProvider currentTenant={currentTenant || undefined}>
           <AuthProvider>
             <AppContent />
           </AuthProvider>

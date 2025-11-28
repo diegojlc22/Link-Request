@@ -1,15 +1,15 @@
 import * as firebaseApp from 'firebase/app';
 import * as rtdb from 'firebase/database';
-import { FirebaseConfig } from '../types';
+import { FirebaseConfig, CloudinaryConfig } from '../types';
 
 let app: any;
 let db: rtdb.Database | undefined;
+let activeCloudinaryConfig: CloudinaryConfig | null = null;
 
 // Workaround for conflicting type definitions
 const { initializeApp, getApps, getApp } = firebaseApp as any;
 
-// Mantém suporte a .env para quem ainda usa o modo antigo (Single Tenant local)
-const getEnvConfig = (): FirebaseConfig | null => {
+const getEnvFirebaseConfig = (): FirebaseConfig | null => {
   try {
     if (typeof import.meta === 'undefined') return null;
     const env = (import.meta as any).env;
@@ -29,7 +29,6 @@ const getEnvConfig = (): FirebaseConfig | null => {
       if (!config.databaseURL && config.projectId) {
          config.databaseURL = `https://${config.projectId}-default-rtdb.firebaseio.com`;
       }
-
       return config;
     }
   } catch (e) {
@@ -38,20 +37,14 @@ const getEnvConfig = (): FirebaseConfig | null => {
   return null;
 };
 
-const getStorageConfig = () => {
+const getEnvCloudinaryConfig = (): CloudinaryConfig | null => {
   try {
     const env = (import.meta as any).env;
     if (env && env.VITE_CLOUDINARY_CLOUD_NAME && env.VITE_CLOUDINARY_UPLOAD_PRESET) {
       return {
         cloudName: env.VITE_CLOUDINARY_CLOUD_NAME,
-        uploadPreset: env.VITE_CLOUDINARY_UPLOAD_PRESET,
-        source: 'env'
+        uploadPreset: env.VITE_CLOUDINARY_UPLOAD_PRESET
       };
-    }
-    const local = localStorage.getItem('link_req_storage_config');
-    if (local) {
-      const parsed = JSON.parse(local);
-      return { ...parsed, source: 'local' };
     }
     return null;
   } catch (e) {
@@ -59,24 +52,28 @@ const getStorageConfig = () => {
   }
 };
 
-// Modificado para aceitar config manual
-export const initFirebase = (manualConfig?: FirebaseConfig): boolean => {
+export const initFirebase = (manualFirebaseConfig?: FirebaseConfig, manualCloudinaryConfig?: CloudinaryConfig): boolean => {
   try {
-    // Se passarmos uma config manual nova, precisamos reiniciar o app se ele já existir com outra config
-    // Para simplificar neste MVP, assumimos que o reload da página cuida da limpeza
-    if (db) return true;
+    // 1. Configurar Cloudinary (Prioridade: Manual > Env)
+    if (manualCloudinaryConfig) {
+        activeCloudinaryConfig = manualCloudinaryConfig;
+    } else {
+        activeCloudinaryConfig = getEnvCloudinaryConfig();
+    }
+
+    // 2. Configurar Firebase
+    if (db) return true; // Já inicializado
 
     let config: FirebaseConfig | null = null;
     
     // Prioridade: Config Manual (Multi-Tenant) > Env Vars (Single Tenant Legacy)
-    if (manualConfig && manualConfig.apiKey) {
-        config = manualConfig;
+    if (manualFirebaseConfig && manualFirebaseConfig.apiKey) {
+        config = manualFirebaseConfig;
     } else {
-        config = getEnvConfig();
+        config = getEnvFirebaseConfig();
     }
 
     if (!config) {
-      // Falha silenciosa se não tiver config, o App vai mostrar a tela de Setup/Portal
       return false;
     }
 
@@ -223,7 +220,8 @@ export const fbDelete = async (path: string, id: string) => {
 };
 
 export const fbUploadImage = async (base64String: string, fileName: string): Promise<string> => {
-  const storageConfig = getStorageConfig();
+  // 1. Tenta usar a config ativa (Seja do Tenant ou do Env)
+  const storageConfig = activeCloudinaryConfig;
 
   if (storageConfig && storageConfig.cloudName && storageConfig.uploadPreset) {
     try {
@@ -249,6 +247,7 @@ export const fbUploadImage = async (base64String: string, fileName: string): Pro
     }
   }
 
+  // 2. Fallback: Base64 direto no banco
   if (base64String.length > 1500000) {
       console.warn("Imagem muito grande para fallback local.");
       throw new Error("Imagem muito grande. Configure o Cloudinary ou use imagens menores.");
