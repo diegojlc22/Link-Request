@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
-import { AlertCircle, Loader2 } from 'lucide-react';
+import { AlertCircle, Loader2, HelpCircle } from 'lucide-react';
 
 export const Login: React.FC = () => {
   const { login } = useAuth();
@@ -16,10 +16,29 @@ export const Login: React.FC = () => {
   const [error, setError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  // Use first company for login screen branding
   const company = companies[0];
   const companyName = company?.name || 'Link-Request';
   const companyLogoLetter = companyName.charAt(0).toUpperCase();
+
+  const getFriendlyErrorMessage = (error: any) => {
+      const code = error?.code || '';
+      const msg = error?.message || '';
+
+      if (code === 'auth/invalid-credential' || code === 'auth/user-not-found' || code === 'auth/wrong-password') {
+          return 'Email ou senha incorretos.';
+      }
+      if (code === 'auth/too-many-requests') {
+          return 'Muitas tentativas falhas. Tente novamente mais tarde.';
+      }
+      if (code === 'auth/network-request-failed') {
+          return 'Erro de conexão. Verifique sua internet.';
+      }
+      if (msg.includes('API key')) {
+          return 'Erro de Configuração: API Key inválida no tenants.ts';
+      }
+      
+      return `Erro: ${code || msg}`;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,7 +47,6 @@ export const Login: React.FC = () => {
     setError('');
     setIsLoggingIn(true);
     
-    // Basic Sanitization
     if (!email.includes('@') || password.length < 1) {
         setError('Formato de email inválido ou senha vazia.');
         setIsLoggingIn(false);
@@ -36,15 +54,14 @@ export const Login: React.FC = () => {
     }
 
     try {
-        const success = await login(email, password);
-        if (!success) {
-          setError('Email ou senha incorretos.');
+        const result = await login(email, password);
+        if (!result.success) {
+          setError(getFriendlyErrorMessage(result.error));
         } else {
-          // Navigation happens automatically via AuthContext state change or explicit nav
           navigate('/');
         }
     } catch (e) {
-        setError('Ocorreu um erro ao conectar.');
+        setError('Ocorreu um erro inesperado.');
     } finally {
         setIsLoggingIn(false);
     }
@@ -104,11 +121,21 @@ export const Login: React.FC = () => {
               <Button type="submit" className="w-full py-2.5" size="lg" disabled={isLoggingIn}>
                 {isLoggingIn ? (
                     <span className="flex items-center gap-2">
-                        <Loader2 className="h-4 w-4 animate-spin" /> Entrando...
+                        <Loader2 className="h-4 w-4 animate-spin" /> Verificando...
                     </span>
                 ) : 'Entrar'}
               </Button>
             </form>
+
+            <div className="mt-6 text-center text-xs text-gray-400 border-t border-gray-100 dark:border-gray-700 pt-4">
+               <p className="flex items-center justify-center gap-1">
+                 <HelpCircle className="h-3 w-3" />
+                 Problemas para entrar?
+               </p>
+               <p className="mt-1">
+                 Verifique se o usuário foi criado no painel Authentication do Firebase.
+               </p>
+            </div>
           </CardContent>
         </Card>
       </div>

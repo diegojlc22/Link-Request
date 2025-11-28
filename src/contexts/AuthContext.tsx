@@ -5,7 +5,7 @@ import { getFirebaseAuth, fbSignIn, fbSignOut, fbOnAuthStateChanged } from '../s
 
 interface AuthContextType {
   currentUser: User | null;
-  login: (email: string, password: string) => Promise<boolean>;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: any }>;
   logout: () => void;
   isAuthenticated: boolean;
   isAdmin: boolean;
@@ -25,23 +25,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const unsubscribe = fbOnAuthStateChanged((firebaseUser) => {
         if (firebaseUser) {
             // O usuário está logado no Firebase Auth.
-            // Agora precisamos achar os dados dele no nosso Realtime Database (Role, Unit, etc)
-            // Se a lista 'users' já estiver carregada via DataContext:
             const dbUser = users.find(u => u.email === firebaseUser.email || u.id === firebaseUser.uid);
             
             if (dbUser) {
-                // Sincroniza ID se necessário (migração)
                 const finalUser = { ...dbUser, id: firebaseUser.uid };
                 setCurrentUser(finalUser);
             } else {
-                // Usuário existe no Auth mas não no DB (ou DB ainda carregando)
-                // Cria um objeto temporário
                 setCurrentUser({
                     id: firebaseUser.uid,
                     companyId: 'unknown',
                     name: firebaseUser.displayName || firebaseUser.email || 'Usuário',
                     email: firebaseUser.email || '',
-                    role: UserRole.USER, // Default seguro
+                    role: UserRole.USER,
                     avatarUrl: firebaseUser.photoURL || `https://ui-avatars.com/api/?name=${firebaseUser.email}`
                 });
             }
@@ -52,15 +47,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     return () => unsubscribe();
-  }, [users]); // Re-executa quando a lista de usuários do DB é atualizada
+  }, [users]); 
 
   const login = async (email: string, password: string) => {
     try {
       await fbSignIn(email, password);
-      return true;
-    } catch (e) {
-      console.error("Login failed", e);
-      return false;
+      return { success: true };
+    } catch (e: any) {
+      console.error("Login failed details:", e);
+      return { success: false, error: e };
     }
   };
 
