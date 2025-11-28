@@ -69,7 +69,7 @@ export const SetupPage: React.FC = () => {
                  </div>
                  <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-3">Configuração Pendente</h1>
                  <p className="text-lg text-gray-600 dark:text-gray-300 mb-8 max-w-lg mx-auto">
-                    O sistema não conseguiu conectar ao banco de dados. Verifique a configuração do Cliente (SaaS) ou as Variáveis de Ambiente.
+                    O sistema não conseguiu conectar ao banco de dados. Verifique a configuração abaixo.
                  </p>
                  
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
@@ -80,14 +80,18 @@ export const SetupPage: React.FC = () => {
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="text-sm text-gray-600 dark:text-gray-400 space-y-3">
-                            <p>Se você está acessando via Portal ou Subdomínio:</p>
+                            <p>Para gerenciar múltiplos clientes (Tenants):</p>
                             <ol className="list-decimal pl-4 space-y-1">
-                                <li>Abra <code>src/config/tenants.ts</code>.</li>
-                                <li>Verifique se o objeto <code>firebaseConfig</code> está correto.</li>
-                                <li>Se estiver usando subdomínio (ex: <code>padaria.app.com</code>), configure o <strong>Cloudflare</strong>.</li>
+                                <li>Abra <code>src/config/tenants.ts</code> e adicione os dados do Firebase do cliente.</li>
+                                <li>
+                                    <strong>Acesso via Portal (Fácil):</strong> Acesse a URL principal e digite o <code>slug</code> (ex: padaria) configurado no arquivo.
+                                </li>
+                                <li>
+                                    <strong>Acesso via Subdomínio (Opcional):</strong> Adicione <code>padaria.seusistema.com</code> no painel da sua hospedagem (Vercel/Netlify).
+                                </li>
                             </ol>
                             <div className="mt-2 p-2 bg-purple-50 dark:bg-purple-900/20 rounded border border-purple-100 dark:border-purple-800 text-xs">
-                                <strong>DNS Cloudflare:</strong> Crie um registro <code>CNAME *</code> apontando para o seu domínio na Vercel/Netlify.
+                                <strong>Nota:</strong> O Cloudflare é opcional (apenas para criar subdomínios automaticamente). Você pode usar o <strong>Modo Portal</strong> sem configurar DNS extra.
                             </div>
                         </CardContent>
                     </Card>
@@ -95,11 +99,11 @@ export const SetupPage: React.FC = () => {
                     <Card className="border-t-4 border-t-orange-500">
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2 text-orange-700 dark:text-orange-400">
-                                <Cloud className="h-5 w-5" /> Opção B: Variáveis de Ambiente
+                                <Cloud className="h-5 w-5" /> Opção B: Cliente Único
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="text-sm text-gray-600 dark:text-gray-400 space-y-3">
-                            <p>Se você não usa o sistema de Tenants, configure o <code>.env</code>:</p>
+                            <p>Se o sistema for para apenas uma empresa, configure o <code>.env</code>:</p>
                             <div className="bg-gray-100 dark:bg-gray-800 p-3 rounded font-mono text-xs overflow-x-auto space-y-1">
                                 <div className="text-orange-600 dark:text-orange-400">VITE_FIREBASE_API_KEY</div>
                                 <div className="text-orange-600 dark:text-orange-400">VITE_FIREBASE_PROJECT_ID</div>
