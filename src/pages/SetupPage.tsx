@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useData } from '../contexts/DataContext';
 import { useToast } from '../contexts/ToastContext';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
-import { ShieldCheck, Building2, User, Rocket, AlertTriangle, ArrowLeft, WifiOff, RefreshCw, Loader2, Database } from 'lucide-react';
+import { ShieldCheck, Building2, User, Rocket, AlertTriangle, ArrowLeft, WifiOff, RefreshCw, Loader2, Database, HelpCircle } from 'lucide-react';
 
 export const SetupPage: React.FC = () => {
   const { setupSystem, isDbConnected, enableDemoMode } = useData();
@@ -12,14 +12,19 @@ export const SetupPage: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   
-  // Data for setup
+  // Dados do formulário
   const [companyName, setCompanyName] = useState('');
   const [adminName, setAdminName] = useState('');
   const [adminEmail, setAdminEmail] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
 
-  // Demo Mode Trigger
+  // Gatilho do Modo Demo
   const [clickCount, setClickCount] = useState(0);
+
+  // Força atualização do título
+  useEffect(() => {
+    document.title = "Configuração do Sistema";
+  }, []);
 
   const handleFinish = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,62 +60,63 @@ export const SetupPage: React.FC = () => {
   };
 
   const handleBackToPortal = () => {
-    // 1. Limpa o tenant salvo no LocalStorage
     localStorage.removeItem('link_req_tenant_slug');
-    // 2. Redireciona para a raiz. O App.tsx não vai achar tenant e mostrará o Portal.
     window.location.href = '/';
   };
 
   // ==============================================================================
-  // TELA DE ERRO DE CONEXÃO (Substitui a antiga tela de Variáveis de Ambiente)
+  // TELA DE FALHA NA CONEXÃO (Versão Atualizada)
   // ==============================================================================
   if (!isDbConnected) {
-    const currentSlug = localStorage.getItem('link_req_tenant_slug') || 'Empresa Selecionada';
+    const currentSlug = localStorage.getItem('link_req_tenant_slug') || 'Nenhuma selecionada';
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center justify-center p-4">
-            <div className="w-full max-w-lg text-center animate-fade-in">
+        <div className="min-h-screen bg-white dark:bg-gray-950 flex flex-col items-center justify-center p-6 font-sans">
+            <div className="w-full max-w-md text-center animate-fade-in space-y-6">
                  
-                 {/* Ícone de Erro */}
+                 {/* Ícone de Erro - Redesenhado */}
                  <div 
                     onClick={handleIconClick}
-                    className="inline-flex items-center justify-center h-24 w-24 rounded-full bg-red-100 text-red-600 mb-6 shadow-xl shadow-red-500/20 cursor-pointer hover:scale-105 active:scale-95 transition-transform select-none"
+                    className="mx-auto flex items-center justify-center h-20 w-20 rounded-full bg-red-50 dark:bg-red-900/20 text-red-500 cursor-pointer transition-transform hover:scale-110 active:scale-90"
                  >
                     <WifiOff className="h-10 w-10" />
                  </div>
 
-                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                    Falha na Conexão
-                 </h1>
+                 <div className="space-y-2">
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                        Conexão Interrompida
+                    </h1>
+                    <p className="text-gray-500 dark:text-gray-400 text-sm">
+                        Não foi possível conectar aos serviços da empresa:
+                        <br/>
+                        <span className="font-mono bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded text-gray-700 dark:text-gray-200 mt-1 inline-block">
+                            {currentSlug}
+                        </span>
+                    </p>
+                 </div>
                  
-                 <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 mb-8 text-left">
-                     <p className="text-gray-600 dark:text-gray-300 mb-4">
-                        Não foi possível conectar ao banco de dados da empresa: <strong className="text-primary-600">{currentSlug}</strong>.
-                     </p>
-                     
-                     <div className="flex items-start gap-3 p-3 bg-gray-100 dark:bg-gray-900 rounded text-sm text-gray-500">
-                        <Database className="h-5 w-5 flex-shrink-0 mt-0.5" />
-                        <div>
-                            <p className="font-semibold mb-1">Causas Prováveis:</p>
+                 <div className="bg-orange-50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-800/30 p-4 rounded-xl text-left">
+                     <div className="flex gap-3">
+                        <AlertTriangle className="h-5 w-5 text-orange-600 dark:text-orange-400 flex-shrink-0" />
+                        <div className="text-xs text-orange-800 dark:text-orange-300 space-y-1">
+                            <p className="font-bold">O que pode estar acontecendo?</p>
                             <ul className="list-disc pl-4 space-y-1">
-                                <li>Configuração errada no arquivo <code>tenants.ts</code>.</li>
-                                <li>Banco de dados ou Auth não criados no Firebase.</li>
-                                <li>Regras de segurança bloqueando o acesso.</li>
+                                <li>As chaves da API no arquivo <code>tenants.ts</code> podem estar incorretas.</li>
+                                <li>O Banco de Dados ou Authentication não foram criados no Firebase Console.</li>
                             </ul>
                         </div>
                      </div>
                  </div>
                  
-                 {/* Ações Principais */}
-                 <div className="space-y-3">
-                    <Button onClick={handleBackToPortal} className="w-full py-3 text-base shadow-lg hover:shadow-xl transition-all">
-                        <ArrowLeft className="h-5 w-5 mr-2" />
-                        Trocar Empresa (Voltar ao Portal)
+                 <div className="grid gap-3 pt-2">
+                    <Button onClick={handleBackToPortal} size="lg" className="w-full shadow-lg hover:shadow-xl transition-all">
+                        <ArrowLeft className="h-4 w-4 mr-2" />
+                        Voltar para Seleção de Empresa
                     </Button>
 
-                    <Button onClick={() => window.location.reload()} variant="ghost" className="w-full">
+                    <Button onClick={() => window.location.reload()} variant="secondary" className="w-full">
                         <RefreshCw className="h-4 w-4 mr-2" />
-                        Tentar Novamente
+                        Tentar Reconectar
                     </Button>
                  </div>
             </div>
@@ -119,32 +125,37 @@ export const SetupPage: React.FC = () => {
   }
 
   // ==============================================================================
-  // WIZARD DE SETUP (Banco Conectado com Sucesso, mas Vazio)
+  // WIZARD DE SETUP (Banco Conectado)
   // ==============================================================================
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-lg">
+      <div className="w-full max-w-lg animate-fade-in">
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-primary-600 text-white mb-4 shadow-lg shadow-primary-600/30">
             <Rocket className="h-8 w-8" />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Primeiro Acesso</h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-2">Banco conectado! Vamos configurar a empresa.</p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Bem-vindo(a)!</h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-2">Vamos preparar o ambiente da sua empresa.</p>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              {step === 1 ? 'Dados da Empresa' : 'Conta do Administrador'}
-            </CardTitle>
-            <div className="flex gap-2 mt-2">
-              <div className={`h-1 flex-1 rounded-full ${step >= 1 ? 'bg-primary-600' : 'bg-gray-200 dark:bg-gray-700'}`} />
-              <div className={`h-1 flex-1 rounded-full ${step >= 2 ? 'bg-primary-600' : 'bg-gray-200 dark:bg-gray-700'}`} />
+        <Card className="border-0 shadow-xl ring-1 ring-gray-200 dark:ring-gray-700">
+          <CardHeader className="border-b border-gray-100 dark:border-gray-800 pb-4">
+            <div className="flex justify-between items-center mb-2">
+                <CardTitle className="text-lg">
+                {step === 1 ? 'Passo 1: Identificação' : 'Passo 2: Acesso Admin'}
+                </CardTitle>
+                <span className="text-xs font-mono text-gray-400">{step}/2</span>
+            </div>
+            <div className="w-full bg-gray-100 dark:bg-gray-700 h-1.5 rounded-full overflow-hidden">
+                <div 
+                    className="bg-primary-600 h-full transition-all duration-500 ease-out" 
+                    style={{ width: step === 1 ? '50%' : '100%' }}
+                />
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             {errorMsg && (
-                <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-300 text-sm rounded-lg flex items-start gap-2">
+                <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-300 text-sm rounded-xl flex items-start gap-3 border border-red-100 dark:border-red-800">
                     <AlertTriangle className="h-5 w-5 flex-shrink-0" />
                     <p>{errorMsg}</p>
                 </div>
@@ -152,91 +163,103 @@ export const SetupPage: React.FC = () => {
             
             <form onSubmit={handleFinish}>
               {step === 1 && (
-                <div className="space-y-4">
+                <div className="space-y-5 animate-fade-in">
                    <div>
-                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome da Empresa</label>
-                     <div className="relative">
-                        <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                     <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Nome da Organização</label>
+                     <div className="relative group">
+                        <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 group-focus-within:text-primary-500 transition-colors" />
                         <input 
                           required 
+                          autoFocus
                           value={companyName} 
                           onChange={e => setCompanyName(e.target.value)} 
-                          className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary-500"
-                          placeholder="Ex: Minha Empresa Ltda"
+                          className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all"
+                          placeholder="Ex: Tech Solutions Ltda"
                         />
                      </div>
                    </div>
-                   <div className="pt-4 flex gap-3">
-                     <Button type="button" variant="secondary" onClick={handleBackToPortal}>
-                        <ArrowLeft className="h-4 w-4 mr-2" /> Cancelar
+                   
+                   <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-lg flex gap-3 text-blue-700 dark:text-blue-300 text-xs">
+                        <HelpCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                        <p>Este nome será exibido no topo do painel e nos relatórios gerados.</p>
+                   </div>
+
+                   <div className="pt-2 flex gap-3">
+                     <Button type="button" variant="ghost" onClick={handleBackToPortal} className="text-gray-500">
+                        Cancelar
                      </Button>
                      <Button type="button" className="flex-1" onClick={() => {
                        if(companyName) setStep(2);
                      }}>
-                       Próximo
+                       Continuar <ArrowLeft className="h-4 w-4 ml-2 rotate-180" />
                      </Button>
                    </div>
                 </div>
               )}
 
               {step === 2 && (
-                <div className="space-y-4">
-                   <div className="p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 text-xs rounded border border-blue-100 dark:border-blue-800 mb-4">
-                        <strong>Atenção:</strong> Certifique-se de que ativou o método <em>"Email/Password"</em> no Console do Firebase (Authentication) antes de continuar.
+                <div className="space-y-5 animate-fade-in">
+                   <div className="p-3 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 text-xs rounded border border-amber-100 dark:border-amber-800 mb-2 flex items-center gap-2">
+                        <AlertTriangle className="h-4 w-4" />
+                        <span>Verifique se o Auth (Email/Senha) está ativo no Firebase.</span>
                    </div>
 
                    <div>
-                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome do Admin</label>
-                     <div className="relative">
-                        <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                     <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Nome do Administrador</label>
+                     <div className="relative group">
+                        <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 group-focus-within:text-primary-500 transition-colors" />
                         <input 
                           required 
+                          autoFocus
                           value={adminName} 
                           onChange={e => setAdminName(e.target.value)} 
-                          className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary-500"
-                          placeholder="Ex: João Silva"
+                          className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary-500 outline-none"
+                          placeholder="Ex: Maria Souza"
                           disabled={isSubmitting}
                         />
                      </div>
                    </div>
-                   <div>
-                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email de Acesso</label>
-                     <input 
-                       required 
-                       type="email"
-                       value={adminEmail} 
-                       onChange={e => setAdminEmail(e.target.value)} 
-                       className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary-500"
-                       placeholder="admin@exemplo.com"
-                       disabled={isSubmitting}
-                     />
-                   </div>
-                   <div>
-                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Senha (Min 6 caracteres)</label>
-                     <input 
-                       required 
-                       type="password"
-                       minLength={6}
-                       value={adminPassword} 
-                       onChange={e => setAdminPassword(e.target.value)} 
-                       className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary-500"
-                       placeholder="********"
-                       disabled={isSubmitting}
-                     />
+                   
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                       <div>
+                         <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Email de Login</label>
+                         <input 
+                           required 
+                           type="email"
+                           value={adminEmail} 
+                           onChange={e => setAdminEmail(e.target.value)} 
+                           className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary-500 outline-none"
+                           placeholder="admin@empresa.com"
+                           disabled={isSubmitting}
+                         />
+                       </div>
+                       <div>
+                         <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Senha (Min 6)</label>
+                         <input 
+                           required 
+                           type="password"
+                           minLength={6}
+                           value={adminPassword} 
+                           onChange={e => setAdminPassword(e.target.value)} 
+                           className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary-500 outline-none"
+                           placeholder="••••••••"
+                           disabled={isSubmitting}
+                         />
+                       </div>
                    </div>
                    
-                   <div className="flex gap-3 pt-4">
+                   <div className="flex gap-3 pt-6">
                      <Button type="button" variant="secondary" onClick={() => setStep(1)} disabled={isSubmitting}>
                        Voltar
                      </Button>
                      <Button type="submit" className="flex-1" disabled={isSubmitting}>
                         {isSubmitting ? (
                             <>
-                                <Loader2 className="h-4 w-4 animate-spin mr-2" /> Criando...
+                                <Loader2 className="h-4 w-4 animate-spin mr-2" /> Configurando...
                             </>
                         ) : (
                             <>
-                                <ShieldCheck className="h-4 w-4 mr-2" /> Finalizar Instalação
+                                <ShieldCheck className="h-4 w-4 mr-2" /> Concluir Setup
                             </>
                         )}
                      </Button>
