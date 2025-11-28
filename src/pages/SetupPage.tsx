@@ -3,7 +3,7 @@ import { useData } from '../contexts/DataContext';
 import { useToast } from '../contexts/ToastContext';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
-import { ShieldCheck, Building2, User, Rocket, Settings, AlertTriangle, Cloud, FileJson, ArrowLeft, CheckCircle2, Loader2 } from 'lucide-react';
+import { ShieldCheck, Building2, User, Rocket, Settings, AlertTriangle, ArrowLeft, WifiOff, RefreshCw, Loader2 } from 'lucide-react';
 
 export const SetupPage: React.FC = () => {
   const { setupSystem, isDbConnected, enableDemoMode } = useData();
@@ -55,86 +55,74 @@ export const SetupPage: React.FC = () => {
   };
 
   const handleBackToPortal = () => {
+    // Limpa a escolha do tenant para forçar o App.tsx a mostrar o Portal novamente
     localStorage.removeItem('link_req_tenant_slug');
     window.location.href = '/';
   };
 
-  // MODO: FALTA CONFIGURAÇÃO OU ERRO DE CONEXÃO
+  // ==============================================================================
+  // TELA DE ERRO DE CONEXÃO (Anteriormente "Configuração Pendente")
+  // ==============================================================================
   if (!isDbConnected) {
+    const currentSlug = localStorage.getItem('link_req_tenant_slug') || 'Empresa Desconhecida';
+
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center justify-center p-4">
-            <div className="w-full max-w-4xl text-center animate-fade-in">
+            <div className="w-full max-w-lg text-center animate-fade-in">
+                 
+                 {/* Ícone de Erro */}
                  <div 
                     onClick={handleIconClick}
-                    className="inline-flex items-center justify-center h-20 w-20 rounded-full bg-amber-100 text-amber-600 mb-6 shadow-lg shadow-amber-500/20 cursor-pointer hover:scale-105 active:scale-95 transition-transform select-none"
+                    className="inline-flex items-center justify-center h-20 w-20 rounded-full bg-red-100 text-red-600 mb-6 shadow-lg shadow-red-500/20 cursor-pointer hover:scale-105 active:scale-95 transition-transform select-none"
                     title="Clique 5 vezes para modo Demo"
                  >
-                    <Settings className="h-10 w-10" />
+                    <WifiOff className="h-10 w-10" />
                  </div>
-                 <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-3">Conexão Pendente</h1>
-                 <p className="text-lg text-gray-600 dark:text-gray-300 mb-8 max-w-lg mx-auto">
-                    Não foi possível conectar ao banco de dados da empresa selecionada.
+
+                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                    Falha na Conexão
+                 </h1>
+                 
+                 <p className="text-gray-600 dark:text-gray-300 mb-8 mx-auto">
+                    Não foi possível conectar ao banco de dados da empresa selecionada (<strong>{currentSlug}</strong>).
                  </p>
                  
-                 <div className="flex justify-center mb-8">
-                    <Button onClick={handleBackToPortal} variant="secondary">
-                        <ArrowLeft className="h-4 w-4 mr-2" />
-                        Voltar para o Portal (Trocar Empresa)
+                 {/* Ações Principais */}
+                 <div className="space-y-4">
+                    <Button onClick={handleBackToPortal} className="w-full py-3 text-base shadow-md">
+                        <ArrowLeft className="h-5 w-5 mr-2" />
+                        Trocar Empresa (Voltar ao Portal)
+                    </Button>
+
+                    <Button onClick={() => window.location.reload()} variant="secondary" className="w-full">
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Tentar Novamente
                     </Button>
                  </div>
-                 
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
-                    {/* CARD A: SAAS / PORTAL */}
-                    <Card className="border-t-4 border-t-purple-500 shadow-lg transform hover:-translate-y-1 transition-transform duration-300">
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2 text-purple-700 dark:text-purple-400">
-                                <FileJson className="h-5 w-5" /> Opção A: Estou usando o Portal
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="text-sm text-gray-600 dark:text-gray-400 space-y-4">
-                            <p className="font-medium text-gray-900 dark:text-white">Se você editou o arquivo <code>src/config/tenants.ts</code>:</p>
-                            
-                            <ul className="space-y-3">
-                                <li className="flex items-start gap-2">
-                                    <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                                    <span>Você <strong>NÃO</strong> precisa configurar variáveis no Cloudflare.</span>
-                                </li>
-                                <li className="flex items-start gap-2">
-                                    <AlertTriangle className="h-4 w-4 text-orange-500 mt-0.5 flex-shrink-0" />
-                                    <span>Verifique se copiou o <code>firebaseConfig</code> corretamente do Console do Firebase para o arquivo <code>tenants.ts</code>.</span>
-                                </li>
-                            </ul>
 
-                            <div className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded border border-purple-100 dark:border-purple-800 text-xs mt-4">
-                                <strong>Dica:</strong> Se você acabou de criar o banco no Firebase, espere 1-2 minutos para ele propagar.
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* CARD B: SINGLE TENANT */}
-                    <Card className="border-t-4 border-t-gray-400 opacity-75 hover:opacity-100 transition-opacity">
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2 text-gray-700 dark:text-gray-400">
-                                <Cloud className="h-5 w-5" /> Opção B: Cliente Único (.env)
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="text-sm text-gray-600 dark:text-gray-400 space-y-3">
-                            <p>Apenas se você <strong>NÃO</strong> estiver usando o arquivo de tenants e quiser configurar uma única empresa via hospedagem:</p>
-                            <div className="bg-gray-100 dark:bg-gray-800 p-3 rounded font-mono text-xs overflow-x-auto space-y-1">
-                                <div className="text-gray-600 dark:text-gray-400">VITE_FIREBASE_API_KEY</div>
-                                <div className="text-gray-600 dark:text-gray-400">VITE_FIREBASE_PROJECT_ID</div>
-                                <div className="text-gray-400 italic">...etc</div>
-                            </div>
-                            <p className="text-xs">Neste caso sim, configure em <em>Settings &gt; Environment Variables</em>.</p>
-                        </CardContent>
-                    </Card>
+                 {/* Detalhes Técnicos (Colapsados/Discretos) */}
+                 <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-800 text-left">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Diagnóstico para Desenvolvedores:</p>
+                    <ul className="text-xs text-gray-500 dark:text-gray-400 space-y-2 bg-gray-100 dark:bg-gray-800 p-4 rounded-lg">
+                        <li className="flex gap-2">
+                            <span className="text-red-500">•</span> Verifique se as credenciais no arquivo <code>src/config/tenants.ts</code> estão corretas.
+                        </li>
+                        <li className="flex gap-2">
+                            <span className="text-red-500">•</span> Verifique se as <strong>Regras (Rules)</strong> do Firebase Database estão como <code>read: auth != null</code> (ou true para teste).
+                        </li>
+                        <li className="flex gap-2">
+                            <span className="text-red-500">•</span> Verifique se o banco de dados foi criado no Console do Firebase.
+                        </li>
+                    </ul>
                  </div>
             </div>
         </div>
     );
   }
 
-  // MODO WIZARD (BANCO CONECTADO, MAS SEM DADOS)
+  // ==============================================================================
+  // WIZARD DE SETUP (Banco Conectado, mas Vazio)
+  // ==============================================================================
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-lg">
@@ -181,11 +169,16 @@ export const SetupPage: React.FC = () => {
                      </div>
                    </div>
                    <div className="pt-4">
-                     <Button type="button" className="w-full" onClick={() => {
-                       if(companyName) setStep(2);
-                     }}>
-                       Próximo
-                     </Button>
+                     <div className="flex gap-3">
+                         <Button type="button" variant="secondary" onClick={handleBackToPortal}>
+                            <ArrowLeft className="h-4 w-4 mr-2" /> Portal
+                         </Button>
+                         <Button type="button" className="flex-1" onClick={() => {
+                           if(companyName) setStep(2);
+                         }}>
+                           Próximo
+                         </Button>
+                     </div>
                    </div>
                 </div>
               )}

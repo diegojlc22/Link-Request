@@ -107,9 +107,12 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   };
 
   const handleSwitchTenant = () => {
+    // 1. Desloga o usuário atual
     logout();
+    // 2. Limpa o tenant salvo
     localStorage.removeItem('link_req_tenant_slug');
-    window.location.href = '/'; // Força reload para cair no Portal
+    // 3. Força reload para cair no Portal (App.tsx vai detectar falta de tenant)
+    window.location.href = '/'; 
   };
 
   const NavItem: React.FC<{ item: typeof mainNavItems[0] }> = ({ item }) => {
@@ -131,6 +134,9 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       </Link>
     );
   };
+
+  // Verifica se estamos num subdomínio
+  const isSubdomain = window.location.hostname.split('.').length > 2 && !window.location.hostname.includes('localhost');
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
@@ -195,8 +201,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           </div>
           
           <div className="space-y-2">
-            {/* Botão de Trocar Empresa apenas se não estiver num subdomínio fixo */}
-            {window.location.hostname.split('.').length < 3 && !window.location.hostname.includes('localhost') && (
+            {/* Botão de Trocar Empresa APENAS se não for subdomínio fixo */}
+            {!isSubdomain && (
                 <button 
                     onClick={handleSwitchTenant}
                     className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
