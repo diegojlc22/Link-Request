@@ -15,6 +15,10 @@
     <img src="https://img.shields.io/badge/☁️_CLOUDFLARE_&_ENV-f59e0b?style=for-the-badge&logoColor=white" alt="Configuração" />
   </a>
   &nbsp;&nbsp;&nbsp;
+  <a href="#-seguranca">
+    <img src="https://img.shields.io/badge/🔒_SEGURANÇA_DB-dc2626?style=for-the-badge&logoColor=white" alt="Segurança" />
+  </a>
+  &nbsp;&nbsp;&nbsp;
   <a href="#-instalacao-local">
     <img src="https://img.shields.io/badge/🚀_INSTALAÇÃO_LOCAL-10b981?style=for-the-badge&logoColor=white" alt="Instalação" />
   </a>
@@ -83,6 +87,51 @@ Para habilitar upload de imagens (recomendado), configure o Cloudinary:
 3. Copie e cole as variáveis da tabela.
 4. Clique em Deploy.
 5. Se precisar alterar depois: Vá em **Settings** > **Environment Variables**, adicione as novas e faça um **Redeploy** na aba Deployments.
+
+---
+
+<div id="-seguranca"></div>
+
+## 🔒 Segurança do Banco de Dados (Crítico)
+
+Para garantir que apenas usuários logados possam ler/escrever dados e para otimizar a performance com índices, você **PRECISA** aplicar as regras de segurança.
+
+O arquivo `database.rules.json` incluído na raiz deste projeto contém as regras necessárias.
+
+### Passo a Passo para Aplicar:
+
+1. Acesse o [Console do Firebase](https://console.firebase.google.com/).
+2. Selecione seu projeto e vá em **Realtime Database** no menu lateral.
+3. Clique na aba **Regras** (Rules).
+4. Apague o conteúdo atual e cole o JSON abaixo:
+
+```json
+{
+  "rules": {
+    ".read": "auth != null",
+    ".write": "auth != null",
+    "companies": {
+      ".indexOn": ["id"]
+    },
+    "units": {
+      ".indexOn": ["companyId"]
+    },
+    "users": {
+      ".indexOn": ["email", "companyId", "unitId"]
+    },
+    "requests": {
+      ".indexOn": ["companyId", "unitId", "creatorId", "assigneeId", "status", "createdAt"]
+    },
+    "comments": {
+      ".indexOn": ["requestId", "createdAt"]
+    }
+  }
+}
+```
+
+5. Clique em **Publicar**.
+
+> **Por que isso é importante?** Sem essas regras, qualquer pessoa com suas chaves de API poderia apagar seu banco de dados. Com essas regras, apenas usuários autenticados pelo sistema podem acessar os dados.
 
 ---
 
