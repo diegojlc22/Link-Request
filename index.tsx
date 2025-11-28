@@ -13,10 +13,10 @@ interface ErrorBoundaryState {
 
 // Error Boundary to catch crashes and prevent white screen
 class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
+  public state: ErrorBoundaryState = {
+    hasError: false,
+    error: null
+  };
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
@@ -56,7 +56,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
           <button 
             onClick={() => window.location.reload()}
             style={{
-              marginTop: '20px',
+              marginTop: '20px', 
               padding: '10px 20px',
               backgroundColor: '#dc2626',
               color: 'white',

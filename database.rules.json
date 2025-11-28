@@ -1,0 +1,21 @@
+{
+  "rules": {
+    ".read": "auth != null",
+    ".write": "auth != null",
+    "companies": {
+      ".indexOn": ["id"]
+    },
+    "units": {
+      ".indexOn": ["companyId"]
+    },
+    "users": {
+      ".indexOn": ["email", "companyId", "unitId"]
+    },
+    "requests": {
+      ".indexOn": ["companyId", "unitId", "creatorId", "assigneeId", "status", "createdAt"]
+    },
+    "comments": {
+      ".indexOn": ["requestId", "createdAt"]
+    }
+  }
+}
