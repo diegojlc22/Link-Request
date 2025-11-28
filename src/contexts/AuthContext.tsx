@@ -21,26 +21,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
 
   useEffect(() => {
-    // Monitora o estado real do Firebase Auth
     const unsubscribe = fbOnAuthStateChanged((firebaseUser) => {
         if (firebaseUser) {
-            // Tenta cruzar os dados do Auth com o banco de dados (users)
-            // Se users ainda não carregou, ele pode ficar com dados parciais temporariamente
+            // Tenta achar o perfil no banco (users)
             const dbUser = users.find(u => u.email === firebaseUser.email || u.id === firebaseUser.uid);
             
             if (dbUser) {
-                // Usuário encontrado no banco, mescla ID oficial
+                // Usuário existe no banco -> Perfeito
                 setCurrentUser({ ...dbUser, id: firebaseUser.uid });
             } else {
-                // Usuário logado mas não achado no banco (pode ser delay ou erro de sync)
-                // Cria objeto temporário
+                // Usuário logou no Auth mas NÃO está no banco (pq foi deletado ou é novo)
+                // Cria um usuário temporário na memória para permitir o fluxo (ex: ir para Setup)
                 setCurrentUser({
                     id: firebaseUser.uid,
-                    companyId: 'loading',
-                    name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+                    companyId: 'pending',
+                    name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Admin',
                     email: firebaseUser.email || '',
-                    role: UserRole.USER,
-                    avatarUrl: firebaseUser.photoURL || `https://ui-avatars.com/api/?name=User`
+                    role: UserRole.ADMIN, // Assume Admin se não tem DB, para permitir Setup
+                    avatarUrl: firebaseUser.photoURL || `https://ui-avatars.com/api/?name=Admin`
                 });
             }
         } else {

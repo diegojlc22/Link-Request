@@ -80,7 +80,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode; currentTenant?:
     let isMounted = true; 
 
     const startListeners = () => {
-      // Passa a config do Tenant atual para o Firebase Service
       const success = initFirebase(currentTenant?.firebaseConfig, currentTenant?.cloudinaryConfig);
       
       if (success) {
@@ -91,7 +90,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode; currentTenant?:
         unsubUsers = fbSubscribe<User>('users', (data) => { 
             if(isMounted && data) {
                 setUsers(data);
-                // Setup logic: If no users, assume not setup (unless Demo)
+                // SE NÃO TIVER USUÁRIOS NO BANCO, FORÇA TELA DE SETUP
                 if (data.length === 0 && !isDemo) {
                     setIsSetupDone(false);
                 } else {
@@ -116,7 +115,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode; currentTenant?:
         if (isMounted) {
             setIsDbConnected(false);
             setIsLoading(false);
-            setIsSetupDone(false); // Force setup screen if DB fail
+            setIsSetupDone(false);
         }
       }
     };
@@ -134,7 +133,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode; currentTenant?:
       if (unsubComments) unsubComments();
       if (unsubConnection) unsubConnection();
     };
-  }, [isDemo, currentTenant]); // Re-run if tenant changes
+  }, [isDemo, currentTenant]);
 
   useEffect(() => {
     if (companies.length > 0 && companies[0].name) {
@@ -161,24 +160,34 @@ export const DataProvider: React.FC<{ children: React.ReactNode; currentTenant?:
       }
   };
 
-  // --- ACTIONS ---
-
   const setupSystem = useCallback(async (data: SetupData) => {
     try {
         checkDb();
         
         let uid = `admin_${Date.now()}`;
-        // 1. Create in Auth
+        
+        // Tenta criar no Auth (ou reutilizar se já existir)
         try {
             const userCred = await fbCreateUserSecondary(data.adminEmail, data.adminPassword);
             uid = userCred.uid;
-            // Auto-login
+            // Força login imediato
             await fbSignIn(data.adminEmail, data.adminPassword);
         } catch (e: any) {
-            // Se já existe, tenta logar ou prossegue
-            console.warn("User creation issue:", e);
+            console.warn("Usuário Auth já existe ou erro:", e);
+            // Se já existe, tenta pegar o ID do usuário logado
             const auth = getFirebaseAuth();
-            if (auth?.currentUser) uid = auth.currentUser.uid;
+            if (auth?.currentUser) {
+                uid = auth.currentUser.uid;
+            } else {
+                // Tenta logar para pegar o ID
+                try {
+                    const res = await fbSignIn(data.adminEmail, data.adminPassword);
+                    uid = res.user.uid;
+                } catch(loginErr) {
+                     // Se não consegue logar e não consegue criar, falha real
+                     throw new Error("Não foi possível criar nem logar no usuário Admin.");
+                }
+            }
         }
 
         const newCompany: Company = { id: 'c1', name: sanitizeInput(data.companyName), domain: 'system.local', logoUrl: '' };
@@ -190,9 +199,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode; currentTenant?:
           name: sanitizeInput(data.adminName), 
           email: sanitizeInput(data.adminEmail),
           role: UserRole.ADMIN,
-          avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(data.adminName)}&background=random`
+          avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(data.adminName)}`
         };
 
+        // Recria a estrutura do banco
         await fbSet('companies', newCompany.id, sanitizeForFirebase(newCompany));
         await fbSet('units', newUnit.id, sanitizeForFirebase(newUnit));
         await fbSet('users', newAdmin.id, sanitizeForFirebase(newAdmin));
@@ -210,7 +220,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode; currentTenant?:
     const demoAdmin: User = {
         id: 'admin-demo', companyId: 'c-demo', name: 'Admin Demo', email: 'admin@demo.com',
         role: UserRole.ADMIN,
-        avatarUrl: `https://ui-avatars.com/api/?name=Admin+Demo&background=random`
+        avatarUrl: `https://ui-avatars.com/api/?name=Admin+Demo`
     };
     setCompanies([demoCompany]); setUnits([demoUnit]); setUsers([demoAdmin]); setRequests([]); 
     setIsDbConnected(true); setIsSetupDone(true); setIsLoading(false);
@@ -302,7 +312,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode; currentTenant?:
     try {
         checkDb();
         if (!user.password) throw new Error("Senha é obrigatória para criar usuário.");
-        // Native Auth creation
         const authUser = await fbCreateUserSecondary(user.email, user.password);
         const newUser: User = { 
             ...user, id: authUser.uid, name: sanitizeInput(user.name), email: sanitizeInput(user.email), password: undefined 

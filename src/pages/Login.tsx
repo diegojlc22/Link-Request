@@ -24,10 +24,10 @@ export const Login: React.FC = () => {
       const code = error?.code || '';
       
       if (code === 'auth/invalid-credential' || code === 'auth/wrong-password') {
-          return 'Senha incorreta ou usuário não cadastrado no Auth.';
+          return 'Senha incorreta ou usuário não existe no Authentication.';
       }
       if (code === 'auth/user-not-found') {
-          return 'Usuário não encontrado. Se migrou o sistema, crie o usuário no Firebase Console.';
+          return 'Usuário não encontrado. Se você deletou o banco, use o Setup.';
       }
       if (code === 'auth/too-many-requests') {
           return 'Muitas tentativas falhas. Tente novamente mais tarde.';
@@ -60,6 +60,7 @@ export const Login: React.FC = () => {
         if (!result.success) {
           setError(getFriendlyErrorMessage(result.error));
         } else {
+          // Navegação é automática, mas reforçamos
           navigate('/');
         }
     } catch (e) {
@@ -133,7 +134,7 @@ export const Login: React.FC = () => {
                  Problemas para entrar?
                </p>
                <p className="mt-1 max-w-xs mx-auto">
-                 Se o login falhar, verifique se você criou o usuário no <strong>Painel Authentication</strong> do Firebase. O usuário do banco antigo não migra automaticamente.
+                 Se o banco de dados foi deletado, recarregue a página para ir à tela de <strong>Configuração</strong>.
                </p>
             </div>
           </CardContent>

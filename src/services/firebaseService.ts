@@ -74,7 +74,6 @@ export const initFirebase = (manualFirebaseConfig?: FirebaseConfig, manualCloudi
     }
 
     // 2. Configurar Firebase
-    // Se já estiver inicializado com a mesma config, retorna true
     if (db && auth) return true; 
 
     let config: FirebaseConfig | null = null;
@@ -91,7 +90,6 @@ export const initFirebase = (manualFirebaseConfig?: FirebaseConfig, manualCloudi
     
     currentConfig = config;
 
-    // Garante que só inicializa uma vez
     if (getApps().length === 0) {
       app = initializeApp(config);
     } else {
@@ -121,9 +119,8 @@ export const getFirebaseAuth = () => {
 
 export const fbSignIn = async (email: string, pass: string) => {
     if (!auth) {
-        // Tenta inicializar antes de falhar
         initFirebase();
-        if (!auth) throw new Error("Auth não inicializado. Verifique tenants.ts ou .env");
+        if (!auth) throw new Error("Auth não inicializado.");
     }
     return await signInWithEmailAndPassword(auth!, email, pass);
 };
@@ -147,7 +144,7 @@ export const fbOnAuthStateChanged = (callback: (user: FirebaseUser | null) => vo
 };
 
 /**
- * Cria usuário em instância secundária para não deslogar o admin atual.
+ * Cria usuário usando uma instância secundária do app para não deslogar o admin atual.
  */
 export const fbCreateUserSecondary = async (email: string, pass: string) => {
     if (!currentConfig) throw new Error("Firebase config missing");
@@ -276,7 +273,7 @@ export const fbUploadImage = async (base64String: string, fileName: string): Pro
   }
 
   if (base64String.length > 1500000) {
-      throw new Error("Imagem muito grande (>1.5MB) para armazenamento local. Configure Cloudinary.");
+      throw new Error("Imagem muito grande (>1.5MB).");
   }
   return base64String;
 };
