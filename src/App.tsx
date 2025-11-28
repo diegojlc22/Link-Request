@@ -102,9 +102,6 @@ const App: React.FC = () => {
     }
 
     // 2. Fallback: Checa se usuário selecionou no Portal anteriormente (LocalStorage)
-    // NOTA: Comentado para forçar o Portal sempre que não houver subdomínio,
-    // evitando ficar preso em uma configuração errada.
-    /*
     const storedSlug = localStorage.getItem('link_req_tenant_slug');
     if (storedSlug) {
         const tenant = getTenant(storedSlug);
@@ -112,7 +109,6 @@ const App: React.FC = () => {
             setCurrentTenant(tenant);
         }
     }
-    */
     
     // 3. Fallback Final
     setIsLoadingConfig(false);

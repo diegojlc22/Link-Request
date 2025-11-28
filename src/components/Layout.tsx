@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   LayoutDashboard, 
@@ -200,4 +199,71 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             {window.location.hostname.split('.').length < 3 && !window.location.hostname.includes('localhost') && (
                 <button 
                     onClick={handleSwitchTenant}
-                    className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700
+                    className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                >
+                    <ArrowLeftRight className="h-4 w-4" />
+                    Trocar Empresa
+                </button>
+            )}
+
+            <button 
+                onClick={handleLogout}
+                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+            >
+                <LogOut className="h-4 w-4" />
+                Sair
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {/* Header */}
+        <header className="h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 lg:px-8">
+          <button 
+            onClick={() => setIsSidebarOpen(true)}
+            className="lg:hidden p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+          >
+            <Menu className="h-6 w-6" />
+          </button>
+
+          <div className="flex-1 px-4 flex items-center">
+             {/* Connection Status Indicator */}
+             <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium transition-colors ${isDbConnected ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400'}`}>
+                {isDbConnected ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
+                <span className="hidden sm:inline">{isDbConnected ? 'Conectado' : 'Sem Conexão'}</span>
+             </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={toggleTheme}
+              className="p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            >
+              {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+            </button>
+            <button 
+              onClick={handleClearNotifications}
+              className="p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors relative"
+              title={unreadCount > 0 ? `${unreadCount} novas notificações` : 'Sem novas notificações'}
+            >
+              <Bell className="h-5 w-5" />
+              {unreadCount > 0 && (
+                <span className="absolute top-1.5 right-1.5 flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500 border-2 border-white dark:border-gray-800"></span>
+                </span>
+              )}
+            </button>
+          </div>
+        </header>
+
+        {/* Page Content */}
+        <main className="flex-1 overflow-y-auto p-4 lg:p-8">
+          {children}
+        </main>
+      </div>
+    </div>
+  );
+};
