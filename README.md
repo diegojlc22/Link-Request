@@ -94,44 +94,52 @@ Para habilitar upload de imagens (recomendado), configure o Cloudinary:
 
 ## 🔒 Segurança do Banco de Dados (Crítico)
 
-Para garantir que apenas usuários logados possam ler/escrever dados e para otimizar a performance com índices, você **PRECISA** aplicar as regras de segurança.
+Para garantir que o aplicativo funcione rápido (com índices) e seja seguro, você deve configurar as Regras do Realtime Database.
 
-O arquivo `database.rules.json` incluído na raiz deste projeto contém as regras necessárias.
+**Isso é obrigatório para evitar erros de permissão e lentidão.**
 
-### Passo a Passo para Aplicar:
+### Passo a Passo:
 
 1. Acesse o [Console do Firebase](https://console.firebase.google.com/).
 2. Selecione seu projeto e vá em **Realtime Database** no menu lateral.
 3. Clique na aba **Regras** (Rules).
-4. Apague o conteúdo atual e cole o JSON abaixo:
+4. **Apague tudo** que estiver lá e cole o JSON abaixo:
 
 ```json
 {
   "rules": {
     ".read": "auth != null",
     ".write": "auth != null",
+    "users": {
+      "$uid": {
+         // REGRA DE SEGURANÇA:
+         // Apenas o próprio usuário ou um Admin pode editar dados de usuário.
+         // Isso impede que um usuário comum altere a senha de outro.
+         ".write": "$uid === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'ADMIN'",
+         ".indexOn": ["email", "companyId", "unitId"]
+      }
+    },
+    "requests": {
+      // ÍNDICES DE PERFORMANCE:
+      // Necessários para filtrar requisições por unidade, status, criador, etc.
+      ".indexOn": ["companyId", "unitId", "creatorId", "assigneeId", "status", "createdAt"]
+    },
+    "comments": {
+      ".indexOn": ["requestId", "createdAt"]
+    },
     "companies": {
       ".indexOn": ["id"]
     },
     "units": {
       ".indexOn": ["companyId"]
-    },
-    "users": {
-      ".indexOn": ["email", "companyId", "unitId"]
-    },
-    "requests": {
-      ".indexOn": ["companyId", "unitId", "creatorId", "assigneeId", "status", "createdAt"]
-    },
-    "comments": {
-      ".indexOn": ["requestId", "createdAt"]
     }
   }
 }
 ```
 
-5. Clique em **Publicar**.
+5. Clique no botão **Publicar**.
 
-> **Por que isso é importante?** Sem essas regras, qualquer pessoa com suas chaves de API poderia apagar seu banco de dados. Com essas regras, apenas usuários autenticados pelo sistema podem acessar os dados.
+> **Nota Técnica:** Estas regras definem que qualquer usuário logado na empresa pode ler o banco (necessário para a operação em tempo real), mas aplicam validações específicas na escrita de usuários e criam índices vitais para que o aplicativo não fique lento com muitos dados.
 
 ---
 
