@@ -6,7 +6,7 @@ import { FirebaseConfig } from '../types';
 let app: FirebaseApp | undefined;
 let db: rtdb.Database | undefined;
 
-// O sistema agora busca a configuração EXCLUSIVAMENTE nas variáveis de ambiente.
+// Mantém suporte a .env para quem ainda usa o modo antigo (Single Tenant local)
 const getEnvConfig = (): FirebaseConfig | null => {
   try {
     if (typeof import.meta === 'undefined') return null;
@@ -24,10 +24,8 @@ const getEnvConfig = (): FirebaseConfig | null => {
         appId: env.VITE_FIREBASE_APP_ID
       };
 
-      // FALLBACK: Se não tiver databaseURL, tenta construir o padrão do Firebase (US-Central)
       if (!config.databaseURL && config.projectId) {
          config.databaseURL = `https://${config.projectId}-default-rtdb.firebaseio.com`;
-         console.warn("Aviso: VITE_FIREBASE_DATABASE_URL não encontrada. Tentando URL padrão:", config.databaseURL);
       }
 
       return config;
@@ -59,17 +57,24 @@ const getStorageConfig = () => {
   }
 };
 
+// Modificado para aceitar config manual
 export const initFirebase = (manualConfig?: FirebaseConfig): boolean => {
   try {
+    // Se passarmos uma config manual nova, precisamos reiniciar o app se ele já existir com outra config
+    // Para simplificar neste MVP, assumimos que o reload da página cuida da limpeza
     if (db) return true;
 
-    let config: FirebaseConfig | null = getEnvConfig();
-
-    if (!config && manualConfig && manualConfig.apiKey) {
+    let config: FirebaseConfig | null = null;
+    
+    // Prioridade: Config Manual (Multi-Tenant) > Env Vars (Single Tenant Legacy)
+    if (manualConfig && manualConfig.apiKey) {
         config = manualConfig;
+    } else {
+        config = getEnvConfig();
     }
 
     if (!config) {
+      // Falha silenciosa se não tiver config, o App vai mostrar a tela de Setup/Portal
       return false;
     }
 
@@ -92,7 +97,6 @@ export const initFirebase = (manualConfig?: FirebaseConfig): boolean => {
 
 export const isFirebaseInitialized = () => !!db;
 
-// New: Monitor connection status
 export const fbMonitorConnection = (callback: (connected: boolean) => void) => {
     if (!db && !initFirebase()) return () => {};
     try {
@@ -182,7 +186,6 @@ export const fbSet = async (path: string, id: string, data: any) => {
       throw new Error("Database not initialized");
   }
   try {
-    // We await this, which for standard web SDK waits for server ack usually, or local persistence.
     await rtdb.set(rtdb.ref(db!, `${path}/${id}`), data);
   } catch (error) {
     console.error(`Error setting doc in ${path}:`, error);
