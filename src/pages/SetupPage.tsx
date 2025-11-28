@@ -3,12 +3,14 @@ import { useData } from '../contexts/DataContext';
 import { useToast } from '../contexts/ToastContext';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
-import { ShieldCheck, Building2, User, Rocket, Settings, AlertTriangle, Cloud, Image as ImageIcon, Lock, FileJson } from 'lucide-react';
+import { ShieldCheck, Building2, User, Rocket, Settings, AlertTriangle, Cloud, Image as ImageIcon, Lock, FileJson, Loader2, Globe } from 'lucide-react';
 
 export const SetupPage: React.FC = () => {
   const { setupSystem, isDbConnected, enableDemoMode } = useData();
   const { showToast } = useToast();
   const [step, setStep] = useState(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
   
   // Data for setup
   const [companyName, setCompanyName] = useState('');
@@ -19,14 +21,28 @@ export const SetupPage: React.FC = () => {
   // Demo Mode Trigger
   const [clickCount, setClickCount] = useState(0);
 
-  const handleFinish = (e: React.FormEvent) => {
+  const handleFinish = async (e: React.FormEvent) => {
     e.preventDefault();
-    setupSystem({
-      companyName,
-      adminName,
-      adminEmail,
-      adminPassword
-    });
+    if (isSubmitting) return;
+
+    setIsSubmitting(true);
+    setErrorMsg('');
+
+    try {
+        await setupSystem({
+            companyName,
+            adminName,
+            adminEmail,
+            adminPassword
+        });
+        showToast('Sistema configurado com sucesso!', 'success');
+        // A navegação será automática via DataContext (isSetupDone muda para true)
+    } catch (error: any) {
+        console.error(error);
+        setErrorMsg(error.message || "Erro desconhecido ao configurar sistema.");
+        showToast('Falha na configuração. Verifique os erros.', 'error');
+        setIsSubmitting(false);
+    }
   };
 
   const handleIconClick = () => {
@@ -39,7 +55,7 @@ export const SetupPage: React.FC = () => {
     }
   };
 
-  // MODO: FALTA CONFIGURAÇÃO (Variáveis de Ambiente não encontradas ou Tenant Inválido)
+  // MODO: FALTA CONFIGURAÇÃO
   if (!isDbConnected) {
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center justify-center p-4">
@@ -57,7 +73,6 @@ export const SetupPage: React.FC = () => {
                  </p>
                  
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
-                    {/* OPÇÃO 1: MODO SAAS */}
                     <Card className="border-t-4 border-t-purple-500">
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2 text-purple-700 dark:text-purple-400">
@@ -67,17 +82,16 @@ export const SetupPage: React.FC = () => {
                         <CardContent className="text-sm text-gray-600 dark:text-gray-400 space-y-3">
                             <p>Se você está acessando via Portal ou Subdomínio:</p>
                             <ol className="list-decimal pl-4 space-y-1">
-                                <li>Abra o arquivo <code>src/config/tenants.ts</code>.</li>
-                                <li>Verifique se o objeto <code>firebaseConfig</code> está correto (sem aspas sobrando ou vírgulas faltando).</li>
-                                <li>Certifique-se de que o <code>slug</code> digitado no Portal existe na lista de tenants.</li>
+                                <li>Abra <code>src/config/tenants.ts</code>.</li>
+                                <li>Verifique se o objeto <code>firebaseConfig</code> está correto.</li>
+                                <li>Se estiver usando subdomínio (ex: <code>padaria.app.com</code>), configure o <strong>Cloudflare</strong>.</li>
                             </ol>
                             <div className="mt-2 p-2 bg-purple-50 dark:bg-purple-900/20 rounded border border-purple-100 dark:border-purple-800 text-xs">
-                                <strong>Dica:</strong> Se acabou de editar o código, verifique o terminal para ver se há erros de sintaxe (Build Error).
+                                <strong>DNS Cloudflare:</strong> Crie um registro <code>CNAME *</code> apontando para o seu domínio na Vercel/Netlify.
                             </div>
                         </CardContent>
                     </Card>
 
-                    {/* OPÇÃO 2: MODO SINGLE TENANT */}
                     <Card className="border-t-4 border-t-orange-500">
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2 text-orange-700 dark:text-orange-400">
@@ -91,29 +105,6 @@ export const SetupPage: React.FC = () => {
                                 <div className="text-orange-600 dark:text-orange-400">VITE_FIREBASE_PROJECT_ID</div>
                                 <div className="text-orange-600 dark:text-orange-400">VITE_FIREBASE_DATABASE_URL</div>
                             </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="border-t-4 border-t-red-500 md:col-span-2">
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2 text-red-600 dark:text-red-400">
-                                <Lock className="h-5 w-5" /> Regras de Segurança (Permission Denied)
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="text-sm text-gray-600 dark:text-gray-400">
-                            <p className="mb-2">O Firebase vem bloqueado por padrão. Se as chaves estiverem certas mas a conexão falhar:</p>
-                            <ol className="list-decimal pl-4 space-y-1">
-                                <li>Vá no Console Firebase &gt; Realtime Database &gt; Aba <strong>Regras</strong>.</li>
-                                <li>Publique as regras abaixo para permitir acesso a usuários autenticados:</li>
-                            </ol>
-                            <pre className="mt-2 p-2 bg-gray-100 dark:bg-gray-800 rounded font-mono text-xs overflow-x-auto">
-{`{
-  "rules": {
-    ".read": "auth != null",
-    ".write": "auth != null"
-  }
-}`}
-                            </pre>
                         </CardContent>
                     </Card>
                  </div>
@@ -131,7 +122,7 @@ export const SetupPage: React.FC = () => {
             <Rocket className="h-8 w-8" />
           </div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Configuração Inicial</h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-2">Crie o administrador da empresa.</p>
+          <p className="text-gray-500 dark:text-gray-400 mt-2">Banco conectado! Agora crie a conta Admin.</p>
         </div>
 
         <Card>
@@ -145,6 +136,13 @@ export const SetupPage: React.FC = () => {
             </div>
           </CardHeader>
           <CardContent>
+            {errorMsg && (
+                <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-300 text-sm rounded-lg flex items-start gap-2">
+                    <AlertTriangle className="h-5 w-5 flex-shrink-0" />
+                    <p>{errorMsg}</p>
+                </div>
+            )}
+            
             <form onSubmit={handleFinish}>
               {step === 1 && (
                 <div className="space-y-4">
@@ -173,6 +171,10 @@ export const SetupPage: React.FC = () => {
 
               {step === 2 && (
                 <div className="space-y-4">
+                   <div className="p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 text-xs rounded border border-blue-100 dark:border-blue-800 mb-4">
+                        <strong>Atenção:</strong> Certifique-se de que ativou o método <em>"Email/Password"</em> no Console do Firebase (Authentication) antes de continuar.
+                   </div>
+
                    <div>
                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome do Admin</label>
                      <div className="relative">
@@ -183,6 +185,7 @@ export const SetupPage: React.FC = () => {
                           onChange={e => setAdminName(e.target.value)} 
                           className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary-500"
                           placeholder="Ex: João Silva"
+                          disabled={isSubmitting}
                         />
                      </div>
                    </div>
@@ -195,26 +198,37 @@ export const SetupPage: React.FC = () => {
                        onChange={e => setAdminEmail(e.target.value)} 
                        className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary-500"
                        placeholder="admin@exemplo.com"
+                       disabled={isSubmitting}
                      />
                    </div>
                    <div>
-                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Senha</label>
+                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Senha (Min 6 caracteres)</label>
                      <input 
                        required 
                        type="password"
+                       minLength={6}
                        value={adminPassword} 
                        onChange={e => setAdminPassword(e.target.value)} 
                        className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary-500"
                        placeholder="********"
+                       disabled={isSubmitting}
                      />
                    </div>
                    
                    <div className="flex gap-3 pt-4">
-                     <Button type="button" variant="secondary" onClick={() => setStep(1)}>
+                     <Button type="button" variant="secondary" onClick={() => setStep(1)} disabled={isSubmitting}>
                        Voltar
                      </Button>
-                     <Button type="submit" className="flex-1">
-                       <ShieldCheck className="h-4 w-4 mr-2" /> Finalizar Instalação
+                     <Button type="submit" className="flex-1" disabled={isSubmitting}>
+                       {isSubmitting ? (
+                           <>
+                             <Loader2 className="h-4 w-4 animate-spin mr-2" /> Configurando...
+                           </>
+                       ) : (
+                           <>
+                             <ShieldCheck className="h-4 w-4 mr-2" /> Finalizar Instalação
+                           </>
+                       )}
                      </Button>
                    </div>
                 </div>

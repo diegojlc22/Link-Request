@@ -166,27 +166,33 @@ export const DataProvider: React.FC<{ children: React.ReactNode; currentTenant?:
         
         let uid = `admin_${Date.now()}`;
         
-        // Tenta criar no Auth (ou reutilizar se já existir)
+        // Tenta criar no Auth
         try {
             const userCred = await fbCreateUserSecondary(data.adminEmail, data.adminPassword);
             uid = userCred.uid;
             // Força login imediato
             await fbSignIn(data.adminEmail, data.adminPassword);
         } catch (e: any) {
-            console.warn("Usuário Auth já existe ou erro:", e);
-            // Se já existe, tenta pegar o ID do usuário logado
-            const auth = getFirebaseAuth();
-            if (auth?.currentUser) {
-                uid = auth.currentUser.uid;
-            } else {
-                // Tenta logar para pegar o ID
+            console.warn("Erro ao criar usuário Auth:", e.code);
+            
+            // Tratamento de Erros Específicos do Auth
+            if (e.code === 'auth/operation-not-allowed') {
+                throw new Error("O login por Email/Senha não está ativado no Firebase Console. Vá em Authentication > Sign-in method e ative.");
+            }
+            
+            if (e.code === 'auth/email-already-in-use') {
+                 // Se já existe, tenta logar para pegar o ID e prosseguir com a config do banco
                 try {
                     const res = await fbSignIn(data.adminEmail, data.adminPassword);
                     uid = res.user.uid;
-                } catch(loginErr) {
-                     // Se não consegue logar e não consegue criar, falha real
-                     throw new Error("Não foi possível criar nem logar no usuário Admin.");
+                } catch(loginErr: any) {
+                     if (loginErr.code === 'auth/wrong-password') {
+                        throw new Error("Este email já existe, mas a senha informada está incorreta.");
+                     }
+                     throw new Error("Usuário já existe e não foi possível logar: " + loginErr.message);
                 }
+            } else {
+                throw e; // Lança outros erros (ex: weak-password)
             }
         }
 
@@ -209,7 +215,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode; currentTenant?:
         
         setCompanies([newCompany]); setUnits([newUnit]); setUsers([newAdmin]); setIsSetupDone(true);
     } catch (e: any) {
-        alert("Erro fatal na configuração: " + (e.message || e));
+        // Propaga o erro para ser exibido na UI
+        throw e;
     }
   }, []);
 
