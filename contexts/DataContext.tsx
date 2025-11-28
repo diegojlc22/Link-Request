@@ -78,6 +78,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
   const [isDemo, setIsDemo] = useState(false);
 
+  // OPTIMIZATION LIMITS
+  // Baixa apenas os últimos 500 tickets para garantir performance rápida
+  // Tickets mais antigos ficam no banco, mas não carregam na inicialização
+  const REQUESTS_LIMIT = 500; 
   const COMMENTS_LIMIT = 2000;
 
   useEffect(() => {
@@ -113,11 +117,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         unsubCompanies = fbSubscribe<Company>('companies', (data) => isMounted && data && setCompanies(data));
         unsubUnits = fbSubscribe<Unit>('units', (data) => isMounted && data && setUnits(data));
-        unsubRequests = fbSubscribe<RequestTicket>('requests', (data) => {
+        
+        // OTIMIZAÇÃO: Usando fbSubscribeRecent para Requests
+        unsubRequests = fbSubscribeRecent<RequestTicket>('requests', REQUESTS_LIMIT, (data) => {
             if(isMounted && Array.isArray(data)) {
                 setRequests(data);
             }
         });
+        
         unsubComments = fbSubscribeRecent<Comment>('comments', COMMENTS_LIMIT, (data) => {
             if(isMounted && Array.isArray(data)) setComments(data);
         });

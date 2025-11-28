@@ -2,20 +2,24 @@
   "rules": {
     ".read": "auth != null",
     ".write": "auth != null",
-    "companies": {
-      ".indexOn": ["id"]
-    },
-    "units": {
-      ".indexOn": ["companyId"]
-    },
     "users": {
-      ".indexOn": ["email", "companyId", "unitId"]
+      "$uid": {
+         // Apenas o próprio usuário ou um Admin pode editar este usuário
+         ".write": "$uid === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'ADMIN'",
+         ".indexOn": ["email", "companyId", "unitId"]
+      }
     },
     "requests": {
       ".indexOn": ["companyId", "unitId", "creatorId", "assigneeId", "status", "createdAt"]
     },
     "comments": {
       ".indexOn": ["requestId", "createdAt"]
+    },
+    "companies": {
+      ".indexOn": ["id"]
+    },
+    "units": {
+      ".indexOn": ["companyId"]
     }
   }
 }
