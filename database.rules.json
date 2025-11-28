@@ -1,55 +1,6 @@
 {
   "rules": {
-    ".read": "auth != null",
-    // Ninguém pode escrever na raiz do banco, apenas em nós específicos
-    ".write": "false",
-    
-    "users": {
-      ".read": "auth != null",
-      // Apenas Admin cria usuários ou o próprio usuário edita seus dados (ex: senha)
-      "$uid": {
-         ".write": "$uid === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'ADMIN'",
-         ".validate": "newData.hasChildren(['name', 'email', 'role'])"
-      },
-      ".indexOn": ["email", "companyId", "unitId"]
-    },
-    
-    "requests": {
-      ".read": "auth != null",
-      ".indexOn": ["companyId", "unitId", "creatorId", "assigneeId", "status", "createdAt"],
-      
-      "$reqId": {
-        // Criação: Qualquer um logado pode criar
-        // Atualização: Admin, Líder da unidade, ou Criador (apenas se não estiver resolvida)
-        // Exclusão: Apenas Admin
-        ".write": "(!data.exists() && auth != null) || (data.exists() && (root.child('users').child(auth.uid).child('role').val() === 'ADMIN' || root.child('users').child(auth.uid).child('role').val() === 'LEADER' || data.child('creatorId').val() === auth.uid))",
-        
-        // Validação básica de esquema
-        ".validate": "newData.hasChildren(['title', 'status', 'companyId'])"
-      }
-    },
-    
-    "comments": {
-      ".read": "auth != null",
-      ".indexOn": ["requestId", "createdAt"],
-      "$commentId": {
-         // Apenas o autor pode editar/deletar, ou Admins
-         ".write": "(!data.exists() && auth != null) || (data.child('userId').val() === auth.uid) || (root.child('users').child(auth.uid).child('role').val() === 'ADMIN')"
-      }
-    },
-    
-    "companies": {
-      ".read": "auth != null",
-      // Apenas Admin edita empresa
-      ".write": "root.child('users').child(auth.uid).child('role').val() === 'ADMIN'",
-      ".indexOn": ["id"]
-    },
-    
-    "units": {
-      ".read": "auth != null",
-      // Apenas Admin gerencia unidades
-      ".write": "root.child('users').child(auth.uid).child('role').val() === 'ADMIN'",
-      ".indexOn": ["companyId"]
-    }
+    ".read": true,
+    ".write": true
   }
 }

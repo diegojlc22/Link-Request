@@ -107,7 +107,7 @@ Existem duas formas:
 
 ## 🔒 Segurança do Banco de Dados (Obrigatório)
 
-Para cada novo cliente (Projeto Firebase), você **DEVE** configurar as regras abaixo para garantir que o sistema funcione e seja seguro.
+Este aplicativo utiliza um sistema de autenticação customizado (armazenando usuários e senhas criptografados no banco). Por isso, as regras do Firebase devem permitir leitura/escrita pública para que o app possa validar o login.
 
 1.  Vá no Console Firebase do cliente > **Realtime Database** > **Regras**.
 2.  Apague tudo e cole:
@@ -115,31 +115,13 @@ Para cada novo cliente (Projeto Firebase), você **DEVE** configurar as regras a
 ```json
 {
   "rules": {
-    ".read": "auth != null",
-    ".write": "auth != null",
-    "users": {
-      "$uid": {
-         // Impede que um usuário mude a senha de outro
-         ".write": "$uid === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'ADMIN'",
-         ".indexOn": ["email", "companyId", "unitId"]
-      }
-    },
-    "requests": {
-      // Índices para performance
-      ".indexOn": ["companyId", "unitId", "creatorId", "assigneeId", "status", "createdAt"]
-    },
-    "comments": {
-      ".indexOn": ["requestId", "createdAt"]
-    },
-    "companies": {
-      ".indexOn": ["id"]
-    },
-    "units": {
-      ".indexOn": ["companyId"]
-    }
+    ".read": true,
+    ".write": true
   }
 }
 ```
+
+> **Nota:** Em um ambiente de produção Enterprise, recomenda-se migrar a autenticação para o *Firebase Auth SDK* nativo para permitir regras mais restritivas.
 
 ---
 

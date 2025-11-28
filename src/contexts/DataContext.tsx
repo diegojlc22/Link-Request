@@ -189,7 +189,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode; currentTenant?:
 
   const getErrorMessage = (e: any) => {
       if (e.code === 'PERMISSION_DENIED') {
-          return "Permissão Negada (PERMISSION_DENIED). Seu banco de dados está bloqueado. Vá no Console do Firebase > Realtime Database > Rules e altere '.read' e '.write' para 'true'.";
+          return "Permissão Negada. O banco de dados bloqueou esta ação. Verifique se as 'Regras' (Rules) no Console do Firebase estão configuradas como '.read': true e '.write': true (modo desenvolvimento) ou consulte o README.";
       }
       return e.message || "Erro desconhecido ao salvar.";
   };
