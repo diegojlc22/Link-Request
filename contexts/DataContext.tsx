@@ -38,6 +38,7 @@ interface DataContextType {
   getRequestsByUnit: (unitId: string) => RequestTicket[];
   getRequestsByCompany: (companyId: string) => RequestTicket[];
   getCommentsByRequest: (requestId: string) => Comment[];
+  resetSystem: (currentAdminId: string) => Promise<void>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -388,6 +389,50 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (isFirebaseInitialized() && !isDemo) fbDelete('users', id);
   }, [isDemo]);
 
+  // --- DANGER: RESET SYSTEM ---
+  const resetSystem = useCallback(async (currentAdminId: string) => {
+    const adminUser = users.find(u => u.id === currentAdminId);
+    if (!adminUser) throw new Error("Admin not found");
+
+    const adminCompany = companies.find(c => c.id === adminUser.companyId);
+    if (!adminCompany) throw new Error("Company not found");
+
+    // Create a new default unit to ensure system integrity
+    const newUnitId = `u${Date.now()}`;
+    const defaultUnit: Unit = {
+        id: newUnitId,
+        companyId: adminCompany.id,
+        name: 'Matriz',
+        location: 'Sede Principal'
+    };
+
+    // Ensure Admin is attached to a valid unit if they were attached to a deleted one
+    // (Although Admins are global, this keeps data consistent)
+    const updatedAdmin = { ...adminUser, unitId: newUnitId };
+
+    // Construct the Atomic Update Object
+    // This wipes everything else by setting the root collections to specific values
+    const updates: Record<string, any> = {};
+    updates['requests'] = null; // Delete All
+    updates['comments'] = null; // Delete All
+    updates['units'] = { [newUnitId]: sanitizeForFirebase(defaultUnit) }; // Replace all with default
+    updates['users'] = { [updatedAdmin.id]: sanitizeForFirebase(updatedAdmin) }; // Replace all with only Admin
+    updates['companies'] = { [adminCompany.id]: sanitizeForFirebase(adminCompany) }; // Keep only current company
+
+    if (!isDemo && isFirebaseInitialized()) {
+         checkDb();
+         await fbUpdateMulti(updates);
+    }
+
+    // Update Local State Optimistically
+    setRequests([]);
+    setComments([]);
+    setUnits([defaultUnit]);
+    setUsers([updatedAdmin]);
+    setCompanies([adminCompany]);
+
+  }, [users, companies, isDemo]);
+
   const getRequestsByUnit = useCallback((unitId: string) => sortedRequests.filter(r => r.unitId === unitId), [sortedRequests]);
   const getRequestsByCompany = useCallback((companyId: string) => sortedRequests.filter(r => r.companyId === companyId), [sortedRequests]);
   const getCommentsByRequest = useCallback((requestId: string) => sortedComments.filter(c => c.requestId === requestId), [sortedComments]);
@@ -397,13 +442,15 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isDbConnected, isLoading, isSetupDone,
     addRequest, updateRequestStatus, updateRequest, bulkUpdateRequestStatus, deleteRequest, addComment,
     addUnit, addUser, updateUserPassword, updateUser, updateCompany, deleteUnit, deleteUser,
-    getRequestsByUnit, getRequestsByCompany, getCommentsByRequest, setupSystem, enableDemoMode
+    getRequestsByUnit, getRequestsByCompany, getCommentsByRequest, setupSystem, enableDemoMode,
+    resetSystem // Added new function
   }), [
     companies, units, users, sortedRequests, sortedComments,
     isDbConnected, isLoading, isSetupDone,
     addRequest, updateRequestStatus, updateRequest, bulkUpdateRequestStatus, deleteRequest, addComment,
     addUnit, addUser, updateUserPassword, updateUser, updateCompany, deleteUnit, deleteUser,
-    getRequestsByUnit, getRequestsByCompany, getCommentsByRequest, setupSystem, enableDemoMode
+    getRequestsByUnit, getRequestsByCompany, getCommentsByRequest, setupSystem, enableDemoMode,
+    resetSystem
   ]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

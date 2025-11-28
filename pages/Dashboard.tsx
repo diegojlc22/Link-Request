@@ -5,11 +5,11 @@ import { useAuth } from '../contexts/AuthContext';
 import { RequestStatus } from '../types';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { Clock, CheckCircle2, AlertCircle, Send } from 'lucide-react';
+import { Clock, CheckCircle2, AlertCircle, Send, Database, ArrowRight } from 'lucide-react';
 
 export const Dashboard: React.FC = () => {
   const { requests, units } = useData();
-  const { currentUser } = useAuth();
+  const { currentUser, isAdmin } = useAuth();
   const navigate = useNavigate();
 
   // Filter requests based on permission
@@ -61,7 +61,17 @@ export const Dashboard: React.FC = () => {
 
   return (
     <div className="space-y-4 md:space-y-6 pb-6">
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
+        {isAdmin && (
+             <button 
+                onClick={() => navigate('/admin/database')}
+                className="flex items-center gap-2 text-sm text-gray-500 hover:text-primary-600 transition-colors"
+             >
+                <Database className="h-4 w-4" /> Diagnóstico e Reset <ArrowRight className="h-3 w-3" />
+             </button>
+        )}
+      </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         <StatCard 

@@ -1,13 +1,21 @@
-
-import React from 'react';
+import React, { useState } from 'react';
 import { useData } from '../contexts/DataContext';
+import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { Database, Download, AlertTriangle, CheckCircle2, Activity, ServerCrash } from 'lucide-react';
+import { Modal } from '../components/ui/Modal';
+import { Database, Download, AlertTriangle, CheckCircle2, Activity, ServerCrash, Trash2 } from 'lucide-react';
 import { formatISO } from 'date-fns';
 
 export const AdminDatabase: React.FC = () => {
-  const { requests, users, comments, units } = useData();
+  const { requests, users, comments, units, resetSystem } = useData();
+  const { currentUser } = useAuth();
+  const { showToast } = useToast();
+
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [confirmationInput, setConfirmationInput] = useState('');
+  const [isResetting, setIsResetting] = useState(false);
 
   // Métricas de Capacidade (Baseado na arquitetura Client-Side)
   const LIMIT_WARNING = 3000;
@@ -46,8 +54,30 @@ export const AdminDatabase: React.FC = () => {
     downloadAnchorNode.remove();
   };
 
+  const handleReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentUser) return;
+
+    if (confirmationInput !== currentUser.password && confirmationInput.toLowerCase() !== 'confirmar') {
+        showToast('Senha ou confirmação incorreta.', 'error');
+        return;
+    }
+
+    setIsResetting(true);
+    try {
+        await resetSystem(currentUser.id);
+        showToast('Sistema resetado com sucesso! Dados limpos.', 'success');
+        setIsResetModalOpen(false);
+        setConfirmationInput('');
+    } catch (error: any) {
+        showToast('Erro ao resetar sistema: ' + error.message, 'error');
+    } finally {
+        setIsResetting(false);
+    }
+  };
+
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6 max-w-4xl pb-10">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
           <Database className="h-6 w-6" /> Diagnóstico do Sistema
@@ -140,6 +170,73 @@ export const AdminDatabase: React.FC = () => {
             </CardContent>
         </Card>
       </div>
+
+      {/* DANGER ZONE */}
+      <div className="mt-6 border border-red-200 dark:border-red-900 rounded-xl overflow-hidden shadow-lg">
+          <div className="bg-red-50 dark:bg-red-900/20 p-4 border-b border-red-200 dark:border-red-900 flex items-center gap-3">
+             <AlertTriangle className="h-6 w-6 text-red-600 dark:text-red-400" />
+             <div>
+                 <h3 className="text-lg font-bold text-red-800 dark:text-red-300">Zona de Perigo</h3>
+                 <p className="text-xs text-red-600 dark:text-red-400">Ações irreversíveis que afetam todo o sistema.</p>
+             </div>
+          </div>
+          <div className="p-6 bg-white dark:bg-gray-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+             <div>
+                 <h4 className="font-bold text-gray-900 dark:text-white">Resetar Banco de Dados</h4>
+                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    Esta ação irá <strong>apagar permanentemente</strong> todas as requisições, comentários, unidades e usuários (exceto você).
+                    <br/>
+                    Use isto apenas para reiniciar o sistema do zero.
+                 </p>
+             </div>
+             <Button 
+                variant="danger" 
+                onClick={() => setIsResetModalOpen(true)}
+                className="whitespace-nowrap flex items-center"
+             >
+                <Trash2 className="h-4 w-4 mr-2" /> Resetar Sistema
+             </Button>
+          </div>
+      </div>
+
+      {/* Confirmation Modal */}
+      <Modal
+        isOpen={isResetModalOpen}
+        onClose={() => setIsResetModalOpen(false)}
+        title="Confirmar Reset do Sistema"
+      >
+        <form onSubmit={handleReset} className="space-y-6">
+            <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg text-red-700 dark:text-red-300 flex items-start gap-3">
+                <AlertTriangle className="h-6 w-6 flex-shrink-0 mt-0.5" />
+                <div className="text-sm">
+                    <p className="font-bold mb-1">Você tem certeza absoluta?</p>
+                    <p>Todos os dados serão perdidos. O único dado preservado será o seu usuário Admin e a empresa principal.</p>
+                </div>
+            </div>
+
+            <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Digite sua senha de admin ou escreva "confirmar"
+                </label>
+                <input 
+                    type="password"
+                    required
+                    value={confirmationInput}
+                    onChange={(e) => setConfirmationInput(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:ring-2 focus:ring-red-500 outline-none"
+                    placeholder="Sua senha ou 'confirmar'"
+                />
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2">
+                <Button type="button" variant="ghost" onClick={() => setIsResetModalOpen(false)}>Cancelar</Button>
+                <Button type="submit" variant="danger" disabled={!confirmationInput || isResetting}>
+                    {isResetting ? 'Apagando...' : 'Confirmar e Resetar'}
+                </Button>
+            </div>
+        </form>
+      </Modal>
+
     </div>
   );
 };
