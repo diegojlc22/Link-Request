@@ -1,6 +1,13 @@
 {
   "rules": {
-    ".read": true,
-    ".write": true
+    ".read": "auth != null",
+    ".write": "auth != null",
+    
+    "users": {
+       ".indexOn": ["email"]
+    },
+    "requests": {
+       ".indexOn": ["createdAt", "updatedAt", "companyId", "unitId", "creatorId"]
+    }
   }
 }

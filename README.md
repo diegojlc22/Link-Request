@@ -3,7 +3,7 @@
 ![Link-Request Banner](https://forbes.com.br/wp-content/uploads/2024/01/Tech_tecnologias2024_divulgacao.jpg)
 
 # Link-Request SaaS
-### Plataforma Corporativa de Gestão de Solicitações
+### Plataforma Corporativa de Gestão de Solicitações (Secure Edition)
 
 <!-- MENU DE NAVEGAÇÃO ESTILO ABAS -->
 <p align="center">
@@ -52,9 +52,10 @@ Para vender para uma nova empresa e liberar o acesso dela **sem criar um novo de
 1.  Acesse o [Console do Firebase](https://console.firebase.google.com/).
 2.  Clique em **Adicionar projeto** (Ex: "Cliente-Padaria").
 3.  Desative o Google Analytics (opcional) e crie o projeto.
-4.  No menu lateral, ative o **Authentication** (Email/Senha).
-5.  Ative o **Realtime Database** e crie um banco (pode começar em modo bloqueado).
-6.  **IMPORTANTE:** Vá na aba **Regras** do Database e cole as regras de segurança (veja a seção [Segurança](#-seguranca) abaixo).
+4.  No menu lateral, vá em **Criação (Build)** > **Authentication**.
+5.  Clique em **Vamos começar** > Selecione **Email/Senha** > **Ativar**.
+6.  Vá em **Realtime Database** e crie um banco.
+7.  **IMPORTANTE:** Vá na aba **Regras** do Database e cole as regras de segurança (veja a seção [Segurança](#-seguranca) abaixo).
 
 ### 2. Pegue as Credenciais
 1.  No Firebase, clique na engrenagem ⚙️ > **Configurações do projeto**.
@@ -96,10 +97,11 @@ export const tenants: Tenant[] = [
 2.  Pronto! Seu site principal será atualizado automaticamente.
 3.  O cliente já pode acessar.
 
-### 5. Como o Cliente Acessa?
-Existem duas formas:
-1.  **Pelo Portal:** O cliente acessa `seusistema.com`, digita o slug **"padaria"** e entra.
-2.  **Link Direto:** Se você configurar subdomínios, ele pode acessar `padaria.seusistema.com` (requer config de DNS no Cloudflare/Vercel).
+### 5. Configuração Inicial (Primeiro Acesso)
+1.  Acesse o link do cliente (ex: `padaria.seusistema.com` ou via Portal).
+2.  Você verá uma tela de "Configuração Inicial".
+3.  Crie a conta do Administrador.
+4.  **O sistema criará automaticamente o usuário no Firebase Authentication e no Banco de Dados.**
 
 ---
 
@@ -107,7 +109,7 @@ Existem duas formas:
 
 ## 🔒 Segurança do Banco de Dados (Obrigatório)
 
-Este aplicativo utiliza um sistema de autenticação customizado (armazenando usuários e senhas criptografados no banco). Por isso, as regras do Firebase devem permitir leitura/escrita pública para que o app possa validar o login.
+Agora que o sistema usa Autenticação Nativa, você DEVE proteger o banco de dados.
 
 1.  Vá no Console Firebase do cliente > **Realtime Database** > **Regras**.
 2.  Apague tudo e cole:
@@ -115,34 +117,19 @@ Este aplicativo utiliza um sistema de autenticação customizado (armazenando us
 ```json
 {
   "rules": {
-    ".read": true,
-    ".write": true
+    ".read": "auth != null",
+    ".write": "auth != null",
+    "users": {
+       ".indexOn": ["email"]
+    },
+    "requests": {
+       ".indexOn": ["createdAt", "updatedAt", "companyId", "unitId", "creatorId"]
+    }
   }
 }
 ```
 
-> **Nota:** Em um ambiente de produção Enterprise, recomenda-se migrar a autenticação para o *Firebase Auth SDK* nativo para permitir regras mais restritivas.
-
----
-
-## ☁️ Configuração Alternativa (Variáveis de Ambiente)
-
-Se você preferir usar o modo antigo (uma hospedagem por cliente) ou quiser configurar um ambiente de desenvolvimento local rápido, use o arquivo `.env`:
-
-```bash
-# Firebase Config (Modo Single Tenant)
-VITE_FIREBASE_API_KEY=AIzaSy...
-VITE_FIREBASE_AUTH_DOMAIN=projeto.firebaseapp.com
-VITE_FIREBASE_PROJECT_ID=projeto-id
-VITE_FIREBASE_STORAGE_BUCKET=projeto.firebasestorage.app
-VITE_FIREBASE_MESSAGING_SENDER_ID=123456
-VITE_FIREBASE_APP_ID=1:12345:web:abc
-VITE_FIREBASE_DATABASE_URL=https://projeto-default-rtdb.firebaseio.com
-
-# Cloudinary (Opcional - para Upload de Imagens)
-VITE_CLOUDINARY_CLOUD_NAME=seu_cloud_name
-VITE_CLOUDINARY_UPLOAD_PRESET=seu_unsigned_preset
-```
+Isso garante que apenas usuários logados (autenticados pelo Google) possam ler ou escrever dados.
 
 ---
 

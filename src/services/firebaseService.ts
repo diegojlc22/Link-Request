@@ -1,13 +1,25 @@
 import * as firebaseApp from 'firebase/app';
 import * as rtdb from 'firebase/database';
+import { 
+  getAuth, 
+  Auth, 
+  signInWithEmailAndPassword, 
+  signOut, 
+  sendPasswordResetEmail, 
+  createUserWithEmailAndPassword,
+  onAuthStateChanged,
+  User as FirebaseUser
+} from 'firebase/auth';
 import { FirebaseConfig, CloudinaryConfig } from '../types';
 
 let app: any;
 let db: rtdb.Database | undefined;
+let auth: Auth | undefined;
 let activeCloudinaryConfig: CloudinaryConfig | null = null;
+let currentConfig: FirebaseConfig | null = null;
 
 // Workaround for conflicting type definitions
-const { initializeApp, getApps, getApp } = firebaseApp as any;
+const { initializeApp, getApps, getApp, deleteApp } = firebaseApp as any;
 
 const getEnvFirebaseConfig = (): FirebaseConfig | null => {
   try {
@@ -54,7 +66,7 @@ const getEnvCloudinaryConfig = (): CloudinaryConfig | null => {
 
 export const initFirebase = (manualFirebaseConfig?: FirebaseConfig, manualCloudinaryConfig?: CloudinaryConfig): boolean => {
   try {
-    // 1. Configurar Cloudinary (Prioridade: Manual > Env)
+    // 1. Configurar Cloudinary
     if (manualCloudinaryConfig) {
         activeCloudinaryConfig = manualCloudinaryConfig;
     } else {
@@ -62,11 +74,10 @@ export const initFirebase = (manualFirebaseConfig?: FirebaseConfig, manualCloudi
     }
 
     // 2. Configurar Firebase
-    if (db) return true; // Já inicializado
+    if (db && auth) return true; 
 
     let config: FirebaseConfig | null = null;
     
-    // Prioridade: Config Manual (Multi-Tenant) > Env Vars (Single Tenant Legacy)
     if (manualFirebaseConfig && manualFirebaseConfig.apiKey) {
         config = manualFirebaseConfig;
     } else {
@@ -76,6 +87,8 @@ export const initFirebase = (manualFirebaseConfig?: FirebaseConfig, manualCloudi
     if (!config) {
       return false;
     }
+    
+    currentConfig = config; // Salva config para uso futuro (criação de usuários)
 
     if (getApps().length === 0) {
       app = initializeApp(config);
@@ -85,16 +98,79 @@ export const initFirebase = (manualFirebaseConfig?: FirebaseConfig, manualCloudi
     
     if (app) {
       db = rtdb.getDatabase(app);
+      auth = getAuth(app);
     }
     
-    return !!db;
+    return !!db && !!auth;
   } catch (error) {
     console.error("Firebase initialization critical error:", error);
     return false;
   }
 };
 
-export const isFirebaseInitialized = () => !!db;
+export const isFirebaseInitialized = () => !!db && !!auth;
+
+export const getFirebaseAuth = () => {
+    if (!auth) initFirebase();
+    return auth;
+};
+
+// --- AUTHENTICATION HELPERS ---
+
+export const fbSignIn = async (email: string, pass: string) => {
+    if (!auth) throw new Error("Auth not initialized");
+    return await signInWithEmailAndPassword(auth, email, pass);
+};
+
+export const fbSignOut = async () => {
+    if (!auth) return;
+    return await signOut(auth);
+};
+
+export const fbResetPassword = async (email: string) => {
+    if (!auth) throw new Error("Auth not initialized");
+    return await sendPasswordResetEmail(auth, email);
+};
+
+export const fbOnAuthStateChanged = (callback: (user: FirebaseUser | null) => void) => {
+    if (!auth) initFirebase();
+    if (auth) {
+        return onAuthStateChanged(auth, callback);
+    }
+    return () => {};
+};
+
+/**
+ * TRUQUE DE MESTRE: Cria um usuário SEM deslogar o admin atual.
+ * Inicializa uma "Segunda App" do Firebase apenas para realizar o cadastro,
+ * e depois a destrói.
+ */
+export const fbCreateUserSecondary = async (email: string, pass: string) => {
+    if (!currentConfig) throw new Error("Firebase config missing");
+
+    // 1. Inicializa app secundário com nome aleatório
+    const secondaryAppName = `secondaryApp-${Date.now()}`;
+    const secondaryApp = initializeApp(currentConfig, secondaryAppName);
+    const secondaryAuth = getAuth(secondaryApp);
+
+    try {
+        // 2. Cria o usuário na instância secundária
+        const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email, pass);
+        
+        // 3. Desloga da instância secundária (por segurança)
+        await signOut(secondaryAuth);
+        
+        return userCredential.user;
+    } catch (error) {
+        throw error;
+    } finally {
+        // 4. Remove a instância secundária da memória
+        await deleteApp(secondaryApp);
+    }
+};
+
+
+// --- DATABASE HELPERS ---
 
 export const fbMonitorConnection = (callback: (connected: boolean) => void) => {
     if (!db && !initFirebase()) return () => {};
@@ -131,21 +207,6 @@ const normalizeData = <T>(val: any): T[] => {
     return [];
   } catch (e) {
     console.error("Error normalizing data:", e);
-    return [];
-  }
-};
-
-export const fbGetAll = async <T>(path: string): Promise<T[]> => {
-  if (!db && !initFirebase()) return [];
-  try {
-    const dbRef = rtdb.ref(db!, path);
-    const snapshot = await rtdb.get(dbRef);
-    if (snapshot.exists()) {
-      return normalizeData<T>(snapshot.val());
-    }
-    return [];
-  } catch (error) {
-    console.error(`Error fetching ${path}:`, error);
     return [];
   }
 };
@@ -220,7 +281,6 @@ export const fbDelete = async (path: string, id: string) => {
 };
 
 export const fbUploadImage = async (base64String: string, fileName: string): Promise<string> => {
-  // 1. Tenta usar a config ativa (Seja do Tenant ou do Env)
   const storageConfig = activeCloudinaryConfig;
 
   if (storageConfig && storageConfig.cloudName && storageConfig.uploadPreset) {
@@ -247,7 +307,6 @@ export const fbUploadImage = async (base64String: string, fileName: string): Pro
     }
   }
 
-  // 2. Fallback: Base64 direto no banco
   if (base64String.length > 1500000) {
       console.warn("Imagem muito grande para fallback local.");
       throw new Error("Imagem muito grande. Configure o Cloudinary ou use imagens menores.");

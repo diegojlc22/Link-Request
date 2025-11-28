@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 import { Company, Unit, User, RequestTicket, Comment, UserRole, RequestStatus, Tenant } from '../types';
 import { formatISO } from 'date-fns';
-import { initFirebase, fbSet, fbUpdate, fbDelete, fbSubscribe, fbSubscribeRecent, fbUpdateMulti, isFirebaseInitialized, fbMonitorConnection } from '../services/firebaseService';
+import { initFirebase, fbSet, fbUpdate, fbDelete, fbSubscribe, fbSubscribeRecent, fbUpdateMulti, isFirebaseInitialized, fbMonitorConnection, fbCreateUserSecondary, fbSignIn, getFirebaseAuth } from '../services/firebaseService';
 
 interface SetupData {
   companyName: string;
@@ -19,7 +19,7 @@ interface DataContextType {
   isSetupDone: boolean;
   setupSystem: (data: SetupData) => Promise<void>;
   enableDemoMode: () => void;
-  isDbConnected: boolean; // True if config exists and connection to server is ALIVE
+  isDbConnected: boolean; 
   isLoading: boolean;
   addRequest: (req: Omit<RequestTicket, 'id' | 'createdAt' | 'updatedAt' | 'viewedByAssignee'>) => Promise<void>;
   updateRequestStatus: (id: string, status: RequestStatus) => void;
@@ -29,7 +29,7 @@ interface DataContextType {
   addComment: (ticketId: string, userId: string, content: string, isInternal?: boolean) => void;
   addUnit: (unit: Omit<Unit, 'id'>) => Promise<void>;
   addUser: (user: Omit<User, 'id'>) => Promise<void>;
-  updateUserPassword: (userId: string, newPassword: string) => void;
+  updateUserPassword: (userId: string, newPassword: string) => Promise<void>; // Deprecated but kept for compatibility logic
   updateUser: (userId: string, data: Partial<User>) => void;
   updateCompany: (id: string, data: Partial<Company>) => void;
   deleteUnit: (id: string) => void;
@@ -54,7 +54,6 @@ const sanitizeInput = (str: string): string => {
     .trim();
 };
 
-// FIREBASE FIX: Convert undefined to null to prevent SDK crash
 const sanitizeForFirebase = (data: any) => {
   if (!data || typeof data !== 'object') return data;
   const clean = { ...data };
@@ -66,7 +65,6 @@ const sanitizeForFirebase = (data: any) => {
   return clean;
 };
 
-// MODIFICADO: Aceita o Tenant completo
 export const DataProvider: React.FC<{ children: React.ReactNode; currentTenant?: Tenant | null }> = ({ children, currentTenant }) => {
   const [isSetupDone, setIsSetupDone] = useState<boolean>(true);
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -92,19 +90,17 @@ export const DataProvider: React.FC<{ children: React.ReactNode; currentTenant?:
     let isMounted = true; 
 
     const startListeners = () => {
-      // INICIALIZAÇÃO COM CONFIGURAÇÃO ESPECÍFICA DO TENANT (Firebase E Cloudinary)
       const success = initFirebase(currentTenant?.firebaseConfig, currentTenant?.cloudinaryConfig);
       
       if (success) {
-        // Start connection monitoring
         unsubConnection = fbMonitorConnection((connected) => {
             if (isMounted) setIsDbConnected(connected);
         });
 
-        // Load Users first to check setup status
         unsubUsers = fbSubscribe<User>('users', (data) => { 
             if(isMounted && data) {
                 setUsers(data);
+                // Check if system is set up based on Users existence
                 if (data.length === 0 && !isDemo) {
                     setIsSetupDone(false);
                 } else {
@@ -118,9 +114,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode; currentTenant?:
         unsubUnits = fbSubscribe<Unit>('units', (data) => isMounted && data && setUnits(data));
         
         unsubRequests = fbSubscribeRecent<RequestTicket>('requests', REQUESTS_LIMIT, (data) => {
-            if(isMounted && Array.isArray(data)) {
-                setRequests(data);
-            }
+            if(isMounted && Array.isArray(data)) setRequests(data);
         });
         
         unsubComments = fbSubscribeRecent<Comment>('comments', COMMENTS_LIMIT, (data) => {
@@ -149,7 +143,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode; currentTenant?:
       if (unsubComments) unsubComments();
       if (unsubConnection) unsubConnection();
     };
-  }, [isDemo, currentTenant]); // Re-executa se mudar o Tenant
+  }, [isDemo, currentTenant]);
 
   useEffect(() => {
     if (companies.length > 0 && companies[0].name) {
@@ -157,7 +151,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode; currentTenant?:
     }
   }, [companies]);
 
-  // Memoized Sort
   const sortedRequests = useMemo(() => {
     return [...requests].sort((a, b) => {
         const getTime = (dateStr?: string) => {
@@ -175,43 +168,54 @@ export const DataProvider: React.FC<{ children: React.ReactNode; currentTenant?:
     return [...comments].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
   }, [comments]);
 
-  // --- ACTIONS ---
-
   const checkDb = () => {
       if (isDemo) return;
       if (!isFirebaseInitialized() && !initFirebase(currentTenant?.firebaseConfig, currentTenant?.cloudinaryConfig)) {
-          throw new Error("Banco de dados desconectado. Verifique as configurações.");
-      }
-      if (!isDbConnected && isFirebaseInitialized()) {
-          console.warn("Saving while offline...");
+          throw new Error("Banco de dados desconectado.");
       }
   };
 
-  const getErrorMessage = (e: any) => {
-      if (e.code === 'PERMISSION_DENIED') {
-          return "Permissão Negada. O banco de dados bloqueou esta ação. Verifique se as 'Regras' (Rules) no Console do Firebase estão configuradas como '.read': true e '.write': true (modo desenvolvimento) ou consulte o README.";
-      }
-      return e.message || "Erro desconhecido ao salvar.";
-  };
+  // --- ACTIONS ---
 
   const setupSystem = useCallback(async (data: SetupData) => {
-    const newCompany: Company = { id: 'c1', name: sanitizeInput(data.companyName), domain: 'system.local', logoUrl: '' };
-    const newUnit: Unit = { id: 'u1', companyId: 'c1', name: 'Matriz', location: 'Sede Principal' };
-    const newAdmin: User = {
-      id: 'admin1', companyId: 'c1', name: sanitizeInput(data.adminName), email: sanitizeInput(data.adminEmail),
-      password: data.adminPassword, role: UserRole.ADMIN,
-      avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(sanitizeInput(data.adminName))}&background=random`
-    };
-
     try {
         checkDb();
+        
+        // 1. Create User in Firebase Auth (Native)
+        // Note: This will automatically log the user in on the client side
+        let uid = `admin_${Date.now()}`;
+        try {
+            const userCred = await fbCreateUserSecondary(data.adminEmail, data.adminPassword);
+            uid = userCred.uid;
+            // Force Login immediately for the current user
+            await fbSignIn(data.adminEmail, data.adminPassword);
+        } catch (e: any) {
+            // Handle "Email already in use" by trying to login or proceeding if only DB is missing
+            console.warn("User creation warning:", e);
+            const auth = getFirebaseAuth();
+            if (auth?.currentUser) uid = auth.currentUser.uid;
+        }
+
+        const newCompany: Company = { id: 'c1', name: sanitizeInput(data.companyName), domain: 'system.local', logoUrl: '' };
+        const newUnit: Unit = { id: 'u1', companyId: 'c1', name: 'Matriz', location: 'Sede Principal' };
+        
+        // 2. Store User Profile in Realtime DB (No Password!)
+        const newAdmin: User = {
+          id: uid, // Matches Auth UID
+          companyId: 'c1', 
+          name: sanitizeInput(data.adminName), 
+          email: sanitizeInput(data.adminEmail),
+          role: UserRole.ADMIN,
+          avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(sanitizeInput(data.adminName))}&background=random`
+        };
+
         await fbSet('companies', newCompany.id, sanitizeForFirebase(newCompany));
         await fbSet('units', newUnit.id, sanitizeForFirebase(newUnit));
         await fbSet('users', newAdmin.id, sanitizeForFirebase(newAdmin));
         
         setCompanies([newCompany]); setUnits([newUnit]); setUsers([newAdmin]); setIsSetupDone(true);
     } catch (e: any) {
-        alert("Erro fatal na configuração: " + getErrorMessage(e));
+        alert("Erro fatal na configuração: " + (e.message || e));
     }
   }, []);
 
@@ -221,7 +225,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode; currentTenant?:
     const demoUnit: Unit = { id: 'u-demo', companyId: 'c-demo', name: 'Matriz Demo', location: 'Demo City, DC' };
     const demoAdmin: User = {
         id: 'admin-demo', companyId: 'c-demo', name: 'Admin Demo', email: 'admin@demo.com',
-        password: '123', role: UserRole.ADMIN,
+        role: UserRole.ADMIN,
         avatarUrl: `https://ui-avatars.com/api/?name=Admin+Demo&background=random`
     };
     
@@ -229,7 +233,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode; currentTenant?:
     setUnits([demoUnit]);
     setUsers([demoAdmin]);
     setRequests([]); 
-    
     setIsDbConnected(true); 
     setIsSetupDone(true);
     setIsLoading(false);
@@ -255,9 +258,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode; currentTenant?:
           checkDb();
           await fbSet('requests', newRequest.id, sanitizeForFirebase(newRequest));
         } catch (e: any) {
-          console.error("Firebase Write Error:", e);
           setRequests(prev => prev.filter(r => r.id !== newRequest.id));
-          alert(`ERRO AO SALVAR: ${getErrorMessage(e)}`);
+          alert(`Erro ao salvar: ${e.message}`);
         }
     }
   }, [isDemo]);
@@ -301,7 +303,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode; currentTenant?:
             fbDelete('requests', id);
         } catch(e: any) {
             if(backup) setRequests(prev => [...prev, backup]);
-            alert(`Erro ao excluir: ${getErrorMessage(e)}`);
+            alert(`Erro ao excluir: ${e.message}`);
         }
     }
   }, [requests, isDemo]);
@@ -326,7 +328,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode; currentTenant?:
         await fbUpdate('requests', ticketId, { updatedAt });
       } catch (e: any) {
          setComments(prev => prev.filter(c => c.id !== newComment.id));
-         alert(`Erro ao comentar: ${getErrorMessage(e)}`);
+         alert(`Erro ao comentar: ${e.message}`);
       }
     }
   }, [isDemo]);
@@ -341,35 +343,61 @@ export const DataProvider: React.FC<{ children: React.ReactNode; currentTenant?:
             await fbSet('units', newUnit.id, sanitizeForFirebase(newUnit));
         } catch (e: any) {
             setUnits(prev => prev.filter(u => u.id !== newUnit.id));
-            alert(`Erro ao salvar unidade: ${getErrorMessage(e)}`);
+            alert(`Erro ao salvar unidade: ${e.message}`);
         }
     }
   }, [isDemo]);
 
+  // IMPORTANT: Add User now uses SECONDARY APP technique to avoid logging out Admin
   const addUser = useCallback(async (user: Omit<User, 'id'>) => {
-    const newUser = { ...user, name: sanitizeInput(user.name), email: sanitizeInput(user.email), id: `user${Date.now()}` };
-    setUsers(prev => [...prev, newUser]);
-    
-    if(!isDemo) {
-        try {
-            checkDb();
-            await fbSet('users', newUser.id, sanitizeForFirebase(newUser));
-        } catch(e: any) {
-            setUsers(prev => prev.filter(u => u.id !== newUser.id));
-            alert(`Erro ao salvar usuário: ${getErrorMessage(e)}`);
-        }
+    if (isDemo) {
+        const newUser = { ...user, id: `user${Date.now()}` };
+        setUsers(prev => [...prev, newUser]);
+        return;
+    }
+
+    try {
+        checkDb();
+        
+        if (!user.password) throw new Error("Senha é obrigatória");
+        
+        // 1. Create in Firebase Auth (Using secondary app workaround)
+        const authUser = await fbCreateUserSecondary(user.email, user.password);
+        
+        // 2. Create Profile in DB
+        const newUser: User = { 
+            ...user, 
+            id: authUser.uid, 
+            name: sanitizeInput(user.name), 
+            email: sanitizeInput(user.email),
+            // Don't save password in DB
+            password: undefined 
+        };
+        
+        await fbSet('users', newUser.id, sanitizeForFirebase(newUser));
+        
+        // Optimistic Update
+        setUsers(prev => [...prev, newUser]);
+
+    } catch(e: any) {
+        throw new Error(`Erro ao criar usuário: ${e.message}`);
     }
   }, [isDemo]);
 
-  const updateUserPassword = useCallback((userId: string, pass: string) => {
-    setUsers(prev => prev.map(u => u.id === userId ? { ...u, password: pass } : u));
-    if (isFirebaseInitialized() && !isDemo) fbUpdate('users', userId, { password: pass });
+  // Deprecated: Passwords now handled by Firebase Auth Reset Email
+  const updateUserPassword = useCallback(async (userId: string, pass: string) => {
+      // In native auth, we cannot change another user's password easily without backend.
+      // We log a warning. The UI should use "Send Reset Email" instead.
+      console.warn("Direct password update not supported in Client-Side Native Auth. Use Reset Email.");
   }, [isDemo]);
 
   const updateUser = useCallback((userId: string, data: Partial<User>) => {
     const sanitized = { ...data };
     if (sanitized.name) sanitized.name = sanitizeInput(sanitized.name);
     if (sanitized.email) sanitized.email = sanitizeInput(sanitized.email);
+    // Remove password if it accidentally slipped in
+    delete sanitized.password;
+
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, ...sanitized } : u));
     if (isFirebaseInitialized() && !isDemo) fbUpdate('users', userId, sanitizeForFirebase(sanitized));
   }, [isDemo]);
@@ -388,13 +416,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode; currentTenant?:
 
   const deleteUser = useCallback((id: string) => {
     setUsers(prev => prev.filter(u => u.id !== id));
+    // Note: This only deletes from DB. To delete from Auth, Cloud Functions would be needed.
+    // For now, removing from DB prevents them from having a Role, effectively banning them from the app logic.
     if (isFirebaseInitialized() && !isDemo) fbDelete('users', id);
   }, [isDemo]);
 
   const resetSystem = useCallback(async (currentAdminId: string) => {
     const adminUser = users.find(u => u.id === currentAdminId);
     if (!adminUser) throw new Error("Admin not found");
-
     const adminCompany = companies.find(c => c.id === adminUser.companyId);
     if (!adminCompany) throw new Error("Company not found");
 
@@ -405,7 +434,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode; currentTenant?:
         name: 'Matriz',
         location: 'Sede Principal'
     };
-
     const updatedAdmin = { ...adminUser, unitId: newUnitId };
 
     const updates: Record<string, any> = {};
@@ -419,13 +447,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode; currentTenant?:
          checkDb();
          await fbUpdateMulti(updates);
     }
-
     setRequests([]);
     setComments([]);
     setUnits([defaultUnit]);
     setUsers([updatedAdmin]);
     setCompanies([adminCompany]);
-
   }, [users, companies, isDemo]);
 
   const getRequestsByUnit = useCallback((unitId: string) => sortedRequests.filter(r => r.unitId === unitId), [sortedRequests]);
