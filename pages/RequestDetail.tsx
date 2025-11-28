@@ -3,11 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
-import { RequestStatus, RequestAttachment } from '../types';
+import { RequestStatus, RequestAttachment, UserRole } from '../types';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { StatusBadge, PriorityBadge } from '../components/ui/Badge';
-import { ArrowLeft, Send, Paperclip, User as UserIcon, ExternalLink, ShoppingBag, Download, ZoomIn, FileText, X, Edit2, Save, ChevronLeft, ChevronRight, Info, Loader2 } from 'lucide-react';
+import { ArrowLeft, Send, Paperclip, User as UserIcon, ExternalLink, ShoppingBag, Download, ZoomIn, FileText, X, Edit2, Save, ChevronLeft, ChevronRight, Info, Loader2, Lock, ShieldAlert, Eye, EyeOff } from 'lucide-react';
 
 // Sub-component for handling image lazy loading and state
 const AttachmentThumbnail: React.FC<{ 
@@ -107,6 +107,7 @@ export const RequestDetail: React.FC = () => {
   }, [comments, id]);
 
   const [newComment, setNewComment] = useState('');
+  const [isInternalComment, setIsInternalComment] = useState(false);
   
   // State for Image Lightbox
   const [viewingAttachment, setViewingAttachment] = useState<RequestAttachment | null>(null);
@@ -191,6 +192,7 @@ export const RequestDetail: React.FC = () => {
   const unit = units.find(u => u.id === request.unitId);
   
   const canManageStatus = isAdmin || (isLeader && currentUser?.unitId === request.unitId);
+  const canSeeInternal = isAdmin || isLeader;
   const isCreator = currentUser?.id === request.creatorId;
   
   const isResolvedOrCancelled = [RequestStatus.RESOLVED, RequestStatus.CANCELLED].includes(request.status);
@@ -200,9 +202,10 @@ export const RequestDetail: React.FC = () => {
     e.preventDefault();
     if (!newComment.trim() || !currentUser) return;
     if (id) {
-        addComment(id, currentUser.id, newComment);
+        addComment(id, currentUser.id, newComment, isInternalComment);
     }
     setNewComment('');
+    setIsInternalComment(false);
   };
 
   const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -360,219 +363,280 @@ export const RequestDetail: React.FC = () => {
           </Card>
 
           {/* Chat Timeline */}
-          <div className="bg-gray-50 dark:bg-gray-900 rounded-xl p-4 space-y-4">
-            {requestComments.map((comment) => {
-              const isMe = comment.userId === currentUser?.id;
-              const author = users.find(u => u.id === comment.userId);
-              return (
-                <div key={comment.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`flex max-w-[80%] ${isMe ? 'flex-row-reverse' : 'flex-row'} items-end gap-2`}>
-                    <div className="h-8 w-8 rounded-full bg-gray-200 flex-shrink-0 overflow-hidden">
-                      <img src={author?.avatarUrl} alt="" className="h-full w-full object-cover" />
-                    </div>
-                    <div className={`p-4 rounded-2xl text-sm ${
-                      isMe 
-                        ? 'bg-primary-600 text-white rounded-br-none' 
-                        : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 shadow-sm rounded-bl-none'
-                    }`}>
-                      <p>{comment.content}</p>
-                      <p className={`text-[10px] mt-1 opacity-70 ${isMe ? 'text-blue-100' : 'text-gray-400'}`}>
-                        {new Date(comment.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-            <div ref={commentsEndRef} />
-          </div>
+          <div className="bg-gray-50 dark:bg-gray-900 rounded-xl p-4 space-y-6">
+            <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Histórico de Mensagens</h3>
+            
+            <div className="space-y-6">
+                {requestComments.map((comment) => {
+                  // Internal Message Logic
+                  if (comment.isInternal && !canSeeInternal) return null;
 
-          {/* Input Area */}
-          <Card className="sticky bottom-4">
-            <CardContent className="p-4">
-              <form onSubmit={handleSendComment} className="flex flex-col gap-2">
-                <div className="relative">
-                  <textarea
-                    value={newComment}
-                    onChange={(e) => setNewComment(e.target.value)}
-                    placeholder="Escreva uma resposta..."
-                    className="w-full p-3 pr-12 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary-500 resize-none h-24"
-                  />
-                  <div className="absolute bottom-2 right-2 flex gap-2">
-                     <button type="button" className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-                       <Paperclip className="h-4 w-4" />
-                     </button>
-                  </div>
+                  const isMe = comment.userId === currentUser?.id;
+                  const author = users.find(u => u.id === comment.userId);
+                  const isInternal = comment.isInternal;
+                  const isAdminUser = author?.role === UserRole.ADMIN;
+                  const isLeaderUser = author?.role === UserRole.LEADER;
+                  
+                  return (
+                    <div key={comment.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'} group animate-fade-in`}>
+                      <div className={`flex max-w-[90%] md:max-w-[80%] ${isMe ? 'flex-row-reverse' : 'flex-row'} items-start gap-3`}>
+                        
+                        {/* Avatar Column */}
+                        <div className="flex-shrink-0 flex flex-col items-center gap-1">
+                            <div className={`h-10 w-10 rounded-full bg-white border-2 flex-shrink-0 overflow-hidden shadow-sm z-10
+                                ${isInternal ? 'border-amber-400 ring-2 ring-amber-100 dark:ring-amber-900' : isMe ? 'border-primary-200' : 'border-gray-200 dark:border-gray-700'}
+                            `}>
+                                <img src={author?.avatarUrl} alt="" className="h-full w-full object-cover" />
+                            </div>
+                        </div>
+
+                        {/* Message Content */}
+                        <div className="flex flex-col gap-1 min-w-0">
+                            {/* Author Name and Badge */}
+                            <div className={`flex items-center gap-2 ${isMe ? 'justify-end' : 'justify-start'}`}>
+                                <span className="text-xs font-bold text-gray-700 dark:text-gray-300 truncate">
+                                    {author?.name || 'Usuário Desconhecido'}
+                                </span>
+                                {(isAdminUser || isLeaderUser) && (
+                                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium border ${isAdminUser ? 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800' : 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800'}`}>
+                                        {isAdminUser ? 'ADMIN' : 'LÍDER'}
+                                    </span>
+                                )}
+                                {isInternal && (
+                                    <span className="flex items-center gap-0.5 text-[10px] bg-amber-100 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded font-medium dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800">
+                                        <Lock className="h-3 w-3" /> INTERNO
+                                    </span>
+                                )}
+                            </div>
+
+                            {/* Bubble */}
+                            <div className={`
+                                relative p-3 rounded-2xl shadow-sm text-sm break-words
+                                ${isInternal 
+                                    ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-900 dark:text-amber-100 border border-amber-100 dark:border-amber-800 rounded-tl-none' 
+                                    : isMe 
+                                        ? 'bg-primary-600 text-white rounded-tr-none' 
+                                        : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-100 dark:border-gray-700 rounded-tl-none'
+                                }
+                            `}>
+                                {comment.content}
+                            </div>
+                            
+                            {/* Timestamp */}
+                            <span className={`text-[10px] text-gray-400 ${isMe ? 'text-right' : 'text-left'}`}>
+                                {new Date(comment.createdAt).toLocaleDateString()} {new Date(comment.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                            </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+                <div ref={commentsEndRef} />
+            </div>
+
+            {/* Input Area */}
+            {canEditContent ? (
+                <div className="mt-4">
+                    {/* Internal Toggle for Admins/Leaders */}
+                    {canSeeInternal && (
+                        <div className="flex justify-end mb-2">
+                            <label className={`
+                                inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium cursor-pointer transition-all select-none border
+                                ${isInternalComment 
+                                    ? 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-700' 
+                                    : 'bg-gray-100 text-gray-600 border-transparent hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700'
+                                }
+                            `}>
+                                <input 
+                                    type="checkbox" 
+                                    className="hidden"
+                                    checked={isInternalComment}
+                                    onChange={(e) => setIsInternalComment(e.target.checked)}
+                                />
+                                {isInternalComment ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                                {isInternalComment ? 'Nota Interna (Privada)' : 'Mensagem Pública'}
+                            </label>
+                        </div>
+                    )}
+
+                    <form onSubmit={handleSendComment} className={`relative flex items-center gap-2 bg-white dark:bg-gray-800 p-2 rounded-xl border-2 transition-colors shadow-sm focus-within:ring-2 focus-within:ring-primary-500/20 ${isInternalComment ? 'border-amber-300 dark:border-amber-700' : 'border-gray-100 dark:border-gray-700'}`}>
+                      <input
+                        type="text"
+                        value={newComment}
+                        onChange={(e) => setNewComment(e.target.value)}
+                        placeholder={isInternalComment ? "Escrever nota interna (visível apenas para admins/líderes)..." : "Escreva uma resposta..."}
+                        className="flex-1 bg-transparent border-none focus:ring-0 text-sm px-2 py-1"
+                      />
+                      <Button type="submit" size="sm" disabled={!newComment.trim()} className={isInternalComment ? 'bg-amber-600 hover:bg-amber-700' : ''}>
+                        <Send className="h-4 w-4" />
+                      </Button>
+                    </form>
+                    {isInternalComment && (
+                        <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1 pl-2 flex items-center gap-1">
+                            <Lock className="h-3 w-3" /> Esta mensagem não será visível para o solicitante (User).
+                        </p>
+                    )}
                 </div>
-                <div className="flex justify-between items-center">
-                   <span className="text-xs text-gray-400">Pressione Enter para enviar (Shift+Enter para pular linha)</span>
-                   <Button type="submit" disabled={!newComment.trim()}>
-                     Enviar <Send className="h-3 w-3 ml-2" />
-                   </Button>
+            ) : (
+                <div className="text-center p-3 bg-gray-100 dark:bg-gray-800 rounded-lg text-sm text-gray-500">
+                    O chat está encerrado para esta requisição.
                 </div>
-              </form>
-            </CardContent>
-          </Card>
+            )}
+          </div>
         </div>
 
-        {/* Sidebar: Meta Info & Actions */}
+        {/* Sidebar Info */}
         <div className="space-y-6">
-           <Card>
-             <CardHeader><CardTitle>Detalhes</CardTitle></CardHeader>
-             <CardContent className="space-y-4 text-sm">
+          <Card>
+            <CardHeader><CardTitle>Detalhes</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
                <div>
-                 <label className="text-gray-500 block mb-1">Unidade</label>
-                 <div className="font-medium dark:text-white">{unit?.name}</div>
-               </div>
-               <div>
-                 <label className="text-gray-500 block mb-1">Prioridade</label>
-                 {isEditing ? (
-                    <select 
-                        value={editPriority}
-                        onChange={(e) => setEditPriority(e.target.value as any)}
-                        className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    >
-                        <option value="Low">Baixa</option>
-                        <option value="Medium">Média</option>
-                        <option value="High">Alta</option>
-                        <option value="Critical">Crítica</option>
-                    </select>
-                 ) : (
-                     <PriorityBadge priority={request.priority} />
-                 )}
-               </div>
-               <div>
-                 <label className="text-gray-500 block mb-1">Responsável</label>
-                 <div className="flex items-center gap-2 mt-1">
-                   <div className="h-6 w-6 rounded-full bg-gray-200 overflow-hidden">
-                      <img src={users.find(u => u.id === request.assigneeId)?.avatarUrl || 'https://ui-avatars.com/api/?name=?'} alt="" />
-                   </div>
-                   <span className="dark:text-white">{users.find(u => u.id === request.assigneeId)?.name || 'Não atribuído'}</span>
-                 </div>
-               </div>
-
-               <div className="pt-4 border-t border-gray-100 dark:border-gray-700">
-                 <label className="text-gray-500 block mb-2 flex items-center gap-2">
-                    <ShoppingBag className="h-4 w-4" /> Link do Produto
-                 </label>
-                 {isEditing ? (
-                    <input 
-                        type="url"
-                        value={editUrl}
-                        onChange={(e) => setEditUrl(e.target.value)}
-                        placeholder="https://..."
-                        className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    />
-                 ) : (
-                    request.productUrl ? (
-                        <a 
-                            href={request.productUrl} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium break-all"
+                  <span className="text-xs text-gray-500 uppercase font-semibold">Prioridade</span>
+                  <div className="mt-1">
+                    {isEditing ? (
+                        <select 
+                            value={editPriority} 
+                            onChange={(e: any) => setEditPriority(e.target.value)}
+                            className="w-full p-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
                         >
-                            Acessar Link <ExternalLink className="h-3 w-3" />
-                        </a>
+                            <option value="Low">Baixa</option>
+                            <option value="Medium">Média</option>
+                            <option value="High">Alta</option>
+                            <option value="Critical">Crítica</option>
+                        </select>
                     ) : (
-                        <span className="text-gray-400 italic">Nenhum link informado</span>
-                    )
-                 )}
+                        <PriorityBadge priority={request.priority} />
+                    )}
+                  </div>
                </div>
-             </CardContent>
-           </Card>
 
-           {canManageStatus && request && !isEditing && (
-             <Card>
-               <CardHeader><CardTitle>Gerenciar</CardTitle></CardHeader>
-               <CardContent className="space-y-3">
-                 <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Alterar Status</label>
-                 <select 
-                   value={request.status}
-                   onChange={handleStatusChange}
-                   className="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm"
-                 >
-                   {Object.values(RequestStatus).map(s => (
-                     <option key={s} value={s}>{s}</option>
-                   ))}
-                 </select>
-               </CardContent>
-             </Card>
-           )}
+               <div>
+                  <span className="text-xs text-gray-500 uppercase font-semibold">Unidade</span>
+                  <div className="mt-1 text-sm font-medium">{unit?.name}</div>
+                  <div className="text-xs text-gray-400">{unit?.location}</div>
+               </div>
+
+               {/* Product Link Field */}
+               {(request.productUrl || isEditing) && (
+                   <div>
+                      <span className="text-xs text-gray-500 uppercase font-semibold flex items-center gap-1">
+                          <ShoppingBag className="h-3 w-3" /> Produto Relacionado
+                      </span>
+                      <div className="mt-1">
+                        {isEditing ? (
+                             <input 
+                                type="url" 
+                                value={editUrl}
+                                onChange={(e) => setEditUrl(e.target.value)}
+                                className="w-full text-sm p-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
+                                placeholder="https://..."
+                             />
+                        ) : request.productUrl ? (
+                            <a 
+                                href={request.productUrl} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-sm text-primary-600 hover:underline flex items-center gap-1 break-all"
+                            >
+                                <ExternalLink className="h-3 w-3" /> {request.productUrl}
+                            </a>
+                        ) : null}
+                      </div>
+                   </div>
+               )}
+
+               {/* Admin Actions */}
+               {canManageStatus && (
+                 <div className="pt-4 border-t border-gray-100 dark:border-gray-700">
+                   <label className="text-xs text-gray-500 uppercase font-semibold mb-2 block">Alterar Status</label>
+                   <select 
+                     value={request.status}
+                     onChange={handleStatusChange}
+                     className="w-full text-sm p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:ring-2 focus:ring-primary-500"
+                   >
+                     {Object.values(RequestStatus).map(status => (
+                       <option key={status} value={status}>{status}</option>
+                     ))}
+                   </select>
+                 </div>
+               )}
+            </CardContent>
+          </Card>
+
+          {/* Tips Card */}
+          <Card className="bg-blue-50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900">
+             <CardContent className="p-4 flex gap-3">
+                 <Info className="h-5 w-5 text-blue-500 flex-shrink-0" />
+                 <div className="text-xs text-blue-700 dark:text-blue-300">
+                    <p className="font-semibold mb-1">Dica Rápida</p>
+                    <p>Mantenha as conversas focadas. Para assuntos não relacionados a este ticket, abra uma nova requisição.</p>
+                 </div>
+             </CardContent>
+          </Card>
         </div>
       </div>
 
-      {/* Advanced Lightbox */}
+      {/* Lightbox Modal */}
       {viewingAttachment && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-md p-4 animate-fade-in outline-none" tabIndex={0}>
-          {/* Close Button */}
-          <button
-            onClick={() => setViewingAttachment(null)}
-            className="absolute top-4 right-4 p-3 text-white/70 hover:text-white hover:bg-white/10 rounded-full transition-colors z-20"
-            title="Fechar (Esc)"
-          >
-            <X className="h-6 w-6" />
-          </button>
+        <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex flex-col animate-fade-in" onClick={() => setViewingAttachment(null)}>
+           {/* Toolbar */}
+           <div className="flex justify-between items-center p-4 text-white bg-black/50" onClick={e => e.stopPropagation()}>
+              <div className="flex flex-col">
+                  <span className="font-medium text-sm">{viewingAttachment.name}</span>
+                  <span className="text-xs text-gray-400">{getFileSize(viewingAttachment.url)}</span>
+              </div>
+              <div className="flex items-center gap-4">
+                  <a href={viewingAttachment.url} download={viewingAttachment.name} className="p-2 hover:bg-white/10 rounded-full transition-colors" title="Baixar">
+                     <Download className="h-5 w-5" />
+                  </a>
+                  <button onClick={() => setViewingAttachment(null)} className="p-2 hover:bg-white/10 rounded-full transition-colors">
+                     <X className="h-6 w-6" />
+                  </button>
+              </div>
+           </div>
 
-          {/* Navigation Left */}
-          {imageAttachments.length > 1 && (
-            <button 
-              onClick={(e) => { e.stopPropagation(); handlePrevImage(); }}
-              className="absolute left-4 top-1/2 -translate-y-1/2 p-3 text-white/70 hover:text-white hover:bg-white/10 rounded-full transition-colors z-20 hidden md:block"
-              title="Anterior (Seta Esquerda)"
-            >
-              <ChevronLeft className="h-8 w-8" />
-            </button>
-          )}
+           {/* Image Container */}
+           <div className="flex-1 flex items-center justify-center relative p-4 overflow-hidden">
+               {/* Nav Buttons */}
+               {imageAttachments.length > 1 && (
+                   <>
+                       <button 
+                         onClick={(e) => { e.stopPropagation(); handlePrevImage(); }}
+                         className="absolute left-4 p-3 bg-black/50 hover:bg-black/80 text-white rounded-full transition-colors z-10"
+                       >
+                           <ChevronLeft className="h-6 w-6" />
+                       </button>
+                       <button 
+                         onClick={(e) => { e.stopPropagation(); handleNextImage(); }}
+                         className="absolute right-4 p-3 bg-black/50 hover:bg-black/80 text-white rounded-full transition-colors z-10"
+                       >
+                           <ChevronRight className="h-6 w-6" />
+                       </button>
+                   </>
+               )}
 
-          {/* Main Content */}
-          <div className="relative flex flex-col items-center justify-center w-full h-full max-w-7xl">
-            <img
-              src={viewingAttachment.url}
-              alt={viewingAttachment.name}
-              className="max-w-full max-h-[85vh] object-contain shadow-2xl rounded-sm select-none"
-            />
-            
-            {/* Image Info Bar */}
-            <div className="mt-4 flex flex-wrap items-center justify-center gap-4 text-white/90">
-                <div className="flex items-center gap-2 bg-white/10 px-4 py-2 rounded-full backdrop-blur-sm">
-                    <span className="font-medium truncate max-w-[200px] sm:max-w-[300px]">{viewingAttachment.name}</span>
-                    <span className="text-white/40">|</span>
-                    <div className="flex items-center gap-1 text-xs text-white/70">
-                        <Info className="h-3 w-3" />
-                        {getFileSize(viewingAttachment.url)}
-                    </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                   {imageAttachments.length > 1 && (
-                     <span className="text-sm text-white/50 px-2">
-                        {imageAttachments.findIndex(i => i.id === viewingAttachment.id) + 1} / {imageAttachments.length}
-                     </span>
-                   )}
-                   
-                   <a
-                    href={viewingAttachment.url}
-                    download={viewingAttachment.name}
-                    className="flex items-center gap-2 bg-primary-600 hover:bg-primary-500 text-white px-4 py-2 rounded-full transition-colors font-medium text-sm"
-                    onClick={(e) => e.stopPropagation()}
-                   >
-                    <Download className="h-4 w-4" />
-                    Baixar Original
-                   </a>
-                </div>
-            </div>
-          </div>
-
-          {/* Navigation Right */}
-          {imageAttachments.length > 1 && (
-            <button 
-              onClick={(e) => { e.stopPropagation(); handleNextImage(); }}
-              className="absolute right-4 top-1/2 -translate-y-1/2 p-3 text-white/70 hover:text-white hover:bg-white/10 rounded-full transition-colors z-20 hidden md:block"
-              title="Próxima (Seta Direita)"
-            >
-              <ChevronRight className="h-8 w-8" />
-            </button>
-          )}
+               <img 
+                 src={viewingAttachment.url} 
+                 alt={viewingAttachment.name} 
+                 className="max-h-full max-w-full object-contain shadow-2xl"
+                 onClick={e => e.stopPropagation()}
+               />
+           </div>
+           
+           {/* Thumbnails Strip */}
+           {imageAttachments.length > 1 && (
+               <div className="h-20 bg-black/80 flex items-center justify-center gap-2 p-2 overflow-x-auto" onClick={e => e.stopPropagation()}>
+                   {imageAttachments.map(img => (
+                       <button 
+                         key={img.id}
+                         onClick={() => setViewingAttachment(img)}
+                         className={`h-14 w-14 rounded-md overflow-hidden border-2 transition-all flex-shrink-0 ${viewingAttachment.id === img.id ? 'border-primary-500 scale-110 opacity-100' : 'border-transparent opacity-50 hover:opacity-100'}`}
+                       >
+                           <img src={img.url} className="w-full h-full object-cover" alt="" />
+                       </button>
+                   ))}
+               </div>
+           )}
         </div>
       )}
     </div>

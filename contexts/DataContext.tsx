@@ -27,7 +27,7 @@ interface DataContextType {
   updateRequest: (id: string, data: Partial<RequestTicket>) => void;
   bulkUpdateRequestStatus: (ids: string[], status: RequestStatus) => void;
   deleteRequest: (id: string) => void;
-  addComment: (ticketId: string, userId: string, content: string) => void;
+  addComment: (ticketId: string, userId: string, content: string, isInternal?: boolean) => void;
   addUnit: (unit: Omit<Unit, 'id'>) => Promise<void>;
   addUser: (user: Omit<User, 'id'>) => Promise<void>;
   updateUserPassword: (userId: string, newPassword: string) => void;
@@ -305,13 +305,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [requests, isDemo]);
 
-  const addComment = useCallback(async (ticketId: string, userId: string, content: string) => {
+  const addComment = useCallback(async (ticketId: string, userId: string, content: string, isInternal: boolean = false) => {
     const newComment: Comment = {
       id: `cm${Date.now()}`,
       requestId: ticketId,
       userId,
       content: sanitizeInput(content),
-      createdAt: formatISO(new Date())
+      createdAt: formatISO(new Date()),
+      isInternal: isInternal
     };
     const updatedAt = formatISO(new Date());
 
