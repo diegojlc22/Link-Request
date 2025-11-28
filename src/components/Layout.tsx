@@ -1,0 +1,203 @@
+
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  LayoutDashboard, 
+  Ticket, 
+  Users, 
+  Building2, 
+  LogOut, 
+  Menu, 
+  Sun, 
+  Moon,
+  Bell,
+  Briefcase,
+  Wifi,
+  WifiOff,
+  Database,
+  ArrowLeftRight
+} from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { useData } from '../contexts/DataContext';
+import { useToast } from '../contexts/ToastContext';
+
+interface LayoutProps {
+  children: React.ReactNode;
+}
+
+export const Layout: React.FC<LayoutProps> = ({ children }) => {
+  const { currentUser, logout, isAdmin } = useAuth();
+  const { companies, requests, units, isDbConnected } = useData();
+  const { showToast } = useToast();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isDark, setIsDark] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Notification Logic
+  const previousRequestsRef = useRef<Set<string>>(new Set());
+  const isFirstLoad = useRef(true);
+
+  useEffect(() => {
+    if (isFirstLoad.current) {
+      if (requests.length > 0) {
+        requests.forEach(r => previousRequestsRef.current.add(r.id));
+        isFirstLoad.current = false;
+      }
+      return;
+    }
+
+    if (isAdmin) {
+      requests.forEach(req => {
+        if (!previousRequestsRef.current.has(req.id)) {
+          const createdTime = new Date(req.createdAt).getTime();
+          const now = Date.now();
+          const isRecent = (now - createdTime) < 60000;
+
+          if (isRecent) {
+             const unit = units.find(u => u.id === req.unitId);
+             const unitName = unit ? unit.name : 'Unidade Desconhecida';
+             showToast(`Nova Requisição: ${req.title} - ${unitName}`, 'info');
+             setUnreadCount(prev => prev + 1);
+          }
+          previousRequestsRef.current.add(req.id);
+        }
+      });
+    } else {
+      requests.forEach(r => previousRequestsRef.current.add(r.id));
+    }
+  }, [requests, isAdmin, showToast, units]);
+
+
+  const currentCompany = companies.find(c => c.id === currentUser?.companyId) || companies[0];
+  const companyName = currentCompany?.name || 'Link-Request';
+  const companyLogoLetter = companyName.charAt(0).toUpperCase();
+
+  const toggleTheme = () => {
+    setIsDark(!isDark);
+    if (document.documentElement.classList.contains('dark')) {
+      document.documentElement.classList.remove('dark');
+    } else {
+      document.documentElement.classList.add('dark');
+    }
+  };
+
+  const handleClearNotifications = () => {
+    if (unreadCount > 0) {
+      setUnreadCount(0);
+      showToast('Notificações marcadas como lidas', 'success');
+    }
+  };
+
+  const mainNavItems = [
+    { path: '/', label: 'Dashboard', icon: LayoutDashboard },
+    { path: '/requests', label: 'Requisições', icon: Ticket },
+  ];
+
+  const adminNavItems = [
+    { path: '/admin/units', label: 'Unidades', icon: Building2 },
+    { path: '/admin/users', label: 'Usuários', icon: Users },
+    { path: '/admin/company', label: 'Minha Empresa', icon: Briefcase },
+    { path: '/admin/database', label: 'Banco de Dados', icon: Database },
+  ];
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
+  const handleSwitchTenant = () => {
+    logout();
+    localStorage.removeItem('link_req_tenant_slug');
+    window.location.href = '/'; // Força reload para cair no Portal
+  };
+
+  const NavItem: React.FC<{ item: typeof mainNavItems[0] }> = ({ item }) => {
+    const Icon = item.icon;
+    const isActive = location.pathname === item.path || (item.path !== '/' && location.pathname.startsWith(item.path));
+    
+    return (
+      <Link
+        to={item.path}
+        onClick={() => setIsSidebarOpen(false)}
+        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-sm font-medium
+          ${isActive 
+            ? 'bg-primary-50 text-primary-700 dark:bg-primary-900/20 dark:text-primary-300' 
+            : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-gray-200'}
+        `}
+      >
+        <Icon className="h-5 w-5" />
+        {item.label}
+      </Link>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
+      {/* Mobile Sidebar Overlay */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-20 lg:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <aside className={`
+        fixed lg:static inset-y-0 left-0 z-30 w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transform transition-transform duration-200 ease-in-out
+        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+      `}>
+        <div className="h-16 flex items-center px-6 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center gap-3">
+            <div className="h-8 w-8 rounded-lg bg-primary-600 flex items-center justify-center text-white font-bold shadow-md shadow-primary-600/20">
+              {companyLogoLetter}
+            </div>
+            <span className="text-xl font-bold text-gray-900 dark:text-white tracking-tight truncate max-w-[140px]">
+              {companyName}
+            </span>
+          </div>
+        </div>
+
+        <nav className="p-4 space-y-1">
+          {mainNavItems.map((item) => (
+            <NavItem key={item.path} item={item} />
+          ))}
+
+          {isAdmin && (
+            <>
+              <div className="pt-6 pb-2 px-4">
+                <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+                  Gerenciamento
+                </p>
+              </div>
+              {adminNavItems.map((item) => (
+                <NavItem key={item.path} item={item} />
+              ))}
+            </>
+          )}
+        </nav>
+
+        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+          <div className="flex items-center gap-3 mb-4 px-2">
+            <img 
+              src={currentUser?.avatarUrl} 
+              alt={currentUser?.name} 
+              className="h-10 w-10 rounded-full bg-gray-200"
+            />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                {currentUser?.name}
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                {currentUser?.email}
+              </p>
+            </div>
+          </div>
+          
+          <div className="space-y-2">
+            {/* Botão de Trocar Empresa apenas se não estiver num subdomínio fixo */}
+            {window.location.hostname.split('.').length < 3 && !window.location.hostname.includes('localhost') && (
+                <button 
+                    onClick={handleSwitchTenant}
+                    className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700
