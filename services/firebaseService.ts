@@ -1,9 +1,10 @@
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import type { FirebaseApp } from 'firebase/app';
+import * as firebaseApp from 'firebase/app';
 import * as rtdb from 'firebase/database';
 import { FirebaseConfig } from '../types';
 
-let app: FirebaseApp | undefined;
+const { initializeApp, getApps, getApp } = firebaseApp as any;
+
+let app: any;
 let db: rtdb.Database | undefined;
 
 // O sistema agora busca a configuração EXCLUSIVAMENTE nas variáveis de ambiente.

@@ -7,20 +7,16 @@
 
 <!-- MENU DE NAVEGAÇÃO ESTILO ABAS -->
 <p align="center">
-  <a href="#-sobre-o-projeto">
-    <img src="https://img.shields.io/badge/🏠_SOBRE_O_PROJETO-2563eb?style=for-the-badge&logoColor=white" alt="Sobre" />
+  <a href="#-modos-de-operacao">
+    <img src="https://img.shields.io/badge/🚀_MODOS_DE_OPERAÇÃO-2563eb?style=for-the-badge&logoColor=white" alt="Modos" />
   </a>
   &nbsp;&nbsp;&nbsp;
-  <a href="#-configuracao-cloudflare">
-    <img src="https://img.shields.io/badge/☁️_CLOUDFLARE_&_ENV-f59e0b?style=for-the-badge&logoColor=white" alt="Configuração" />
+  <a href="#-passo-a-passo-saas">
+    <img src="https://img.shields.io/badge/📚_PASSO_A_PASSO_(NOVO_CLIENTE)-10b981?style=for-the-badge&logoColor=white" alt="Passo a Passo" />
   </a>
   &nbsp;&nbsp;&nbsp;
   <a href="#-seguranca">
     <img src="https://img.shields.io/badge/🔒_SEGURANÇA_DB-dc2626?style=for-the-badge&logoColor=white" alt="Segurança" />
-  </a>
-  &nbsp;&nbsp;&nbsp;
-  <a href="#-instalacao-local">
-    <img src="https://img.shields.io/badge/🚀_INSTALAÇÃO_LOCAL-10b981?style=for-the-badge&logoColor=white" alt="Instalação" />
   </a>
 </p>
 
@@ -28,82 +24,93 @@
 
 ---
 
-<div id="-sobre-o-projeto"></div>
+<div id="-modos-de-operacao"></div>
 
-## 🏠 Sobre o Projeto
+## 🚀 Modos de Operação
 
-O **Link-Request** é uma solução para modernizar o Helpdesk de empresas multi-unidades.
+Este sistema suporta duas arquiteturas simultaneamente:
 
-Este projeto foi desenhado para o modelo **Single-Tenant Deploy**. Ou seja, você cria uma instância separada para cada cliente na sua hospedagem (Cloudflare, Vercel, etc), e configura o banco de dados através de **Variáveis de Ambiente**.
+1.  **Modo SaaS (Recomendado):**
+    *   **Como funciona:** Um único site (`app.seusistema.com`) atende infinitos clientes.
+    *   **Dados:** Cada cliente tem seu próprio banco de dados Firebase isolado.
+    *   **Acesso:** O cliente é identificado pelo subdomínio (ex: `nike.app.com`) ou pelo Portal de Login.
+    *   **Configuração:** Feita no arquivo `src/config/tenants.ts`.
 
-Isso garante segurança total dos dados e facilidade de gestão.
+2.  **Modo Instância Única (Legacy):**
+    *   **Como funciona:** Uma instalação para uma única empresa.
+    *   **Configuração:** Feita via **Variáveis de Ambiente** (.env) na hospedagem.
 
 ---
 
-<div id="-configuracao-cloudflare"></div>
+<div id="-passo-a-passo-saas"></div>
 
-## ☁️ Configuração de Variáveis (Cloudflare, Vercel)
+## 📚 Passo a Passo: Adicionar Novo Cliente (Modo SaaS)
 
-Para que o sistema funcione, você deve configurar as credenciais do Firebase nas "Environment Variables" da sua hospedagem.
+Para vender para uma nova empresa e liberar o acesso dela **sem criar um novo deploy na Vercel**, siga estes passos:
 
-**IMPORTANTE:** Você deve criar **uma variável para cada linha** da tabela abaixo. Não cole tudo junto.
+### 1. Crie o Banco de Dados (Firebase)
+1.  Acesse o [Console do Firebase](https://console.firebase.google.com/).
+2.  Clique em **Adicionar projeto** (Ex: "Cliente-Padaria").
+3.  Desative o Google Analytics (opcional) e crie o projeto.
+4.  No menu lateral, ative o **Authentication** (Email/Senha).
+5.  Ative o **Realtime Database** e crie um banco (pode começar em modo bloqueado).
+6.  **IMPORTANTE:** Vá na aba **Regras** do Database e cole as regras de segurança (veja a seção [Segurança](#-seguranca) abaixo).
 
-### 📋 Tabela de Preenchimento (Firebase)
+### 2. Pegue as Credenciais
+1.  No Firebase, clique na engrenagem ⚙️ > **Configurações do projeto**.
+2.  Role até "Seus aplicativos" e clique no ícone **</> (Web)**.
+3.  Registre o app (Ex: "App Web").
+4.  Copie o objeto `firebaseConfig` que aparecerá na tela.
 
-No painel do Firebase (Project Settings > General > SDK Setup), pegue os valores e cadastre assim na hospedagem:
+### 3. Registre no Código
+1.  Abra o arquivo `src/config/tenants.ts` no seu editor de código.
+2.  Adicione um novo item na lista `tenants`:
 
-| Nome da Variável (Copie daqui) | Valor (Pegue no Firebase) |
-| :--- | :--- |
-| `VITE_FIREBASE_API_KEY` | `AIzaSy...` (apiKey) |
-| `VITE_FIREBASE_AUTH_DOMAIN` | `projeto.firebaseapp.com` (authDomain) |
-| `VITE_FIREBASE_PROJECT_ID` | `projeto-id` (projectId) |
-| `VITE_FIREBASE_STORAGE_BUCKET` | `projeto.firebasestorage.app` (storageBucket) |
-| `VITE_FIREBASE_MESSAGING_SENDER_ID` | `123456789` (messagingSenderId) |
-| `VITE_FIREBASE_APP_ID` | `1:123456:web:abcd...` (appId) |
-| `VITE_FIREBASE_DATABASE_URL` | `https://projeto...firebasedatabase.app` (databaseURL) |
+```typescript
+export const tenants: Tenant[] = [
+  // ... outros clientes ...
+  {
+    id: 'cliente-02',
+    name: 'Padaria do João',
+    slug: 'padaria', // O cliente usará este ID para entrar
+    config: {
+      apiKey: "AIzaSy...", // Cole as credenciais do Passo 2 aqui
+      authDomain: "cliente-padaria.firebaseapp.com",
+      projectId: "cliente-padaria",
+      storageBucket: "cliente-padaria.firebasestorage.app",
+      messagingSenderId: "...",
+      appId: "...",
+      databaseURL: "https://..."
+    }
+  }
+];
+```
 
-### ☁️ Tabela de Preenchimento (Cloudinary - Armazenamento de Imagens)
+### 4. Publique
+1.  Faça o commit e push para o GitHub:
+    ```bash
+    git add .
+    git commit -m "Adicionando cliente Padaria"
+    git push origin main
+    ```
+2.  Pronto! Seu site principal será atualizado automaticamente.
+3.  O cliente já pode acessar.
 
-Para habilitar upload de imagens (recomendado), configure o Cloudinary:
-
-| Nome da Variável | Valor | Descrição |
-| :--- | :--- | :--- |
-| `VITE_CLOUDINARY_CLOUD_NAME` | `demo123` | Seu "Cloud Name" no dashboard do Cloudinary |
-| `VITE_CLOUDINARY_UPLOAD_PRESET` | `meu_preset` | **IMPORTANTE:** Deve ser um preset **Unsigned** |
-
-### 🟧 Cloudflare Pages (Passo a Passo)
-
-1. Faça o deploy do repositório no **Cloudflare Pages**.
-2. Após o deploy, vá no painel do projeto no Cloudflare.
-3. Clique na aba **Settings** > **Environment variables**.
-4. Clique em **Add variable** e adicione cada item da tabela acima, um por um.
-   * *Produção e Preview:* Adicione para ambos se quiser testar antes.
-5. **MUITO IMPORTANTE:** Após salvar as variáveis, vá na aba **Deployments** e clique em **Retrying deployment** (nos três pontinhos do último deploy) para que o site seja reconstruído com as novas chaves.
-
-### ▲ Vercel (Passo a Passo)
-
-1. Importe o projeto na Vercel.
-2. Na tela de configuração de importação, abra a aba **Environment Variables**.
-3. Copie e cole as variáveis da tabela.
-4. Clique em Deploy.
-5. Se precisar alterar depois: Vá em **Settings** > **Environment Variables**, adicione as novas e faça um **Redeploy** na aba Deployments.
+### 5. Como o Cliente Acessa?
+Existem duas formas:
+1.  **Pelo Portal:** O cliente acessa `seusistema.com`, digita o slug **"padaria"** e entra.
+2.  **Link Direto:** Se você configurar subdomínios, ele pode acessar `padaria.seusistema.com` (requer config de DNS no Cloudflare/Vercel).
 
 ---
 
 <div id="-seguranca"></div>
 
-## 🔒 Segurança do Banco de Dados (Crítico)
+## 🔒 Segurança do Banco de Dados (Obrigatório)
 
-Para garantir que o aplicativo funcione rápido (com índices) e seja seguro, você deve configurar as Regras do Realtime Database.
+Para cada novo cliente (Projeto Firebase), você **DEVE** configurar as regras abaixo para garantir que o sistema funcione e seja seguro.
 
-**Isso é obrigatório para evitar erros de permissão e lentidão.**
-
-### Passo a Passo:
-
-1. Acesse o [Console do Firebase](https://console.firebase.google.com/).
-2. Selecione seu projeto e vá em **Realtime Database** no menu lateral.
-3. Clique na aba **Regras** (Rules).
-4. **Apague tudo** que estiver lá e cole o JSON abaixo:
+1.  Vá no Console Firebase do cliente > **Realtime Database** > **Regras**.
+2.  Apague tudo e cole:
 
 ```json
 {
@@ -112,16 +119,13 @@ Para garantir que o aplicativo funcione rápido (com índices) e seja seguro, vo
     ".write": "auth != null",
     "users": {
       "$uid": {
-         // REGRA DE SEGURANÇA:
-         // Apenas o próprio usuário ou um Admin pode editar dados de usuário.
-         // Isso impede que um usuário comum altere a senha de outro.
+         // Impede que um usuário mude a senha de outro
          ".write": "$uid === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'ADMIN'",
          ".indexOn": ["email", "companyId", "unitId"]
       }
     },
     "requests": {
-      // ÍNDICES DE PERFORMANCE:
-      // Necessários para filtrar requisições por unidade, status, criador, etc.
+      // Índices para performance
       ".indexOn": ["companyId", "unitId", "creatorId", "assigneeId", "status", "createdAt"]
     },
     "comments": {
@@ -137,20 +141,14 @@ Para garantir que o aplicativo funcione rápido (com índices) e seja seguro, vo
 }
 ```
 
-5. Clique no botão **Publicar**.
-
-> **Nota Técnica:** Estas regras definem que qualquer usuário logado na empresa pode ler o banco (necessário para a operação em tempo real), mas aplicam validações específicas na escrita de usuários e criam índices vitais para que o aplicativo não fique lento com muitos dados.
-
 ---
 
-<div id="-instalacao-local"></div>
+## ☁️ Configuração Alternativa (Variáveis de Ambiente)
 
-## 🚀 Instalação Local (Desenvolvimento)
-
-Para rodar em sua máquina, crie um arquivo chamado `.env` na raiz do projeto e cole o conteúdo abaixo, substituindo os valores:
+Se você preferir usar o modo antigo (uma hospedagem por cliente) ou quiser configurar um ambiente de desenvolvimento local rápido, use o arquivo `.env`:
 
 ```bash
-# Firebase Config
+# Firebase Config (Modo Single Tenant)
 VITE_FIREBASE_API_KEY=AIzaSy...
 VITE_FIREBASE_AUTH_DOMAIN=projeto.firebaseapp.com
 VITE_FIREBASE_PROJECT_ID=projeto-id
@@ -159,20 +157,13 @@ VITE_FIREBASE_MESSAGING_SENDER_ID=123456
 VITE_FIREBASE_APP_ID=1:12345:web:abc
 VITE_FIREBASE_DATABASE_URL=https://projeto-default-rtdb.firebaseio.com
 
-# Cloudinary Config
+# Cloudinary (Opcional - para Upload de Imagens)
 VITE_CLOUDINARY_CLOUD_NAME=seu_cloud_name
 VITE_CLOUDINARY_UPLOAD_PRESET=seu_unsigned_preset
-```
-
-Depois rode:
-
-```bash
-npm install
-npm run dev
 ```
 
 ---
 
 <div align="center">
-  <small>Desenvolvido com ❤️ para gestão eficiente.</small>
+  <small>Link-Request SaaS © 2024</small>
 </div>

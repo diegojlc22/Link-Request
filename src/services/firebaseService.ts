@@ -1,10 +1,12 @@
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import type { FirebaseApp } from 'firebase/app';
+import * as firebaseApp from 'firebase/app';
 import * as rtdb from 'firebase/database';
 import { FirebaseConfig } from '../types';
 
-let app: FirebaseApp | undefined;
+let app: any;
 let db: rtdb.Database | undefined;
+
+// Workaround for conflicting type definitions
+const { initializeApp, getApps, getApp } = firebaseApp as any;
 
 // Mantém suporte a .env para quem ainda usa o modo antigo (Single Tenant local)
 const getEnvConfig = (): FirebaseConfig | null => {
