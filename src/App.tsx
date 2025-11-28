@@ -102,6 +102,9 @@ const App: React.FC = () => {
     }
 
     // 2. Fallback: Checa se usuário selecionou no Portal anteriormente (LocalStorage)
+    // NOTA: Comentado para forçar o Portal sempre que não houver subdomínio,
+    // evitando ficar preso em uma configuração errada.
+    /*
     const storedSlug = localStorage.getItem('link_req_tenant_slug');
     if (storedSlug) {
         const tenant = getTenant(storedSlug);
@@ -109,8 +112,9 @@ const App: React.FC = () => {
             setCurrentTenant(tenant);
         }
     }
+    */
     
-    // 3. Fallback Final: Verifica se existem Variáveis de Ambiente (Modo Legacy/Single Tenant)
+    // 3. Fallback Final
     setIsLoadingConfig(false);
 
   }, []);
@@ -120,8 +124,6 @@ const App: React.FC = () => {
       if (tenant) {
           localStorage.setItem('link_req_tenant_slug', slug);
           setCurrentTenant(tenant);
-          // Recarrega para limpar estados antigos
-          window.location.href = '/'; 
       }
   };
 
@@ -131,6 +133,7 @@ const App: React.FC = () => {
   const hasEnvVars = (import.meta as any).env?.VITE_FIREBASE_API_KEY;
 
   // Se não temos Tenant Configurado e nem Env Vars, mostra o Portal
+  // ADICIONADO: Verifica explicitamente se não estamos em um subdomínio válido para mostrar o portal
   if (!currentTenant && !hasEnvVars) {
       return <Portal onTenantSelect={handlePortalSelect} />;
   }

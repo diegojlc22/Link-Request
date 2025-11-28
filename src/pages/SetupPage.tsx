@@ -3,7 +3,7 @@ import { useData } from '../contexts/DataContext';
 import { useToast } from '../contexts/ToastContext';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
-import { ShieldCheck, Building2, User, Rocket, Settings, AlertTriangle, Cloud, Image as ImageIcon, Lock, FileJson, Loader2, Globe } from 'lucide-react';
+import { ShieldCheck, Building2, User, Rocket, Settings, AlertTriangle, Cloud, Image as ImageIcon, Lock, FileJson, Loader2, ArrowLeft } from 'lucide-react';
 
 export const SetupPage: React.FC = () => {
   const { setupSystem, isDbConnected, enableDemoMode } = useData();
@@ -55,6 +55,11 @@ export const SetupPage: React.FC = () => {
     }
   };
 
+  const handleBackToPortal = () => {
+    localStorage.removeItem('link_req_tenant_slug');
+    window.location.href = '/';
+  };
+
   // MODO: FALTA CONFIGURAÇÃO
   if (!isDbConnected) {
     return (
@@ -71,6 +76,13 @@ export const SetupPage: React.FC = () => {
                  <p className="text-lg text-gray-600 dark:text-gray-300 mb-8 max-w-lg mx-auto">
                     O sistema não conseguiu conectar ao banco de dados. Verifique a configuração abaixo.
                  </p>
+                 
+                 <div className="flex justify-center mb-8">
+                    <Button onClick={handleBackToPortal} variant="secondary">
+                        <ArrowLeft className="h-4 w-4 mr-2" />
+                        Voltar para o Portal (Selecionar Empresa)
+                    </Button>
+                 </div>
                  
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
                     <Card className="border-t-4 border-t-purple-500">
@@ -90,9 +102,6 @@ export const SetupPage: React.FC = () => {
                                     <strong>Acesso via Subdomínio (Opcional):</strong> Adicione <code>padaria.seusistema.com</code> no painel da sua hospedagem (Vercel/Netlify).
                                 </li>
                             </ol>
-                            <div className="mt-2 p-2 bg-purple-50 dark:bg-purple-900/20 rounded border border-purple-100 dark:border-purple-800 text-xs">
-                                <strong>Nota:</strong> O Cloudflare é opcional (apenas para criar subdomínios automaticamente). Você pode usar o <strong>Modo Portal</strong> sem configurar DNS extra.
-                            </div>
                         </CardContent>
                     </Card>
 
