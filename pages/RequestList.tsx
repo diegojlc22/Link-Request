@@ -181,8 +181,6 @@ export const RequestList: React.FC = () => {
       // 3. DATE FILTER (Expensive operation, do last)
       if (startTimestamp || endTimestamp) {
         const dateStr = dateType === 'created' ? req.createdAt : req.updatedAt;
-        // Optimization: Use simple string comparison for ISO dates if possible, 
-        // but timestamps are safer for timezone correctness.
         const reqTime = new Date(dateStr).getTime();
 
         if (startTimestamp && reqTime < startTimestamp) return false;
@@ -202,7 +200,6 @@ export const RequestList: React.FC = () => {
         let aValue = a[sortConfig.key];
         let bValue = b[sortConfig.key];
 
-        // Special handlers for "Virtual" sort keys (properties that aren't directly on the object)
         if (sortConfig.key === 'unitName') {
             aValue = units.find(u => u.id === a.unitId)?.name || '';
             bValue = units.find(u => u.id === b.unitId)?.name || '';
@@ -210,13 +207,11 @@ export const RequestList: React.FC = () => {
             aValue = users.find(u => u.id === a.assigneeId)?.name || '';
             bValue = users.find(u => u.id === b.assigneeId)?.name || '';
         } else if (sortConfig.key === 'priority') {
-            // Priority Weight Sort
             const wA = priorityWeight[a.priority] || 0;
             const wB = priorityWeight[b.priority] || 0;
             return sortConfig.direction === 'asc' ? wA - wB : wB - wA;
         }
 
-        // Generic String/Date Sort
         if (typeof aValue === 'string') aValue = aValue.toLowerCase();
         if (typeof bValue === 'string') bValue = bValue.toLowerCase();
 
@@ -233,9 +228,7 @@ export const RequestList: React.FC = () => {
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = sortedRequests.slice(indexOfFirstItem, indexOfLastItem);
 
-  // --- PAGINATION SAFETY ---
   useEffect(() => {
-    // Only reset page if NOT triggered by navigation state change (handled separately)
     if (!location.state) {
       setCurrentPage(1);
       setSelectedIds(new Set());
@@ -248,7 +241,6 @@ export const RequestList: React.FC = () => {
     }
   }, [sortedRequests.length, totalPages, currentPage]);
 
-  // Sorting Handler
   const handleSort = (key: string) => {
     setSortConfig(current => ({
         key,
@@ -256,7 +248,6 @@ export const RequestList: React.FC = () => {
     }));
   };
 
-  // Helper for Table Headers
   const SortableHeader: React.FC<{ label: string; sortKey: string; className?: string }> = ({ label, sortKey, className = "" }) => {
     const isActive = sortConfig.key === sortKey;
     return (
@@ -277,7 +268,6 @@ export const RequestList: React.FC = () => {
         </th>
     );
   };
-
 
   const toggleSelection = (id: string) => {
     const newSelected = new Set(selectedIds);
@@ -328,14 +318,12 @@ export const RequestList: React.FC = () => {
     }
   };
 
-  // --- DATE FILTER UTILS ---
   const applyDatePreset = (preset: string) => {
     const today = new Date();
     let start = new Date();
     let end = new Date();
 
     if (preset === 'today') {
-      // Start and end are today
     } else if (preset === '7days') {
       start.setDate(today.getDate() - 7);
     } else if (preset === '30days') {
@@ -346,7 +334,7 @@ export const RequestList: React.FC = () => {
       start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
       end = new Date(today.getFullYear(), today.getMonth(), 0);
     } else {
-      return; // Custom or unknown
+      return;
     }
 
     setStartDate(start.toISOString().split('T')[0]);
@@ -363,21 +351,17 @@ export const RequestList: React.FC = () => {
     showToast('Filtros limpos.', 'info');
   };
 
-  // --- CSV EXPORT LOGIC (SECURITY FIXED) ---
   const exportToCSV = () => {
     if (sortedRequests.length === 0) {
       showToast('Não há dados para exportar.', 'info');
       return;
     }
 
-    // Security: Helper to prevent CSV Injection (Formula Injection)
     const sanitizeCsvField = (field: any) => {
         let str = String(field || '');
-        // If field starts with restricted chars, prepend ' to force text mode in Excel
         if (/^[=+\-@]/.test(str)) {
             str = "'" + str;
         }
-        // Escape quotes
         return `"${str.replace(/"/g, '""')}"`;
     };
 
@@ -412,7 +396,6 @@ export const RequestList: React.FC = () => {
     showToast('Relatório CSV gerado com sucesso!', 'success');
   };
 
-  // --- PAGINATION HELPERS ---
   const getPaginationItems = () => {
     const delta = 1;
     const range: (number | string)[] = [];
@@ -467,7 +450,6 @@ export const RequestList: React.FC = () => {
           </div>
           <div>
             <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
-              {/* Previous Button */}
               <button
                 onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
                 disabled={currentPage === 1}
@@ -477,7 +459,6 @@ export const RequestList: React.FC = () => {
                 <ChevronLeft className="h-4 w-4" />
               </button>
               
-              {/* Page Numbers */}
               {getPaginationItems().map((page, index) => {
                 if (page === '...') {
                   return (
@@ -509,7 +490,6 @@ export const RequestList: React.FC = () => {
                 );
               })}
 
-              {/* Next Button */}
               <button
                 onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
                 disabled={currentPage === totalPages}
@@ -525,7 +505,6 @@ export const RequestList: React.FC = () => {
     );
   };
 
-  // --- KANBAN LOGIC ---
   const handleDragStart = (e: React.DragEvent, id: string) => {
     setDraggedRequestId(id);
     e.dataTransfer.effectAllowed = 'move';
@@ -547,7 +526,7 @@ export const RequestList: React.FC = () => {
     setDraggedRequestId(null);
   };
 
-  // --- IMAGEM COMPRESSION LOGIC (Multi-file) ---
+  // --- IMAGEM COMPRESSION LOGIC (Optimized for Free Plan) ---
   const compressImage = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -557,8 +536,9 @@ export const RequestList: React.FC = () => {
           const canvas = document.createElement('canvas');
           let width = img.width;
           let height = img.height;
-          const MAX_WIDTH = 800;
-          const MAX_HEIGHT = 800;
+          // OPTIMIZATION: Reduced max resolution to 1024px to save bandwidth/storage
+          const MAX_WIDTH = 1024;
+          const MAX_HEIGHT = 1024;
 
           if (width > height) {
             if (width > MAX_WIDTH) {
@@ -582,7 +562,8 @@ export const RequestList: React.FC = () => {
             ctx.drawImage(img, 0, 0, width, height);
           }
 
-          resolve(canvas.toDataURL('image/jpeg', 0.7));
+          // OPTIMIZATION: Reduced quality to 0.5 (50%)
+          resolve(canvas.toDataURL('image/jpeg', 0.5));
         };
         img.onerror = (err) => reject(err);
         img.src = event.target?.result as string;
@@ -610,9 +591,10 @@ export const RequestList: React.FC = () => {
           showToast(`Arquivo ${file.name} ignorado: Apenas imagens são permitidas.`, 'error');
           continue;
        }
-       const MAX_SIZE = 5 * 1024 * 1024;
+       // Limit upload size before compression check
+       const MAX_SIZE = 10 * 1024 * 1024; 
        if (file.size > MAX_SIZE) {
-          showToast(`Arquivo ${file.name} ignorado: Tamanho maior que 5MB.`, 'error');
+          showToast(`Arquivo ${file.name} ignorado: Tamanho muito grande.`, 'error');
           continue;
        }
        validFiles.push(file);
@@ -655,11 +637,9 @@ export const RequestList: React.FC = () => {
     }
 
     try {
-        // Upload images using unified Service (Cloudinary or Base64 fallback)
         const uploadPromises = attachedImages.map(async (imgBase64, index) => {
             const fileName = `req_${Date.now()}_${index}`;
             try {
-                // The service handles fallback automatically
                 const url = await fbUploadImage(imgBase64, fileName);
                 return {
                     id: `att${Date.now()}-${index}`,
@@ -669,7 +649,7 @@ export const RequestList: React.FC = () => {
                 };
             } catch (err) {
                 console.error("Upload failed", err);
-                showToast(`Falha ao processar imagem ${index+1}. Tente um arquivo menor.`, 'warning');
+                showToast(`Falha ao processar imagem ${index+1}.`, 'warning');
                 return null;
             }
         });
@@ -1180,6 +1160,7 @@ export const RequestList: React.FC = () => {
                     </label>
                 )}
              </div>
+             <p className="text-xs text-gray-500 mt-1">Imagens serão otimizadas automaticamente para economizar dados.</p>
           </div>
 
           {(canManageStatus) && (
