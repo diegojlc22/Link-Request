@@ -36,7 +36,7 @@ export interface User {
   email: string;
   role: UserRole;
   avatarUrl: string;
-  password?: string;
+  password?: string; // Mantido como opcional por compatibilidade, mas não usado no Auth Nativo
 }
 
 export interface Comment {
@@ -95,11 +95,10 @@ export interface CloudinaryConfig {
   uploadPreset: string;
 }
 
-// MULTI-TENANT CONFIG
 export interface Tenant {
   id: string;
   name: string;
-  slug: string; // identificador na URL
+  slug: string;
   firebaseConfig: FirebaseConfig;
-  cloudinaryConfig?: CloudinaryConfig; // Opcional: Se não tiver, usa .env ou Base64
+  cloudinaryConfig?: CloudinaryConfig;
 }

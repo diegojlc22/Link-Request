@@ -69,11 +69,12 @@ export const initFirebase = (manualFirebaseConfig?: FirebaseConfig, manualCloudi
     // 1. Configurar Cloudinary
     if (manualCloudinaryConfig) {
         activeCloudinaryConfig = manualCloudinaryConfig;
-    } else {
+    } else if (!activeCloudinaryConfig) {
         activeCloudinaryConfig = getEnvCloudinaryConfig();
     }
 
     // 2. Configurar Firebase
+    // Se já estiver inicializado com a mesma config, retorna true
     if (db && auth) return true; 
 
     let config: FirebaseConfig | null = null;
@@ -88,8 +89,9 @@ export const initFirebase = (manualFirebaseConfig?: FirebaseConfig, manualCloudi
       return false;
     }
     
-    currentConfig = config; // Salva config para uso futuro (criação de usuários)
+    currentConfig = config;
 
+    // Garante que só inicializa uma vez
     if (getApps().length === 0) {
       app = initializeApp(config);
     } else {
@@ -118,8 +120,12 @@ export const getFirebaseAuth = () => {
 // --- AUTHENTICATION HELPERS ---
 
 export const fbSignIn = async (email: string, pass: string) => {
-    if (!auth) throw new Error("Auth not initialized");
-    return await signInWithEmailAndPassword(auth, email, pass);
+    if (!auth) {
+        // Tenta inicializar antes de falhar
+        initFirebase();
+        if (!auth) throw new Error("Auth não inicializado. Verifique tenants.ts ou .env");
+    }
+    return await signInWithEmailAndPassword(auth!, email, pass);
 };
 
 export const fbSignOut = async () => {
@@ -141,34 +147,25 @@ export const fbOnAuthStateChanged = (callback: (user: FirebaseUser | null) => vo
 };
 
 /**
- * TRUQUE DE MESTRE: Cria um usuário SEM deslogar o admin atual.
- * Inicializa uma "Segunda App" do Firebase apenas para realizar o cadastro,
- * e depois a destrói.
+ * Cria usuário em instância secundária para não deslogar o admin atual.
  */
 export const fbCreateUserSecondary = async (email: string, pass: string) => {
     if (!currentConfig) throw new Error("Firebase config missing");
 
-    // 1. Inicializa app secundário com nome aleatório
     const secondaryAppName = `secondaryApp-${Date.now()}`;
     const secondaryApp = initializeApp(currentConfig, secondaryAppName);
     const secondaryAuth = getAuth(secondaryApp);
 
     try {
-        // 2. Cria o usuário na instância secundária
         const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email, pass);
-        
-        // 3. Desloga da instância secundária (por segurança)
         await signOut(secondaryAuth);
-        
         return userCredential.user;
     } catch (error) {
         throw error;
     } finally {
-        // 4. Remove a instância secundária da memória
         await deleteApp(secondaryApp);
     }
 };
-
 
 // --- DATABASE HELPERS ---
 
@@ -177,11 +174,7 @@ export const fbMonitorConnection = (callback: (connected: boolean) => void) => {
     try {
         const connectedRef = rtdb.ref(db!, '.info/connected');
         return rtdb.onValue(connectedRef, (snap) => {
-            if (snap.val() === true) {
-                callback(true);
-            } else {
-                callback(false);
-            }
+            callback(snap.val() === true);
         });
     } catch (e) {
         console.error("Monitor connection failed", e);
@@ -242,42 +235,23 @@ export const fbSubscribeRecent = <T>(path: string, limit: number, callback: (dat
 };
 
 export const fbSet = async (path: string, id: string, data: any) => {
-  if (!db && !initFirebase()) {
-      throw new Error("Database not initialized");
-  }
-  try {
-    await rtdb.set(rtdb.ref(db!, `${path}/${id}`), data);
-  } catch (error) {
-    console.error(`Error setting doc in ${path}:`, error);
-    throw error;
-  }
+  if (!db && !initFirebase()) throw new Error("Database not initialized");
+  await rtdb.set(rtdb.ref(db!, `${path}/${id}`), data);
 };
 
 export const fbUpdate = async (path: string, id: string, data: any) => {
   if (!db && !initFirebase()) return;
-  try {
-    await rtdb.update(rtdb.ref(db!, `${path}/${id}`), data);
-  } catch (error) {
-    console.error(`Error updating doc in ${path}:`, error);
-  }
+  await rtdb.update(rtdb.ref(db!, `${path}/${id}`), data);
 };
 
 export const fbUpdateMulti = async (updates: Record<string, any>) => {
   if (!db && !initFirebase()) return;
-  try {
-    await rtdb.update(rtdb.ref(db!), updates);
-  } catch (error) {
-    console.error(`Error executing multi-path update:`, error);
-  }
+  await rtdb.update(rtdb.ref(db!), updates);
 };
 
 export const fbDelete = async (path: string, id: string) => {
   if (!db && !initFirebase()) return;
-  try {
-    await rtdb.remove(rtdb.ref(db!, `${path}/${id}`));
-  } catch (error) {
-    console.error(`Error deleting doc in ${path}:`, error);
-  }
+  await rtdb.remove(rtdb.ref(db!, `${path}/${id}`));
 };
 
 export const fbUploadImage = async (base64String: string, fileName: string): Promise<string> => {
@@ -291,26 +265,18 @@ export const fbUploadImage = async (base64String: string, fileName: string): Pro
 
       const response = await fetch(
         `https://api.cloudinary.com/v1_1/${storageConfig.cloudName}/image/upload`, 
-        {
-          method: "POST",
-          body: formData,
-        }
+        { method: "POST", body: formData }
       );
 
       const data = await response.json();
-
-      if (data.secure_url) {
-        return data.secure_url;
-      }
+      if (data.secure_url) return data.secure_url;
     } catch (error) {
-      console.error("Falha na conexão com Cloudinary. Usando fallback local.", error);
+      console.error("Cloudinary Error:", error);
     }
   }
 
   if (base64String.length > 1500000) {
-      console.warn("Imagem muito grande para fallback local.");
-      throw new Error("Imagem muito grande. Configure o Cloudinary ou use imagens menores.");
+      throw new Error("Imagem muito grande (>1.5MB) para armazenamento local. Configure Cloudinary.");
   }
-
   return base64String;
 };

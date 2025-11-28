@@ -29,7 +29,7 @@ interface DataContextType {
   addComment: (ticketId: string, userId: string, content: string, isInternal?: boolean) => void;
   addUnit: (unit: Omit<Unit, 'id'>) => Promise<void>;
   addUser: (user: Omit<User, 'id'>) => Promise<void>;
-  updateUserPassword: (userId: string, newPassword: string) => Promise<void>; // Deprecated but kept for compatibility logic
+  updateUserPassword: (userId: string, newPassword: string) => Promise<void>;
   updateUser: (userId: string, data: Partial<User>) => void;
   updateCompany: (id: string, data: Partial<Company>) => void;
   deleteUnit: (id: string) => void;
@@ -42,25 +42,16 @@ interface DataContextType {
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
-// SECURITY FIX: Enhanced sanitization
 const sanitizeInput = (str: string): string => {
   if (!str) return '';
-  return str
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/script/gi, "")
-    .replace(/javascript:/gi, "")
-    .replace(/on\w+=/gi, "")
-    .trim();
+  return str.replace(/</g, "&lt;").replace(/>/g, "&gt;").trim();
 };
 
 const sanitizeForFirebase = (data: any) => {
   if (!data || typeof data !== 'object') return data;
   const clean = { ...data };
   Object.keys(clean).forEach(key => {
-    if (clean[key] === undefined) {
-      clean[key] = null;
-    }
+    if (clean[key] === undefined) clean[key] = null;
   });
   return clean;
 };
@@ -76,7 +67,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode; currentTenant?:
   const [isLoading, setIsLoading] = useState(true);
   const [isDemo, setIsDemo] = useState(false);
 
-  // OPTIMIZATION LIMITS
   const REQUESTS_LIMIT = 500; 
   const COMMENTS_LIMIT = 2000;
 
@@ -90,6 +80,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode; currentTenant?:
     let isMounted = true; 
 
     const startListeners = () => {
+      // Passa a config do Tenant atual para o Firebase Service
       const success = initFirebase(currentTenant?.firebaseConfig, currentTenant?.cloudinaryConfig);
       
       if (success) {
@@ -100,7 +91,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode; currentTenant?:
         unsubUsers = fbSubscribe<User>('users', (data) => { 
             if(isMounted && data) {
                 setUsers(data);
-                // Check if system is set up based on Users existence
+                // Setup logic: If no users, assume not setup (unless Demo)
                 if (data.length === 0 && !isDemo) {
                     setIsSetupDone(false);
                 } else {
@@ -125,7 +116,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode; currentTenant?:
         if (isMounted) {
             setIsDbConnected(false);
             setIsLoading(false);
-            setIsSetupDone(false);
+            setIsSetupDone(false); // Force setup screen if DB fail
         }
       }
     };
@@ -143,7 +134,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode; currentTenant?:
       if (unsubComments) unsubComments();
       if (unsubConnection) unsubConnection();
     };
-  }, [isDemo, currentTenant]);
+  }, [isDemo, currentTenant]); // Re-run if tenant changes
 
   useEffect(() => {
     if (companies.length > 0 && companies[0].name) {
@@ -153,14 +144,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode; currentTenant?:
 
   const sortedRequests = useMemo(() => {
     return [...requests].sort((a, b) => {
-        const getTime = (dateStr?: string) => {
-             if(!dateStr) return 0;
-             const t = new Date(dateStr).getTime();
-             return isNaN(t) ? 0 : t;
-        };
-        const timeA = getTime(a.updatedAt) || getTime(a.createdAt);
-        const timeB = getTime(b.updatedAt) || getTime(b.createdAt);
-        return timeB - timeA;
+        const tA = new Date(a.updatedAt || a.createdAt).getTime();
+        const tB = new Date(b.updatedAt || b.createdAt).getTime();
+        return tB - tA;
     });
   }, [requests]);
 
@@ -181,17 +167,16 @@ export const DataProvider: React.FC<{ children: React.ReactNode; currentTenant?:
     try {
         checkDb();
         
-        // 1. Create User in Firebase Auth (Native)
-        // Note: This will automatically log the user in on the client side
         let uid = `admin_${Date.now()}`;
+        // 1. Create in Auth
         try {
             const userCred = await fbCreateUserSecondary(data.adminEmail, data.adminPassword);
             uid = userCred.uid;
-            // Force Login immediately for the current user
+            // Auto-login
             await fbSignIn(data.adminEmail, data.adminPassword);
         } catch (e: any) {
-            // Handle "Email already in use" by trying to login or proceeding if only DB is missing
-            console.warn("User creation warning:", e);
+            // Se já existe, tenta logar ou prossegue
+            console.warn("User creation issue:", e);
             const auth = getFirebaseAuth();
             if (auth?.currentUser) uid = auth.currentUser.uid;
         }
@@ -199,14 +184,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode; currentTenant?:
         const newCompany: Company = { id: 'c1', name: sanitizeInput(data.companyName), domain: 'system.local', logoUrl: '' };
         const newUnit: Unit = { id: 'u1', companyId: 'c1', name: 'Matriz', location: 'Sede Principal' };
         
-        // 2. Store User Profile in Realtime DB (No Password!)
         const newAdmin: User = {
-          id: uid, // Matches Auth UID
+          id: uid, 
           companyId: 'c1', 
           name: sanitizeInput(data.adminName), 
           email: sanitizeInput(data.adminEmail),
           role: UserRole.ADMIN,
-          avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(sanitizeInput(data.adminName))}&background=random`
+          avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(data.adminName)}&background=random`
         };
 
         await fbSet('companies', newCompany.id, sanitizeForFirebase(newCompany));
@@ -228,14 +212,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode; currentTenant?:
         role: UserRole.ADMIN,
         avatarUrl: `https://ui-avatars.com/api/?name=Admin+Demo&background=random`
     };
-    
-    setCompanies([demoCompany]);
-    setUnits([demoUnit]);
-    setUsers([demoAdmin]);
-    setRequests([]); 
-    setIsDbConnected(true); 
-    setIsSetupDone(true);
-    setIsLoading(false);
+    setCompanies([demoCompany]); setUnits([demoUnit]); setUsers([demoAdmin]); setRequests([]); 
+    setIsDbConnected(true); setIsSetupDone(true); setIsLoading(false);
   }, []);
 
   const addRequest = useCallback(async (req: Omit<RequestTicket, 'id' | 'createdAt' | 'updatedAt' | 'viewedByAssignee'>) => {
@@ -250,17 +228,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode; currentTenant?:
       attachments: req.attachments || [],
       viewedByAssignee: false,
     };
-    
     setRequests(prev => [newRequest, ...prev]);
-
     if (!isDemo) {
-        try {
-          checkDb();
-          await fbSet('requests', newRequest.id, sanitizeForFirebase(newRequest));
-        } catch (e: any) {
-          setRequests(prev => prev.filter(r => r.id !== newRequest.id));
-          alert(`Erro ao salvar: ${e.message}`);
-        }
+        try { checkDb(); await fbSet('requests', newRequest.id, sanitizeForFirebase(newRequest)); } 
+        catch (e: any) { setRequests(prev => prev.filter(r => r.id !== newRequest.id)); alert(`Erro ao salvar: ${e.message}`); }
     }
   }, [isDemo]);
 
@@ -275,7 +246,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode; currentTenant?:
     const sanitized = { ...data, updatedAt };
     if (sanitized.title) sanitized.title = sanitizeInput(sanitized.title);
     if (sanitized.description) sanitized.description = sanitizeInput(sanitized.description);
-    
     setRequests(prev => prev.map(r => r.id === id ? { ...r, ...sanitized } : r));
     if (isFirebaseInitialized() && !isDemo) fbUpdate('requests', id, sanitizeForFirebase(sanitized));
   }, [isDemo]);
@@ -296,108 +266,62 @@ export const DataProvider: React.FC<{ children: React.ReactNode; currentTenant?:
   const deleteRequest = useCallback((id: string) => {
     const backup = requests.find(r => r.id === id);
     setRequests(prev => prev.filter(r => r.id !== id));
-    
     if (!isDemo) {
-        try {
-            checkDb();
-            fbDelete('requests', id);
-        } catch(e: any) {
-            if(backup) setRequests(prev => [...prev, backup]);
-            alert(`Erro ao excluir: ${e.message}`);
-        }
+        try { checkDb(); fbDelete('requests', id); } 
+        catch(e: any) { if(backup) setRequests(prev => [...prev, backup]); alert(`Erro ao excluir: ${e.message}`); }
     }
   }, [requests, isDemo]);
 
   const addComment = useCallback(async (ticketId: string, userId: string, content: string, isInternal: boolean = false) => {
     const newComment: Comment = {
       id: `cm${Date.now()}`,
-      requestId: ticketId,
-      userId,
-      content: sanitizeInput(content),
-      createdAt: formatISO(new Date()),
-      isInternal: isInternal
+      requestId: ticketId, userId, content: sanitizeInput(content), createdAt: formatISO(new Date()), isInternal
     };
     const updatedAt = formatISO(new Date());
-
     setComments(prev => [...prev, newComment]);
     setRequests(prev => prev.map(r => r.id === ticketId ? { ...r, updatedAt } : r));
-
     if (isFirebaseInitialized() && !isDemo) {
-      try {
-        await fbSet('comments', newComment.id, sanitizeForFirebase(newComment));
-        await fbUpdate('requests', ticketId, { updatedAt });
-      } catch (e: any) {
-         setComments(prev => prev.filter(c => c.id !== newComment.id));
-         alert(`Erro ao comentar: ${e.message}`);
-      }
+      try { await fbSet('comments', newComment.id, sanitizeForFirebase(newComment)); await fbUpdate('requests', ticketId, { updatedAt }); } 
+      catch (e: any) { setComments(prev => prev.filter(c => c.id !== newComment.id)); alert(`Erro ao comentar: ${e.message}`); }
     }
   }, [isDemo]);
 
   const addUnit = useCallback(async (unit: Omit<Unit, 'id'>) => {
     const newUnit = { ...unit, name: sanitizeInput(unit.name), location: sanitizeInput(unit.location), id: `u${Date.now()}` };
     setUnits(prev => [...prev, newUnit]);
-    
     if(!isDemo) {
-        try {
-            checkDb();
-            await fbSet('units', newUnit.id, sanitizeForFirebase(newUnit));
-        } catch (e: any) {
-            setUnits(prev => prev.filter(u => u.id !== newUnit.id));
-            alert(`Erro ao salvar unidade: ${e.message}`);
-        }
+        try { checkDb(); await fbSet('units', newUnit.id, sanitizeForFirebase(newUnit)); } 
+        catch (e: any) { setUnits(prev => prev.filter(u => u.id !== newUnit.id)); alert(`Erro ao salvar unidade: ${e.message}`); }
     }
   }, [isDemo]);
 
-  // IMPORTANT: Add User now uses SECONDARY APP technique to avoid logging out Admin
   const addUser = useCallback(async (user: Omit<User, 'id'>) => {
     if (isDemo) {
-        const newUser = { ...user, id: `user${Date.now()}` };
-        setUsers(prev => [...prev, newUser]);
-        return;
+        setUsers(prev => [...prev, { ...user, id: `user${Date.now()}` }]); return;
     }
-
     try {
         checkDb();
-        
-        if (!user.password) throw new Error("Senha é obrigatória");
-        
-        // 1. Create in Firebase Auth (Using secondary app workaround)
+        if (!user.password) throw new Error("Senha é obrigatória para criar usuário.");
+        // Native Auth creation
         const authUser = await fbCreateUserSecondary(user.email, user.password);
-        
-        // 2. Create Profile in DB
         const newUser: User = { 
-            ...user, 
-            id: authUser.uid, 
-            name: sanitizeInput(user.name), 
-            email: sanitizeInput(user.email),
-            // Don't save password in DB
-            password: undefined 
+            ...user, id: authUser.uid, name: sanitizeInput(user.name), email: sanitizeInput(user.email), password: undefined 
         };
-        
         await fbSet('users', newUser.id, sanitizeForFirebase(newUser));
-        
-        // Optimistic Update
         setUsers(prev => [...prev, newUser]);
-
     } catch(e: any) {
         throw new Error(`Erro ao criar usuário: ${e.message}`);
     }
   }, [isDemo]);
 
-  // Deprecated: Passwords now handled by Firebase Auth Reset Email
   const updateUserPassword = useCallback(async (userId: string, pass: string) => {
-      // In native auth, we cannot change another user's password easily without backend.
-      // We log a warning. The UI should use "Send Reset Email" instead.
-      console.warn("Direct password update not supported in Client-Side Native Auth. Use Reset Email.");
+      console.warn("Update password not available in client-sdk without old password. Use Reset Email.");
   }, [isDemo]);
 
   const updateUser = useCallback((userId: string, data: Partial<User>) => {
     const sanitized = { ...data };
     if (sanitized.name) sanitized.name = sanitizeInput(sanitized.name);
-    if (sanitized.email) sanitized.email = sanitizeInput(sanitized.email);
-    // Remove password if it accidentally slipped in
     delete sanitized.password;
-
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, ...sanitized } : u));
     if (isFirebaseInitialized() && !isDemo) fbUpdate('users', userId, sanitizeForFirebase(sanitized));
   }, [isDemo]);
@@ -416,8 +340,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode; currentTenant?:
 
   const deleteUser = useCallback((id: string) => {
     setUsers(prev => prev.filter(u => u.id !== id));
-    // Note: This only deletes from DB. To delete from Auth, Cloud Functions would be needed.
-    // For now, removing from DB prevents them from having a Role, effectively banning them from the app logic.
     if (isFirebaseInitialized() && !isDemo) fbDelete('users', id);
   }, [isDemo]);
 
@@ -428,30 +350,16 @@ export const DataProvider: React.FC<{ children: React.ReactNode; currentTenant?:
     if (!adminCompany) throw new Error("Company not found");
 
     const newUnitId = `u${Date.now()}`;
-    const defaultUnit: Unit = {
-        id: newUnitId,
-        companyId: adminCompany.id,
-        name: 'Matriz',
-        location: 'Sede Principal'
-    };
+    const defaultUnit: Unit = { id: newUnitId, companyId: adminCompany.id, name: 'Matriz', location: 'Sede Principal' };
     const updatedAdmin = { ...adminUser, unitId: newUnitId };
-
     const updates: Record<string, any> = {};
-    updates['requests'] = null; 
-    updates['comments'] = null; 
+    updates['requests'] = null; updates['comments'] = null; 
     updates['units'] = { [newUnitId]: sanitizeForFirebase(defaultUnit) }; 
     updates['users'] = { [updatedAdmin.id]: sanitizeForFirebase(updatedAdmin) }; 
     updates['companies'] = { [adminCompany.id]: sanitizeForFirebase(adminCompany) }; 
 
-    if (!isDemo && isFirebaseInitialized()) {
-         checkDb();
-         await fbUpdateMulti(updates);
-    }
-    setRequests([]);
-    setComments([]);
-    setUnits([defaultUnit]);
-    setUsers([updatedAdmin]);
-    setCompanies([adminCompany]);
+    if (!isDemo && isFirebaseInitialized()) { checkDb(); await fbUpdateMulti(updates); }
+    setRequests([]); setComments([]); setUnits([defaultUnit]); setUsers([updatedAdmin]); setCompanies([adminCompany]);
   }, [users, companies, isDemo]);
 
   const getRequestsByUnit = useCallback((unitId: string) => sortedRequests.filter(r => r.unitId === unitId), [sortedRequests]);

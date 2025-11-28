@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, UserRole } from '../types';
 import { useData } from './DataContext';
-import { getFirebaseAuth, fbSignIn, fbSignOut, fbOnAuthStateChanged } from '../services/firebaseService';
+import { fbSignIn, fbSignOut, fbOnAuthStateChanged } from '../services/firebaseService';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -24,20 +24,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Monitora o estado real do Firebase Auth
     const unsubscribe = fbOnAuthStateChanged((firebaseUser) => {
         if (firebaseUser) {
-            // O usuário está logado no Firebase Auth.
+            // Tenta cruzar os dados do Auth com o banco de dados (users)
+            // Se users ainda não carregou, ele pode ficar com dados parciais temporariamente
             const dbUser = users.find(u => u.email === firebaseUser.email || u.id === firebaseUser.uid);
             
             if (dbUser) {
-                const finalUser = { ...dbUser, id: firebaseUser.uid };
-                setCurrentUser(finalUser);
+                // Usuário encontrado no banco, mescla ID oficial
+                setCurrentUser({ ...dbUser, id: firebaseUser.uid });
             } else {
+                // Usuário logado mas não achado no banco (pode ser delay ou erro de sync)
+                // Cria objeto temporário
                 setCurrentUser({
                     id: firebaseUser.uid,
-                    companyId: 'unknown',
-                    name: firebaseUser.displayName || firebaseUser.email || 'Usuário',
+                    companyId: 'loading',
+                    name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
                     email: firebaseUser.email || '',
                     role: UserRole.USER,
-                    avatarUrl: firebaseUser.photoURL || `https://ui-avatars.com/api/?name=${firebaseUser.email}`
+                    avatarUrl: firebaseUser.photoURL || `https://ui-avatars.com/api/?name=User`
                 });
             }
         } else {
@@ -54,7 +57,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await fbSignIn(email, password);
       return { success: true };
     } catch (e: any) {
-      console.error("Login failed details:", e);
+      console.error("Auth Error:", e);
       return { success: false, error: e };
     }
   };

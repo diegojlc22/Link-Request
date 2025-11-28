@@ -22,10 +22,12 @@ export const Login: React.FC = () => {
 
   const getFriendlyErrorMessage = (error: any) => {
       const code = error?.code || '';
-      const msg = error?.message || '';
-
-      if (code === 'auth/invalid-credential' || code === 'auth/user-not-found' || code === 'auth/wrong-password') {
-          return 'Email ou senha incorretos.';
+      
+      if (code === 'auth/invalid-credential' || code === 'auth/wrong-password') {
+          return 'Senha incorreta ou usuário não cadastrado no Auth.';
+      }
+      if (code === 'auth/user-not-found') {
+          return 'Usuário não encontrado. Se migrou o sistema, crie o usuário no Firebase Console.';
       }
       if (code === 'auth/too-many-requests') {
           return 'Muitas tentativas falhas. Tente novamente mais tarde.';
@@ -33,11 +35,11 @@ export const Login: React.FC = () => {
       if (code === 'auth/network-request-failed') {
           return 'Erro de conexão. Verifique sua internet.';
       }
-      if (msg.includes('API key')) {
-          return 'Erro de Configuração: API Key inválida no tenants.ts';
+      if (error?.message?.includes('API key')) {
+          return 'Erro de Configuração: API Key inválida.';
       }
       
-      return `Erro: ${code || msg}`;
+      return `Erro: ${code || error?.message || 'Falha desconhecida'}`;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -48,7 +50,7 @@ export const Login: React.FC = () => {
     setIsLoggingIn(true);
     
     if (!email.includes('@') || password.length < 1) {
-        setError('Formato de email inválido ou senha vazia.');
+        setError('Email inválido ou senha vazia.');
         setIsLoggingIn(false);
         return;
     }
@@ -98,9 +100,8 @@ export const Login: React.FC = () => {
                   value={email}
                   onChange={(e) => { setEmail(e.target.value); setError(''); }}
                   className={`w-full px-4 py-2 rounded-lg border bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors ${error ? 'border-red-300 dark:border-red-700 animate-shake' : 'border-gray-300 dark:border-gray-600'}`}
-                  placeholder="seu@email.com"
+                  placeholder="admin@exemplo.com"
                   required
-                  maxLength={100}
                   disabled={isLoggingIn}
                 />
               </div>
@@ -114,7 +115,6 @@ export const Login: React.FC = () => {
                   className={`w-full px-4 py-2 rounded-lg border bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors ${error ? 'border-red-300 dark:border-red-700 animate-shake' : 'border-gray-300 dark:border-gray-600'}`}
                   placeholder="********"
                   required
-                  maxLength={50}
                   disabled={isLoggingIn}
                 />
               </div>
@@ -132,8 +132,8 @@ export const Login: React.FC = () => {
                  <HelpCircle className="h-3 w-3" />
                  Problemas para entrar?
                </p>
-               <p className="mt-1">
-                 Verifique se o usuário foi criado no painel Authentication do Firebase.
+               <p className="mt-1 max-w-xs mx-auto">
+                 Se o login falhar, verifique se você criou o usuário no <strong>Painel Authentication</strong> do Firebase. O usuário do banco antigo não migra automaticamente.
                </p>
             </div>
           </CardContent>
