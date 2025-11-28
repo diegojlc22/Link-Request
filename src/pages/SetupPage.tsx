@@ -65,7 +65,7 @@ export const SetupPage: React.FC = () => {
   };
 
   // ==============================================================================
-  // TELA DE FALHA NA CONEXÃO (Versão Atualizada)
+  // TELA DE FALHA NA CONEXÃO (Versão Atualizada - Substitui "Variáveis de Ambiente")
   // ==============================================================================
   if (!isDbConnected) {
     const currentSlug = localStorage.getItem('link_req_tenant_slug') || 'Nenhuma selecionada';
@@ -74,7 +74,7 @@ export const SetupPage: React.FC = () => {
         <div className="min-h-screen bg-white dark:bg-gray-950 flex flex-col items-center justify-center p-6 font-sans">
             <div className="w-full max-w-md text-center animate-fade-in space-y-6">
                  
-                 {/* Ícone de Erro - Redesenhado */}
+                 {/* Ícone de Erro */}
                  <div 
                     onClick={handleIconClick}
                     className="mx-auto flex items-center justify-center h-20 w-20 rounded-full bg-red-50 dark:bg-red-900/20 text-red-500 cursor-pointer transition-transform hover:scale-110 active:scale-90"
