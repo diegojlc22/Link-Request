@@ -5,11 +5,11 @@ import { Tenant } from '../types';
  * 🏢 REGISTRO MESTRE DE CLIENTES (TENANTS)
  */
 export const tenants: Tenant[] = [
-  // --- CLIENTE PRINCIPAL (SEU PROJETO) ---
+  // --- CLIENTE PRINCIPAL ---
   {
     id: 'link-request-master',
     name: 'Link Request (Produção)',
-    slug: 'demo', // Acesse digitando 'demo' no Portal
+    slug: 'demo', // ACESSO: Digite 'demo' no Portal inicial
     firebaseConfig: {
       apiKey: "AIzaSyBDHw4KVz1xEqyx_rpl-427brY77kPa9wo",
       authDomain: "link-request-43543.firebaseapp.com",
@@ -23,17 +23,7 @@ export const tenants: Tenant[] = [
       cloudName: "dmykrjvgi",
       uploadPreset: "linkteste"
     }
-  },
-  
-  // Exemplo de outro cliente (opcional)
-  /*
-  {
-    id: 'cliente-2',
-    name: 'Outra Empresa',
-    slug: 'outra',
-    firebaseConfig: { ... }
   }
-  */
 ];
 
 export const getTenant = (slug: string): Tenant | null => {

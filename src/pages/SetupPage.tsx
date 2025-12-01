@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useData } from '../contexts/DataContext';
 import { useToast } from '../contexts/ToastContext';
@@ -13,7 +14,8 @@ import {
   WifiOff,
   CheckCircle2,
   LayoutDashboard,
-  AlertTriangle
+  AlertTriangle,
+  Loader2
 } from 'lucide-react';
 
 export const SetupPage: React.FC = () => {
@@ -154,12 +156,17 @@ export const SetupPage: React.FC = () => {
             </div>
             
             {!isDbConnected && (
-                <div className="text-xs text-red-600 bg-red-50 p-3 rounded border border-red-100 flex gap-2 items-start">
-                    <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
-                    <span>
-                        <strong>Atenção:</strong> As chaves do Firebase podem estar incorretas ou o banco de dados ainda não foi criado no console. 
-                        Tente criar o Admin abaixo; se falhar, revise o arquivo <code>src/config/tenants.ts</code>.
-                    </span>
+                <div className="text-xs text-amber-700 bg-amber-50 p-4 rounded-lg border border-amber-200 flex gap-3 items-start">
+                    <AlertTriangle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+                    <div>
+                        <strong className="block mb-1">Conexão Pendente</strong>
+                        <p className="mb-2">
+                            O sistema ainda não confirmou a conexão com o banco. Isso é normal na primeira vez ou se as regras de segurança estiverem bloqueadas.
+                        </p>
+                        <p>
+                            Você pode tentar preencher o formulário abaixo. Se der erro ao salvar, verifique se as <strong>Regras (Rules)</strong> no Firebase Console estão como <code>true</code>.
+                        </p>
+                    </div>
                 </div>
             )}
 
@@ -239,7 +246,11 @@ export const SetupPage: React.FC = () => {
                         className="w-full h-12 text-base shadow-xl shadow-primary-600/20" 
                         disabled={isSubmitting}
                     >
-                        {isSubmitting ? 'Inicializando Sistema...' : 'Instalar e Acessar'}
+                        {isSubmitting ? (
+                            <span className="flex items-center gap-2">
+                                <Loader2 className="h-4 w-4 animate-spin" /> Inicializando...
+                            </span>
+                        ) : 'Instalar e Acessar'}
                     </Button>
                     <p className="text-center text-xs text-gray-400 mt-4">
                         Ao continuar, você concorda com a criação automática do banco de dados e estrutura de usuários.
