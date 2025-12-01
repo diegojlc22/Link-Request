@@ -3,34 +3,37 @@ import { Tenant } from '../types';
 
 /**
  * 🏢 REGISTRO MESTRE DE CLIENTES (TENANTS)
- * 
- * Para que o sistema funcione, você DEVE substituir as chaves abaixo 
- * pelas chaves do seu projeto Firebase.
- * 
- * 1. Vá em console.firebase.google.com
- * 2. Crie um projeto
- * 3. Configurações do Projeto > Geral > Adicionar App Web (</>)
- * 4. Copie as chaves e cole abaixo.
  */
 export const tenants: Tenant[] = [
-  // --- CLIENTE 1: Exemplo ---
+  // --- CLIENTE PRINCIPAL (SEU PROJETO) ---
   {
-    id: 'cliente-demo',
-    name: 'Minha Empresa SaaS',
+    id: 'link-request-master',
+    name: 'Link Request (Produção)',
     slug: 'demo', // Acesse digitando 'demo' no Portal
     firebaseConfig: {
-      // SUBSTITUA PELAS SUAS CHAVES REAIS:
-      apiKey: "SUA_API_KEY_AQUI",
-      authDomain: "seu-projeto.firebaseapp.com",
-      databaseURL: "https://seu-projeto-default-rtdb.firebaseio.com",
-      projectId: "seu-projeto",
-      storageBucket: "seu-projeto.firebasestorage.app",
-      messagingSenderId: "123456789",
-      appId: "1:123456789:web:abcdef123456"
+      apiKey: "AIzaSyBDHw4KVz1xEqyx_rpl-427brY77kPa9wo",
+      authDomain: "link-request-43543.firebaseapp.com",
+      databaseURL: "https://link-request-43543-default-rtdb.firebaseio.com",
+      projectId: "link-request-43543",
+      storageBucket: "link-request-43543.firebasestorage.app",
+      messagingSenderId: "695289301024",
+      appId: "1:695289301024:web:252286047e003c436d5445"
+    },
+    cloudinaryConfig: {
+      cloudName: "dmykrjvgi",
+      uploadPreset: "linkteste"
     }
   },
   
-  // Você pode adicionar mais clientes copiando o bloco acima
+  // Exemplo de outro cliente (opcional)
+  /*
+  {
+    id: 'cliente-2',
+    name: 'Outra Empresa',
+    slug: 'outra',
+    firebaseConfig: { ... }
+  }
+  */
 ];
 
 export const getTenant = (slug: string): Tenant | null => {
