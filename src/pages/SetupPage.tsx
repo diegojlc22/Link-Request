@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useData } from '../contexts/DataContext';
 import { useToast } from '../contexts/ToastContext';
@@ -158,8 +157,8 @@ export const SetupPage: React.FC = () => {
                 <div className="text-xs text-red-600 bg-red-50 p-3 rounded border border-red-100 flex gap-2 items-start">
                     <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
                     <span>
-                        <strong>Atenção:</strong> As chaves do Firebase em <code>src/config/tenants.ts</code> parecem inválidas. 
-                        Você pode tentar preencher o formulário abaixo, mas o erro persistirá até corrigir as chaves no código.
+                        <strong>Atenção:</strong> As chaves do Firebase podem estar incorretas ou o banco de dados ainda não foi criado no console. 
+                        Tente criar o Admin abaixo; se falhar, revise o arquivo <code>src/config/tenants.ts</code>.
                     </span>
                 </div>
             )}
