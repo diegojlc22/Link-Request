@@ -4,45 +4,33 @@ import { Tenant } from '../types';
 /**
  * 🏢 REGISTRO MESTRE DE CLIENTES (TENANTS)
  * 
- * Cada cliente tem seu próprio banco de dados (Firebase) e pode ter
- * seu próprio armazenamento de imagens (Cloudinary).
+ * Para que o sistema funcione, você DEVE substituir as chaves abaixo 
+ * pelas chaves do seu projeto Firebase.
+ * 
+ * 1. Vá em console.firebase.google.com
+ * 2. Crie um projeto
+ * 3. Configurações do Projeto > Geral > Adicionar App Web (</>)
+ * 4. Copie as chaves e cole abaixo.
  */
 export const tenants: Tenant[] = [
-  // --- CLIENTE 1: EMPRESA DEMO ---
+  // --- CLIENTE 1: Exemplo ---
   {
     id: 'cliente-demo',
-    name: 'Empresa Demo',
-    slug: 'demo', // O cliente acessa via demo.seusistema.com ou digitando 'demo' no portal
+    name: 'Minha Empresa SaaS',
+    slug: 'demo', // Acesse digitando 'demo' no Portal
     firebaseConfig: {
-      apiKey: "AIzaSyBDHw4KVz1xEqyx_rpl-427brY77kPa9wo",
-      authDomain: "link-request-43543.firebaseapp.com",
-      databaseURL: "https://link-request-43543-default-rtdb.firebaseio.com",
-      projectId: "link-request-43543",
-      storageBucket: "link-request-43543.firebasestorage.app",
-      messagingSenderId: "695289301024",
-      appId: "1:695289301024:web:252286047e003c436d5445"
+      // SUBSTITUA PELAS SUAS CHAVES REAIS:
+      apiKey: "SUA_API_KEY_AQUI",
+      authDomain: "seu-projeto.firebaseapp.com",
+      databaseURL: "https://seu-projeto-default-rtdb.firebaseio.com",
+      projectId: "seu-projeto",
+      storageBucket: "seu-projeto.firebasestorage.app",
+      messagingSenderId: "123456789",
+      appId: "1:123456789:web:abcdef123456"
     }
-    // Opcional: Se a empresa tiver seu próprio Cloudinary
-    // cloudinaryConfig: {
-    //   cloudName: "dmykrjvgi",
-    //   uploadPreset: "linkteste"
-    // }
   },
   
-  // --- CLIENTE 2: OUTRO EXEMPLO (Comente ou descomente conforme necessário) ---
-  /*
-  {
-    id: 'client-padaria',
-    name: 'Padaria do João',
-    slug: 'padaria',
-    firebaseConfig: { 
-      apiKey: "...",
-      authDomain: "...",
-      projectId: "...",
-      // ...
-    }
-  }
-  */
+  // Você pode adicionar mais clientes copiando o bloco acima
 ];
 
 export const getTenant = (slug: string): Tenant | null => {

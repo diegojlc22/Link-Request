@@ -13,7 +13,8 @@ import {
   Wifi, 
   WifiOff,
   CheckCircle2,
-  LayoutDashboard
+  LayoutDashboard,
+  AlertTriangle
 } from 'lucide-react';
 
 export const SetupPage: React.FC = () => {
@@ -152,6 +153,16 @@ export const SetupPage: React.FC = () => {
                 </div>
                 {isDbConnected && <CheckCircle2 className="h-4 w-4" />}
             </div>
+            
+            {!isDbConnected && (
+                <div className="text-xs text-red-600 bg-red-50 p-3 rounded border border-red-100 flex gap-2 items-start">
+                    <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                    <span>
+                        <strong>Atenção:</strong> As chaves do Firebase em <code>src/config/tenants.ts</code> parecem inválidas. 
+                        Você pode tentar preencher o formulário abaixo, mas o erro persistirá até corrigir as chaves no código.
+                    </span>
+                </div>
+            )}
 
             <div className="text-center lg:text-left">
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Criar Conta Mestre</h2>
