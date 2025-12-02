@@ -30,6 +30,7 @@ const AppContent: React.FC = () => {
   const { isAuthenticated } = useAuth();
   const { isSetupDone } = useData();
 
+  // Se o sistema não está configurado (não tem usuários), mostra o Setup
   if (!isSetupDone) {
     return <SetupPage />;
   }
@@ -111,9 +112,7 @@ const App: React.FC = () => {
         }
     }
     
-    // 3. Fallback Final
     setIsLoadingConfig(false);
-
   }, []);
 
   const handlePortalSelect = (slug: string) => {
@@ -126,12 +125,9 @@ const App: React.FC = () => {
 
   if (isLoadingConfig) return <LoadingSpinner />;
 
-  // Verifica se temos ENV vars (modo antigo)
-  const hasEnvVars = (import.meta as any).env?.VITE_FIREBASE_API_KEY;
-
-  // Se não temos Tenant Configurado e nem Env Vars, mostra o Portal
-  // ADICIONADO: Verifica explicitamente se não estamos em um subdomínio válido para mostrar o portal
-  if (!currentTenant && !hasEnvVars) {
+  // MUDANÇA CRÍTICA: Se não temos um Tenant definido, SEMPRE mostramos o Portal.
+  // Removemos a verificação de hasEnvVars para garantir o fluxo SaaS.
+  if (!currentTenant) {
       return <Portal onTenantSelect={handlePortalSelect} />;
   }
 
@@ -139,7 +135,7 @@ const App: React.FC = () => {
     <BrowserRouter>
       <ToastProvider>
         {/* Passamos o Tenant completo para o Provider */}
-        <DataProvider currentTenant={currentTenant || undefined}>
+        <DataProvider currentTenant={currentTenant}>
           <AuthProvider>
             <AppContent />
           </AuthProvider>

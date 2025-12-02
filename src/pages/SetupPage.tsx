@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useData } from '../contexts/DataContext';
 import { useToast } from '../contexts/ToastContext';
 import { Button } from '../components/ui/Button';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { 
   ShieldCheck, 
   Building2, 
@@ -22,6 +23,7 @@ export const SetupPage: React.FC = () => {
   const { setupSystem, isDbConnected, enableDemoMode } = useData();
   const { showToast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [step, setStep] = useState(1);
   
   // Dados do formulário
   const [formData, setFormData] = useState({
@@ -42,7 +44,7 @@ export const SetupPage: React.FC = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleFinish = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
 
@@ -73,191 +75,136 @@ export const SetupPage: React.FC = () => {
     }
   };
 
-  const FeatureItem = ({ icon: Icon, title, desc }: any) => (
-    <div className="flex gap-4">
-        <div className="h-10 w-10 rounded-lg bg-primary-500/20 flex items-center justify-center text-primary-200 flex-shrink-0">
-            <Icon className="h-5 w-5" />
-        </div>
-        <div>
-            <h3 className="text-white font-medium">{title}</h3>
-            <p className="text-primary-200 text-sm mt-1 leading-relaxed">{desc}</p>
-        </div>
-    </div>
-  );
-
+  // MODO WIZARD (FORMULÁRIO DE CRIAÇÃO)
+  // A tela de bloqueio foi removida para garantir que você sempre possa tentar criar a conta.
   return (
-    <div className="min-h-screen flex bg-white dark:bg-gray-900 font-sans">
-      
-      {/* LADO ESQUERDO (Branding / Marketing) - Escondido em mobile */}
-      <div className="hidden lg:flex w-1/2 bg-primary-900 relative overflow-hidden flex-col justify-between p-12">
-        {/* Background Pattern */}
-        <div className="absolute inset-0 opacity-10 pointer-events-none">
-            <svg className="h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-                <path d="M0 100 L100 0 L100 100 Z" fill="white" />
-            </svg>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center justify-center p-4">
+      <div className="w-full max-w-lg">
+        <div className="text-center mb-8">
+          <div 
+             onClick={handleLogoClick}
+             className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-primary-600 text-white mb-4 shadow-lg shadow-primary-600/30 cursor-pointer select-none"
+          >
+            <Rocket className="h-8 w-8" />
+          </div>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Configuração Inicial</h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-2">Crie o administrador da empresa.</p>
+
+          {!isDbConnected && (
+             <div className="mt-4 p-2 bg-amber-50 text-amber-700 text-xs rounded border border-amber-200 inline-flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4" />
+                <span>Conexão com o banco ainda não confirmada. Tente prosseguir.</span>
+             </div>
+          )}
         </div>
 
-        <div className="relative z-10">
-            <div 
-                onClick={handleLogoClick}
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-800/50 border border-primary-700 text-primary-100 text-xs font-medium cursor-pointer hover:bg-primary-800 transition-colors select-none"
-            >
-                <Rocket className="h-3 w-3" />
-                <span>Instalador v2.0</span>
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              {step === 1 ? 'Dados da Empresa' : 'Conta do Administrador'}
+            </CardTitle>
+            <div className="flex gap-2 mt-2">
+              <div className={`h-1 flex-1 rounded-full ${step >= 1 ? 'bg-primary-600' : 'bg-gray-200 dark:bg-gray-700'}`} />
+              <div className={`h-1 flex-1 rounded-full ${step >= 2 ? 'bg-primary-600' : 'bg-gray-200 dark:bg-gray-700'}`} />
             </div>
-            <h1 className="mt-6 text-4xl font-bold text-white leading-tight">
-                Gerencie requisições <br/>
-                <span className="text-primary-400">como um profissional.</span>
-            </h1>
-            <p className="mt-4 text-primary-200 text-lg max-w-md">
-                Configure sua instância corporativa em segundos e comece a centralizar as demandas da sua equipe.
-            </p>
-        </div>
-
-        <div className="relative z-10 space-y-8 mt-12">
-            <FeatureItem 
-                icon={LayoutDashboard} 
-                title="Dashboard Centralizado" 
-                desc="Visualize métricas, status e gargalos da sua operação em tempo real." 
-            />
-            <FeatureItem 
-                icon={Building2} 
-                title="Multi-Unidade" 
-                desc="Gerencie filiais, departamentos ou setores de forma isolada mas integrada." 
-            />
-            <FeatureItem 
-                icon={ShieldCheck} 
-                title="Segurança Enterprise" 
-                desc="Controle de acesso baseado em função (RBAC) e logs de auditoria." 
-            />
-        </div>
-
-        <div className="relative z-10 text-primary-400 text-xs mt-12">
-            © 2024 Link-Request SaaS. Todos os direitos reservados.
-        </div>
-      </div>
-
-      {/* LADO DIREITO (Formulário) */}
-      <div className="w-full lg:w-1/2 flex flex-col justify-center items-center p-6 lg:p-12 overflow-y-auto">
-        <div className="w-full max-w-md space-y-8 animate-fade-in">
-            
-            {/* Status Bar Mobile/Desktop */}
-            <div className={`
-                flex items-center justify-between px-4 py-3 rounded-lg text-sm mb-6
-                ${isDbConnected ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}
-            `}>
-                <div className="flex items-center gap-2">
-                    {isDbConnected ? <Wifi className="h-4 w-4" /> : <WifiOff className="h-4 w-4" />}
-                    <span className="font-medium">
-                        {isDbConnected ? 'Conectado ao Banco de Dados' : 'Sem conexão com Servidor'}
-                    </span>
-                </div>
-                {isDbConnected && <CheckCircle2 className="h-4 w-4" />}
-            </div>
-            
-            {!isDbConnected && (
-                <div className="text-xs text-amber-700 bg-amber-50 p-4 rounded-lg border border-amber-200 flex gap-3 items-start">
-                    <AlertTriangle className="h-5 w-5 flex-shrink-0 mt-0.5" />
-                    <div>
-                        <strong className="block mb-1">Conexão Pendente</strong>
-                        <p className="mb-2">
-                            O sistema ainda não confirmou a conexão com o banco. Isso é normal na primeira vez ou se as regras de segurança estiverem bloqueadas.
-                        </p>
-                        <p>
-                            Você pode tentar preencher o formulário abaixo. Se der erro ao salvar, verifique se as <strong>Regras (Rules)</strong> no Firebase Console estão como <code>true</code>.
-                        </p>
-                    </div>
-                </div>
-            )}
-
-            <div className="text-center lg:text-left">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Criar Conta Mestre</h2>
-                <p className="mt-2 text-gray-600 dark:text-gray-400">
-                    Defina a organização e o administrador principal.
-                </p>
-            </div>
-
-            <form onSubmit={handleSubmit} className="space-y-5">
-                
-                {/* Organização */}
-                <div className="space-y-4 pt-2">
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Organização</p>
-                    <div className="relative">
-                        <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleFinish}>
+              {step === 1 && (
+                <div className="space-y-4">
+                   <div>
+                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome da Empresa</label>
+                     <div className="relative">
+                        <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                         <input
                             name="companyName"
                             required
-                            className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+                            className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary-500"
                             placeholder="Nome da Empresa (ex: Tesla Inc)"
                             value={formData.companyName}
                             onChange={handleChange}
                         />
-                    </div>
+                     </div>
+                   </div>
+                   <div className="pt-4">
+                     <Button type="button" className="w-full" onClick={() => {
+                       if(formData.companyName) setStep(2);
+                     }}>
+                       Próximo
+                     </Button>
+                   </div>
                 </div>
+              )}
 
-                {/* Admin */}
-                <div className="space-y-4 pt-2">
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Administrador</p>
-                    
-                    <div className="relative">
-                        <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+              {step === 2 && (
+                <div className="space-y-4">
+                   <div>
+                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome do Admin</label>
+                     <div className="relative">
+                        <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                         <input
                             name="adminName"
                             required
-                            className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+                            className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary-500"
                             placeholder="Nome Completo"
                             value={formData.adminName}
                             onChange={handleChange}
                         />
-                    </div>
-
-                    <div className="relative">
-                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                     </div>
+                   </div>
+                   <div>
+                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email de Acesso</label>
+                     <div className="relative">
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                         <input
                             name="adminEmail"
                             type="email"
                             required
-                            className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+                            className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary-500"
                             placeholder="email@corporativo.com"
                             value={formData.adminEmail}
                             onChange={handleChange}
                         />
-                    </div>
-
-                    <div className="relative">
-                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                     </div>
+                   </div>
+                   <div>
+                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Senha</label>
+                     <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                         <input
                             name="adminPassword"
                             type="password"
                             required
                             minLength={6}
-                            className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+                            className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary-500"
                             placeholder="Senha Mestre"
                             value={formData.adminPassword}
                             onChange={handleChange}
                         />
-                    </div>
-                </div>
-
-                <div className="pt-6">
-                    <Button 
-                        type="submit" 
-                        size="lg" 
-                        className="w-full h-12 text-base shadow-xl shadow-primary-600/20" 
-                        disabled={isSubmitting}
-                    >
-                        {isSubmitting ? (
+                     </div>
+                   </div>
+                   
+                   <div className="flex gap-3 pt-4">
+                     <Button type="button" variant="secondary" onClick={() => setStep(1)} disabled={isSubmitting}>
+                       Voltar
+                     </Button>
+                     <Button type="submit" className="flex-1" disabled={isSubmitting}>
+                       {isSubmitting ? (
                             <span className="flex items-center gap-2">
-                                <Loader2 className="h-4 w-4 animate-spin" /> Inicializando...
+                                <Loader2 className="h-4 w-4 animate-spin" /> Instalando...
                             </span>
-                        ) : 'Instalar e Acessar'}
-                    </Button>
-                    <p className="text-center text-xs text-gray-400 mt-4">
-                        Ao continuar, você concorda com a criação automática do banco de dados e estrutura de usuários.
-                    </p>
+                        ) : (
+                            <span className="flex items-center gap-2">
+                                <ShieldCheck className="h-4 w-4" /> Finalizar Instalação
+                            </span>
+                        )}
+                     </Button>
+                   </div>
                 </div>
+              )}
             </form>
-        </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
