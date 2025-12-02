@@ -11,12 +11,9 @@ import {
   Mail, 
   Lock, 
   Rocket, 
-  Wifi, 
-  WifiOff,
-  CheckCircle2,
-  LayoutDashboard,
   AlertTriangle,
-  Loader2
+  Loader2,
+  ArrowLeft
 } from 'lucide-react';
 
 export const SetupPage: React.FC = () => {
@@ -75,10 +72,24 @@ export const SetupPage: React.FC = () => {
     }
   };
 
-  // MODO WIZARD (FORMULÁRIO DE CRIAÇÃO)
-  // A tela de bloqueio foi removida para garantir que você sempre possa tentar criar a conta.
+  const handleBackToPortal = () => {
+      // Força reload para limpar estados e voltar ao Portal (graças à mudança no App.tsx)
+      window.location.href = '/';
+  };
+
+  // REMOVIDO: O bloco "if (!isDbConnected) return ..." que bloqueava a tela.
+  // Agora mostramos apenas um aviso inline.
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center justify-center p-4">
+      
+      {/* Botão de Voltar ao Portal - Salvação caso a config esteja errada */}
+      <div className="absolute top-4 left-4">
+        <Button variant="ghost" onClick={handleBackToPortal} className="text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white">
+            <ArrowLeft className="h-4 w-4 mr-2" /> Voltar ao Portal
+        </Button>
+      </div>
+
       <div className="w-full max-w-lg">
         <div className="text-center mb-8">
           <div 
@@ -91,9 +102,15 @@ export const SetupPage: React.FC = () => {
           <p className="text-gray-500 dark:text-gray-400 mt-2">Crie o administrador da empresa.</p>
 
           {!isDbConnected && (
-             <div className="mt-4 p-2 bg-amber-50 text-amber-700 text-xs rounded border border-amber-200 inline-flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4" />
-                <span>Conexão com o banco ainda não confirmada. Tente prosseguir.</span>
+             <div className="mt-4 p-3 bg-amber-50 text-amber-800 text-sm rounded-lg border border-amber-200 flex flex-col items-center gap-2 animate-fade-in">
+                <div className="flex items-center gap-2 font-semibold">
+                    <AlertTriangle className="h-4 w-4" />
+                    <span>Atenção: Conexão Instável</span>
+                </div>
+                <p className="text-xs text-center">
+                    Não conseguimos confirmar a conexão com o Firebase. Verifique se as chaves em <code>tenants.ts</code> estão corretas.
+                    Você pode tentar preencher o formulário abaixo, mas erros podem ocorrer.
+                </p>
              </div>
           )}
         </div>

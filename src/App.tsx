@@ -98,19 +98,11 @@ const App: React.FC = () => {
         const tenant = getTenant(slug);
         if (tenant) {
             setCurrentTenant(tenant);
-            setIsLoadingConfig(false);
-            return;
         }
     }
 
-    // 2. Fallback: Checa se usuário selecionou no Portal anteriormente (LocalStorage)
-    const storedSlug = localStorage.getItem('link_req_tenant_slug');
-    if (storedSlug) {
-        const tenant = getTenant(storedSlug);
-        if (tenant) {
-            setCurrentTenant(tenant);
-        }
-    }
+    // REMOVIDO: Check de LocalStorage
+    // Isso garante que se não tiver subdomínio, cai sempre no Portal.
     
     setIsLoadingConfig(false);
   }, []);
@@ -118,15 +110,15 @@ const App: React.FC = () => {
   const handlePortalSelect = (slug: string) => {
       const tenant = getTenant(slug);
       if (tenant) {
-          localStorage.setItem('link_req_tenant_slug', slug);
+          // Opcional: Salvar apenas na sessão se quiser persistência curta
+          // localStorage.setItem('link_req_tenant_slug', slug); 
           setCurrentTenant(tenant);
       }
   };
 
   if (isLoadingConfig) return <LoadingSpinner />;
 
-  // MUDANÇA CRÍTICA: Se não temos um Tenant definido, SEMPRE mostramos o Portal.
-  // Removemos a verificação de hasEnvVars para garantir o fluxo SaaS.
+  // Se não temos um Tenant definido, SEMPRE mostramos o Portal.
   if (!currentTenant) {
       return <Portal onTenantSelect={handlePortalSelect} />;
   }
